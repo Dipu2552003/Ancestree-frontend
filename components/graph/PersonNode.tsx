@@ -1,22 +1,11 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
-
-interface PersonData {
-  fullName: string
-  birthYear?: number
-  deathYear?: number
-  isAlive: boolean
-  isDeceased: boolean
-  nodeState: 'proxy' | 'invited' | 'claimed'
-  isSelf: boolean
-  generation: number
-  relationshipToSelf: string
-  photoUrl?: string
-  animDelay?: number
-}
+import type { PersonData } from '@/types'
+import { getTheme } from '@/lib/theme'
 
 function splitName(fullName: string): [string, string] {
   const parts = fullName.trim().split(/\s+/)
@@ -33,11 +22,38 @@ const W = 128
 const PHOTO_H = 118
 const STRIP_H = 40
 
+function ownerBadge(nodeState: string, isSelf: boolean, firstName: string, isDark: boolean) {
+  if (isSelf) return null
+  if (nodeState === 'claimed') return {
+    text: `Joined · ${firstName}`,
+    icon: '✓',
+    bg:   isDark ? '#14321A' : '#F0FDF4',
+    border: isDark ? '#166534' : '#BBF7D0',
+    color: isDark ? '#4ADE80' : '#15803D',
+  }
+  if (nodeState === 'invited') return {
+    text: 'Invite sent',
+    icon: '✉',
+    bg:   isDark ? '#2D2000' : '#FFFBEB',
+    border: isDark ? '#92400E' : '#FDE68A',
+    color: isDark ? '#FCD34D' : '#B45309',
+  }
+  return {
+    text: 'Not on Ancestree yet',
+    icon: '○',
+    bg:   isDark ? '#1C1C1C' : '#F9FAFB',
+    border: isDark ? '#374151' : '#E5E7EB',
+    color: isDark ? '#9CA3AF' : '#6B7280',
+  }
+}
+
 function PersonNode({ data, selected }: NodeProps) {
   const { isDark } = useGraphStore()
   const person = data as unknown as PersonData
   const { fullName, birthYear, deathYear, isAlive, isDeceased, nodeState, isSelf, relationshipToSelf, photoUrl, animDelay } = person
   const [firstName, lastName] = splitName(fullName)
+  const [hovered, setHovered] = useState(false)
+  const badge = ownerBadge(nodeState, isSelf, firstName, isDark)
 
   // ── avatar gradient ──────────────────────────────────────────────
   let avatarFrom = '#C4A882'; let avatarTo = '#9A7B5A'
@@ -47,12 +63,10 @@ function PersonNode({ data, selected }: NodeProps) {
   else if (nodeState === 'proxy')   { avatarFrom = '#D97706'; avatarTo = '#B45309' }
 
   // ── theme-aware colours ──────────────────────────────────────────
-  const cardBg          = isDark ? '#1C1A18' : '#FFFFFF'
-  const photoBg         = isDark ? '#252018' : '#F0E6D8'
-  const stripBg         = isDark ? '#141210' : '#FFFFFF'
-  const stripBorder     = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'
-  const nameColor       = isDark ? '#EDE8E3' : '#1A0A00'
-  const lastNameColor   = isDark ? 'rgba(237,232,227,0.55)' : 'rgba(26,10,0,0.45)'
+  const t             = getTheme(isDark)
+  const stripBg       = isDark ? '#141210' : '#FFFFFF'
+  const stripBorder   = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'
+  const lastNameColor = isDark ? 'rgba(237,232,227,0.55)' : 'rgba(26,10,0,0.45)'
   const cardBorder      = isSelf
     ? '2px solid #EA580C'
     : isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)'
@@ -88,10 +102,12 @@ function PersonNode({ data, selected }: NodeProps) {
       <motion.div
         whileHover={{ scale: 1.03, y: -2 }}
         transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
           width: `${W}px`,
           height: `${PHOTO_H + STRIP_H}px`,
-          background: cardBg,
+          background: t.cardBg,
           border: cardBorder,
           boxShadow: cardShadow,
           display: 'flex',
@@ -104,7 +120,7 @@ function PersonNode({ data, selected }: NodeProps) {
         <div style={{
           width: `${W}px`,
           height: `${PHOTO_H}px`,
-          background: photoBg,
+          background: t.photoBg,
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
@@ -167,7 +183,7 @@ function PersonNode({ data, selected }: NodeProps) {
           <div style={{
             fontSize: '8.5px', fontWeight: 600, letterSpacing: '0.1em',
             textTransform: 'uppercase' as const,
-            color: nameColor, textAlign: 'center',
+            color: t.text, textAlign: 'center',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             maxWidth: `${W - 10}px`,
           }}>
@@ -201,6 +217,33 @@ function PersonNode({ data, selected }: NodeProps) {
           {relationshipToSelf}
         </div>
       )}
+
+      {/* Hover ownership badge */}
+      <AnimatePresence>
+        {hovered && badge && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: 'absolute', top: isSelf ? '-38px' : '-30px',
+              left: '50%', transform: 'translateX(-50%)',
+              whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 50,
+              display: 'flex', alignItems: 'center', gap: '5px',
+              padding: '4px 10px', borderRadius: '20px',
+              background: badge.bg,
+              border: `1px solid ${badge.border}`,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              fontSize: '11px', fontWeight: 500,
+              color: badge.color,
+            }}
+          >
+            <span>{badge.icon}</span>
+            <span>{badge.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

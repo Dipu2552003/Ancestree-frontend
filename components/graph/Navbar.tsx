@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   IconHome2, IconPlus, IconSearch, IconUsersGroup, IconX,
   IconArrowUp, IconArrowDown, IconHeart, IconUsers, IconTrash, IconLoader2,
-  IconSitemap, IconTimeline, IconBinaryTree2,
+  IconSitemap, IconTimeline, IconBinaryTree2, IconLogout,
 } from '@tabler/icons-react'
 import type { LayoutId } from '@/lib/layouts'
+import { getTheme } from '@/lib/theme'
+import { clearToken } from '@/lib/api'
 
 export type RelAction = 'father' | 'mother' | 'son' | 'daughter' | 'brother' | 'sister' | 'spouse'
 
@@ -45,11 +48,18 @@ export default function Navbar({
   familyName, selectedNodeId, selectedNodeName,
   canDeleteSelected, layoutId, onHome, onAddRelation, onDeleteSelected, onLayoutChange, isDark,
 }: NavbarProps) {
+  const router = useRouter()
   const [addOpen, setAddOpen]         = useState(false)
   const [layoutOpen, setLayoutOpen]   = useState(false)
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [deleteError, setDeleteError] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
+
+  const handleLogout = () => {
+    clearToken()
+    localStorage.removeItem('user')
+    router.replace('/login')
+  }
 
   // close menus on outside click
   useEffect(() => {
@@ -75,16 +85,7 @@ export default function Navbar({
     }
   }, [selectedNodeId])
 
-  const bg      = isDark ? '#1C1A12' : '#FFFFFF'
-  const border  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
-  const shadow  = isDark
-    ? '0 -2px 24px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.4)'
-    : '0 -2px 24px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.10)'
-  const textPrimary = isDark ? '#EDE8E3' : '#1A0A00'
-  const textMuted   = isDark ? '#7A6A52' : '#9A6C3C'
-  const menuBg      = isDark ? '#18160F' : '#FFFFFF'
-  const menuBorder  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
-  const itemHoverBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
+  const t = getTheme(isDark)
 
   const addEnabled = !!selectedNodeId
   const addColor   = addEnabled ? '#EA580C' : (isDark ? '#4A3F35' : '#C4A882')
@@ -118,11 +119,11 @@ export default function Navbar({
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             style={{
-              background: menuBg,
-              border: `1px solid ${menuBorder}`,
+              background: t.panelBg,
+              border: `1px solid ${t.borderNeutral}`,
               borderRadius: '16px',
               padding: '16px',
-              boxShadow: shadow,
+              boxShadow: t.shadow,
               width: '248px',
             }}
           >
@@ -131,11 +132,11 @@ export default function Navbar({
               marginBottom: '12px',
             }}>
               <div>
-                <p style={{ margin: 0, fontSize: '11px', color: textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <p style={{ margin: 0, fontSize: '11px', color: t.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   Add relation
                 </p>
                 <p style={{
-                  margin: 0, fontSize: '13px', fontWeight: 600, color: textPrimary,
+                  margin: 0, fontSize: '13px', fontWeight: 600, color: t.text,
                   maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {selectedNodeName || 'Selected person'}
@@ -143,7 +144,7 @@ export default function Navbar({
               </div>
               <button
                 onClick={() => setAddOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: textMuted, padding: '2px', display: 'flex' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '2px', display: 'flex' }}
               >
                 <IconX size={15} />
               </button>
@@ -158,13 +159,13 @@ export default function Navbar({
                     display: 'flex', alignItems: 'center', gap: '8px',
                     padding: '9px 12px', borderRadius: '10px',
                     border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                    background: 'transparent', color: textPrimary,
+                    background: 'transparent', color: t.text,
                     fontSize: '12.5px', fontWeight: 500,
                     transition: 'background 0.12s',
                     gridColumn: r.action === 'spouse' ? '1 / -1' : 'auto',
                     justifyContent: r.action === 'spouse' ? 'center' : 'flex-start',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = itemHoverBg)}
+                  onMouseEnter={e => (e.currentTarget.style.background = t.itemHoverBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <span style={{ color: r.color, display: 'flex' }}>{r.icon}</span>
@@ -185,11 +186,11 @@ export default function Navbar({
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             style={{
-              background: menuBg,
+              background: t.panelBg,
               border: `1px solid rgba(239,68,68,0.30)`,
               borderRadius: '16px',
               padding: '16px',
-              boxShadow: shadow,
+              boxShadow: t.shadow,
               width: '260px',
             }}
           >
@@ -199,13 +200,13 @@ export default function Navbar({
               </p>
               <button
                 onClick={() => { setDeleteState('idle'); setDeleteError('') }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: textMuted, padding: '2px', display: 'flex' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '2px', display: 'flex' }}
               >
                 <IconX size={15} />
               </button>
             </div>
 
-            <p style={{ margin: '0 0 12px', fontSize: '13px', color: textPrimary, lineHeight: 1.45 }}>
+            <p style={{ margin: '0 0 12px', fontSize: '13px', color: t.text, lineHeight: 1.45 }}>
               Remove <strong>{selectedNodeName}</strong> and all their relationships? This cannot be undone.
             </p>
 
@@ -219,9 +220,9 @@ export default function Navbar({
                 disabled={deleteState === 'deleting'}
                 style={{
                   flex: 1, height: '36px', borderRadius: '10px',
-                  border: `1px solid ${menuBorder}`,
+                  border: `1px solid ${t.borderNeutral}`,
                   background: 'transparent', cursor: 'pointer',
-                  fontSize: '13px', fontFamily: 'inherit', color: textMuted,
+                  fontSize: '13px', fontFamily: 'inherit', color: t.textMuted,
                 }}
               >
                 Cancel
@@ -269,18 +270,17 @@ export default function Navbar({
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             style={{
-              background: menuBg,
-              border: `1px solid ${menuBorder}`,
+              background: t.panelBg,
+              border: `1px solid ${t.borderNeutral}`,
               borderRadius: '14px',
               padding: '6px',
-              boxShadow: shadow,
+              boxShadow: t.shadow,
               width: '152px',
             }}
           >
             {(
               [
                 { id: 'default',  label: 'Default',   icon: <IconSitemap     size={16} /> },
-                { id: 'timeline', label: 'Timeline',  icon: <IconTimeline    size={16} /> },
                 { id: 'fullView', label: 'Full View', icon: <IconBinaryTree2 size={16} /> },
               ] as const
             ).map(opt => {
@@ -297,17 +297,17 @@ export default function Navbar({
                     background: isActive
                       ? (isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.08)')
                       : 'transparent',
-                    color: isActive ? '#EA580C' : textPrimary,
+                    color: isActive ? '#EA580C' : t.text,
                     transition: 'background 0.12s',
                   }}
                   onMouseEnter={e => {
-                    if (!isActive) e.currentTarget.style.background = itemHoverBg
+                    if (!isActive) e.currentTarget.style.background = t.itemHoverBg
                   }}
                   onMouseLeave={e => {
                     if (!isActive) e.currentTarget.style.background = 'transparent'
                   }}
                 >
-                  <span style={{ color: isActive ? '#EA580C' : textMuted, display: 'flex' }}>
+                  <span style={{ color: isActive ? '#EA580C' : t.textMuted, display: 'flex' }}>
                     {opt.icon}
                   </span>
                   {opt.label}
@@ -320,10 +320,10 @@ export default function Navbar({
 
       {/* ── Navbar pill ── */}
       <div style={{
-        background: bg,
-        border: `1px solid ${border}`,
+        background: t.cardBg,
+        border: `1px solid ${t.borderNeutral}`,
         borderRadius: '20px',
-        boxShadow: shadow,
+        boxShadow: t.shadow,
         display: 'flex', alignItems: 'center',
         padding: '6px 8px',
         gap: '2px',
@@ -333,7 +333,7 @@ export default function Navbar({
         <NavItem isDark={isDark} onClick={() => {}}>
           <span style={{ fontSize: '16px', lineHeight: 1 }}>🌸</span>
           <span style={{
-            fontSize: '11.5px', fontWeight: 600, color: textPrimary,
+            fontSize: '11.5px', fontWeight: 600, color: t.text,
             maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {familyName}
@@ -344,7 +344,7 @@ export default function Navbar({
 
         {/* Home */}
         <NavItem isDark={isDark} onClick={onHome} label="Home">
-          <IconHome2 size={19} color={textMuted} />
+          <IconHome2 size={19} color={t.textMuted} />
         </NavItem>
 
         {/* + Add — primary CTA */}
@@ -396,14 +396,14 @@ export default function Navbar({
 
         {/* Search */}
         <NavItem isDark={isDark} onClick={() => {}} label="Search">
-          <IconSearch size={19} color={textMuted} />
+          <IconSearch size={19} color={t.textMuted} />
         </NavItem>
 
         <Divider isDark={isDark} />
 
         {/* Members */}
         <NavItem isDark={isDark} onClick={() => {}} label="Members">
-          <IconUsersGroup size={19} color={textMuted} />
+          <IconUsersGroup size={19} color={t.textMuted} />
         </NavItem>
 
         <Divider isDark={isDark} />
@@ -424,20 +424,25 @@ export default function Navbar({
             transition: 'background 0.15s', minWidth: '52px',
           }}
         >
-          {layoutId === 'timeline'
-            ? <IconTimeline    size={19} color="#EA580C" />
-            : layoutId === 'fullView'
-              ? <IconBinaryTree2 size={19} color="#EA580C" />
-              : <IconSitemap     size={19} color={textMuted} />
+          {layoutId === 'fullView'
+            ? <IconBinaryTree2 size={19} color="#EA580C" />
+            : <IconSitemap     size={19} color={t.textMuted} />
           }
           <span style={{
             fontSize: '9.5px',
             color: layoutId !== 'default' ? '#EA580C' : (isDark ? '#5A4A38' : '#B8956A'),
             letterSpacing: '0.04em', fontWeight: 500,
           }}>
-            {layoutId === 'default' ? 'Default' : layoutId === 'timeline' ? 'Timeline' : 'Full View'}
+            {layoutId === 'default' ? 'Default' : 'Full View'}
           </span>
         </button>
+
+        <Divider isDark={isDark} />
+
+        {/* Logout */}
+        <NavItem isDark={isDark} onClick={handleLogout} label="Logout">
+          <IconLogout size={19} color={isDark ? '#9A6A5A' : '#C4A882'} />
+        </NavItem>
       </div>
     </div>
   )

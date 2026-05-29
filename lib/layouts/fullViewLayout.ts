@@ -1,6 +1,7 @@
 import type { Node, Edge } from '@xyflow/react'
 import { defaultLayout } from './defaultLayout'
 import { classifyFamilySides } from './classifyNodes'
+import { computeGenerations } from './computeGenerations'
 
 const H      = 220
 const V      = 260
@@ -18,7 +19,8 @@ export function fullViewLayout(nodes: Node[], edges: Edge[]): Node[] {
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
   const d     = (id: string) => nodeMap.get(id)!.data as Record<string, unknown>
-  const genOf = (id: string) => (d(id).generation ?? 0) as number
+  const gens  = computeGenerations(nodes, edges)
+  const genOf = (id: string) => gens.get(id) ?? 0
   const Y     = (g: number)  => BASE_Y + g * V
 
   // ── position accumulator ─────────────────────────────────────────

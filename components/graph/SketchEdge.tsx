@@ -3,15 +3,17 @@
 import { motion } from 'framer-motion'
 import { type EdgeProps, getSmoothStepPath } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
+import type { EdgeData } from '@/types'
+import { getTheme } from '@/lib/theme'
 
 export default function SketchEdge({
   id, sourceX, sourceY, sourcePosition,
   targetX, targetY, targetPosition, data,
 }: EdgeProps) {
   const { isDark } = useGraphStore()
-  const stroke     = isDark ? '#6B5F54' : '#B5956A'
-  const relType    = (data as Record<string, unknown>)?.relType as string | undefined
-  const animDelay  = ((data as Record<string, unknown>)?.animDelay as number ?? 0) / 1000
+  const stroke     = getTheme(isDark).stroke
+  const relType    = (data as unknown as EdgeData)?.relType
+  const animDelay  = ((data as unknown as EdgeData)?.animDelay ?? 0) / 1000
 
   const [edgePath] = getSmoothStepPath({
     sourceX, sourceY, sourcePosition,

@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion'
 import { type EdgeProps, useNodes } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
+import type { EdgeData } from '@/types'
+import { getTheme } from '@/lib/theme'
 
 const NODE_W = 128
 const NODE_H = 158  // PHOTO_H (118) + STRIP_H (40)
@@ -11,8 +13,8 @@ export default function FamilyEdge({ source, target, data }: EdgeProps) {
   const { isDark } = useGraphStore()
   const nodes      = useNodes()
 
-  const animDelay      = ((data as Record<string, unknown>)?.animDelay as number ?? 0) / 1000
-  const sharedChildren = (data as Record<string, unknown>)?.sharedChildren as string[] | undefined
+  const animDelay      = ((data as unknown as EdgeData)?.animDelay ?? 0) / 1000
+  const sharedChildren = (data as unknown as EdgeData)?.sharedChildren
   if (!sharedChildren || sharedChildren.length === 0) return null
 
   const posOf = (id: string) => nodes.find(n => n.id === id)?.position
@@ -67,7 +69,7 @@ export default function FamilyEdge({ source, target, data }: EdgeProps) {
     }
   }
 
-  const stroke      = isDark ? '#6B5F54' : '#B5956A'
+  const stroke        = getTheme(isDark).stroke
   const targetOpacity = isDark ? 0.72 : 0.88
 
   return (

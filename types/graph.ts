@@ -13,7 +13,6 @@ export interface Person {
   nodeState: NodeState
   isSelf: boolean
   isDeceased: boolean
-  generation: number
   relationshipToSelf: string
   canEdit?: boolean
   canInvite?: boolean
@@ -35,7 +34,6 @@ export interface FamilyGraph {
   edges: any[]
   meta: {
     totalPersons: number
-    generations: number
     selfNodeId: string
   }
 }

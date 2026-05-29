@@ -47,7 +47,7 @@ export const api = {
     fetch: () => req<{
       nodes: import('@xyflow/react').Node[]
       edges: import('@xyflow/react').Edge[]
-      meta: { totalNodes: number; generations: number }
+      meta: { totalNodes: number }
     }>('/api/graph'),
   },
 
@@ -84,6 +84,24 @@ export const api = {
     delete: (id: string) => req<{ success: boolean }>(`/api/persons/${id}`, {
       method: 'DELETE',
     }),
+
+    generateInvite: (id: string) =>
+      req<{ invite_token: string }>(`/api/persons/${id}/invite`, { method: 'POST' }),
+  },
+
+  invite: {
+    lookup: (token: string) =>
+      req<{ full_name: string; family_name: string; birth_year: number | null; photo_url: string | null }>(
+        `/api/invite/lookup?token=${encodeURIComponent(token)}`
+      ),
+    claim: (token: string) =>
+      req<{ success: boolean; person_id: string; family_id: string; full_name: string; token: string }>(
+        '/api/invite/claim', { method: 'POST', body: JSON.stringify({ token }) }
+      ),
+    signupAndClaim: (b: { email: string; password: string; display_name: string; invite_token: string }) =>
+      req<{ token: string; user: Record<string, unknown> }>(
+        '/api/invite/signup-and-claim', { method: 'POST', body: JSON.stringify(b) }
+      ),
   },
 
   relationships: {

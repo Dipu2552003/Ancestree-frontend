@@ -4,19 +4,8 @@ import { motion } from 'framer-motion'
 import { IconArrowLeft, IconEdit } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import type { Node } from '@xyflow/react'
-
-interface PersonData {
-  fullName: string
-  birthYear?: number
-  deathYear?: number
-  isAlive: boolean
-  isDeceased: boolean
-  nodeState: 'proxy' | 'invited' | 'claimed'
-  isSelf: boolean
-  generation: number
-  relationshipToSelf: string
-  photoUrl?: string
-}
+import type { PersonData } from '@/types'
+import { getTheme } from '@/lib/theme'
 
 interface PersonProfileViewProps {
   node: Node
@@ -45,12 +34,8 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
   else if (nodeState === 'proxy')   { avatarFrom = '#D97706'; avatarTo = '#B45309' }
 
   // Theme
-  const bg        = isDark ? '#0F0D0A' : '#FFF7ED'
-  const textCol   = isDark ? '#EDE8E3' : '#1A0A00'
-  const mutedCol  = isDark ? '#7A6A52' : '#9A6C3C'
-  const cardBg    = isDark ? '#1C1A12' : '#FFFBF4'
-  const borderCol = isDark ? 'rgba(255,255,255,0.08)' : '#FDE8CC'
-  const labelCol  = isDark ? '#4A3A2A' : '#C4A882'
+  const t        = getTheme(isDark)
+  const labelCol = isDark ? '#4A3A2A' : '#C4A882'
 
   const age = !birthYear
     ? '—'
@@ -80,7 +65,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
       transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
-        background: bg, overflowY: 'auto',
+        background: t.pageBg, overflowY: 'auto',
       }}
     >
       {/* ── Hero ── */}
@@ -115,7 +100,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
         {/* Vignette — fades hero into background */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%',
-          background: `linear-gradient(to bottom, transparent, ${bg})`,
+          background: `linear-gradient(to bottom, transparent, ${t.pageBg})`,
           pointerEvents: 'none',
         }} />
 
@@ -136,9 +121,9 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
               background: isDark ? 'rgba(10,8,6,0.60)' : 'rgba(255,251,244,0.75)',
               backdropFilter: 'blur(14px)',
               WebkitBackdropFilter: 'blur(14px)',
-              border: `1px solid ${borderCol}`,
+              border: `1px solid ${t.border}`,
               borderRadius: '8px', padding: '9px 16px',
-              fontSize: '13px', fontWeight: 500, color: textCol,
+              fontSize: '13px', fontWeight: 500, color: t.text,
               cursor: 'pointer', fontFamily: 'inherit',
               boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 2px 12px rgba(0,0,0,0.08)',
             }}
@@ -153,7 +138,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
                 background: isDark ? 'rgba(10,8,6,0.60)' : 'rgba(255,251,244,0.75)',
                 backdropFilter: 'blur(14px)',
                 WebkitBackdropFilter: 'blur(14px)',
-                border: `1px solid ${borderCol}`,
+                border: `1px solid ${t.border}`,
                 borderRadius: '8px', padding: '9px 16px',
                 fontSize: '13px', fontWeight: 500, color: '#EA580C',
                 cursor: 'pointer', fontFamily: 'inherit',
@@ -192,7 +177,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
       >
         {/* Name + relation */}
         <h1 style={{
-          fontSize: '34px', fontWeight: 700, color: textCol,
+          fontSize: '34px', fontWeight: 700, color: t.text,
           margin: '0 0 6px', letterSpacing: '-0.025em', lineHeight: 1.1,
         }}>
           {fullName}
@@ -200,7 +185,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
 
         {(relationshipToSelf || isSelf) && (
           <span style={{
-            fontSize: '11px', fontWeight: 600, color: mutedCol,
+            fontSize: '11px', fontWeight: 600, color: t.textMuted,
             textTransform: 'uppercase', letterSpacing: '0.1em',
           }}>
             {isSelf ? 'Your profile' : relationshipToSelf}
@@ -208,7 +193,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
         )}
 
         {/* Divider */}
-        <div style={{ height: '1px', background: borderCol, margin: '22px 0' }} />
+        <div style={{ height: '1px', background: t.border, margin: '22px 0' }} />
 
         {/* Stats grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -219,8 +204,8 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.28 + i * 0.06 }}
               style={{
-                background: cardBg,
-                border: `1px solid ${borderCol}`,
+                background: t.cardBg,
+                border: `1px solid ${t.border}`,
                 borderRadius: '10px',
                 padding: '16px 18px',
               }}
@@ -232,7 +217,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
                 {label}
               </div>
               <div style={{
-                fontSize: '16px', fontWeight: 600, color: textCol,
+                fontSize: '16px', fontWeight: 600, color: t.text,
                 letterSpacing: label === 'Lifespan' ? '-0.01em' : 0,
               }}>
                 {value}
@@ -251,7 +236,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
               marginTop: '12px', padding: '14px 18px', borderRadius: '10px',
               background: isDark ? '#18100A' : '#FFF0E6',
               border: `1px solid ${isDark ? 'rgba(160,80,30,0.18)' : '#FDDCBC'}`,
-              fontSize: '13px', color: mutedCol, fontStyle: 'italic',
+              fontSize: '13px', color: t.textMuted, fontStyle: 'italic',
               letterSpacing: '0.01em',
             }}
           >

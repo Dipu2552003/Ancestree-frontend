@@ -8,55 +8,15 @@ import {
   IconHeart, IconCheck, IconLoader2, IconTrash,
 } from '@tabler/icons-react'
 import type { Node } from '@xyflow/react'
-
-interface PersonData {
-  fullName: string
-  nickname?: string
-  gender?: string
-  birthYear?: number
-  birthPlace?: string
-  deathYear?: number
-  isAlive: boolean
-  isDeceased: boolean
-  nodeState: 'proxy' | 'invited' | 'claimed'
-  isSelf: boolean
-  generation: number
-  relationshipToSelf: string
-  photoUrl?: string
-  gotra?: string
-  nativeVillage?: string
-  currentCity?: string
-  currentCountry?: string
-  occupation?: string
-  bio?: string
-  education?: string
-}
-
-interface SavePayload {
-  fullName: string
-  nickname?: string | null
-  gender?: string | null
-  birthYear?: number | null
-  birthPlace?: string | null
-  isDeceased: boolean
-  isAlive: boolean
-  deathYear?: number | null
-  photoUrl?: string | null
-  gotra?: string | null
-  nativeVillage?: string | null
-  currentCity?: string | null
-  currentCountry?: string | null
-  occupation?: string | null
-  bio?: string | null
-  education?: string | null
-}
+import type { PersonData, SavePayload } from '@/types'
+import { getTheme } from '@/lib/theme'
+import { api } from '@/lib/api'
 
 interface NodePanelProps {
   node: Node
   onClose: () => void
   onViewProfile?: () => void
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onUpdate: (id: string, data: any) => void
+  onUpdate: (id: string, data: Partial<PersonData>) => void
   onAddParent: (childId: string) => void
   onAddChild: (parentId: string) => void
   onAddSpouse: (personId: string) => void
@@ -117,6 +77,9 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
 
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [nameError, setNameError] = useState('')
+  const [inviteCode, setInviteCode] = useState<string | null>(null)
+  const [inviteGenerating, setInviteGenerating] = useState(false)
+  const [inviteCopied, setInviteCopied] = useState(false)
   const [focused, setFocused] = useState<string | null>(null)
   const [photoHovered, setPhotoHovered] = useState(false)
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -218,24 +181,36 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave, isDirty])
 
+  const handleGenerateInvite = useCallback(async () => {
+    setInviteGenerating(true)
+    try {
+      const { invite_token } = await api.persons.generateInvite(node.id)
+      setInviteCode(invite_token)
+    } catch (err: unknown) {
+      console.error(err)
+    } finally {
+      setInviteGenerating(false)
+    }
+  }, [node.id])
+
+  const handleCopyInvite = useCallback(() => {
+    if (!inviteCode) return
+    navigator.clipboard.writeText(inviteCode)
+    setInviteCopied(true)
+    setTimeout(() => setInviteCopied(false), 2000)
+  }, [inviteCode])
+
   const withAutoSave = (action: () => void) => {
     if (isDirty && draft.fullName.trim()) commitDraft()
     action()
   }
 
   // ── theme ─────────────────────────────────────────────────────────
-  const panelBg   = isDark ? '#18160F' : '#FFFFFF'
-  const headerBg  = isDark ? '#1C1A12' : '#FFFBF4'
-  const borderCol = isDark ? 'rgba(255,255,255,0.07)' : '#FDE8CC'
-  const labelCol  = isDark ? '#7A6A52' : '#9A3412'
-  const textCol   = isDark ? '#EDE8E3' : '#431407'
-  const inputBg   = isDark ? '#141210' : '#FFFBF4'
-  const inputBdr  = isDark ? 'rgba(255,255,255,0.10)' : '#FDE8CC'
-  const mutedCol  = isDark ? '#5A4A38' : '#C4A882'
-  const sectionCol = isDark ? '#3A2A18' : '#F5E8D8'
-  const btn1Bg    = isDark ? '#2A1A12' : '#FFF3E8'
-  const btn2Bg    = isDark ? '#251510' : '#FFF3E8'
-  const btn3Bg    = isDark ? '#221C10' : '#FFF8F0'
+  const t        = getTheme(isDark)
+  const labelCol = isDark ? '#7A6A52' : '#9A3412'
+  const btn1Bg   = isDark ? '#2A1A12' : '#FFF3E8'
+  const btn2Bg   = isDark ? '#251510' : '#FFF3E8'
+  const btn3Bg   = isDark ? '#221C10' : '#FFF8F0'
 
   const saveBg = saveState === 'saved'
     ? (isDark ? '#14401A' : '#DCFCE7')
@@ -244,13 +219,13 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
       : (isDark ? '#221A10' : '#FFF3E8')
   const saveTextCol = saveState === 'saved'
     ? (isDark ? '#4ADE80' : '#16A34A')
-    : isDirty ? '#FFFFFF' : mutedCol
+    : isDirty ? '#FFFFFF' : t.textMuted
 
   const inputStyle = (key: string): React.CSSProperties => ({
     width: '100%', height: '36px',
-    border: `1.5px solid ${nameError && key === 'name' ? '#EF4444' : focused === key ? '#FB923C' : inputBdr}`,
+    border: `1.5px solid ${nameError && key === 'name' ? '#EF4444' : focused === key ? '#FB923C' : t.border}`,
     borderRadius: '8px', padding: '0 10px', fontSize: '13px',
-    color: textCol, background: inputBg, outline: 'none',
+    color: t.text, background: t.inputBg, outline: 'none',
     fontFamily: 'inherit', boxSizing: 'border-box',
     transition: 'border-color 0.15s ease',
   })
@@ -264,10 +239,10 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
   const sectionHeader = (title: string) => (
     <div style={{
       fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.10em',
-      textTransform: 'uppercase', color: mutedCol,
+      textTransform: 'uppercase', color: t.textMuted,
       padding: '10px 16px 6px',
-      borderTop: `1px solid ${borderCol}`,
-      background: sectionCol,
+      borderTop: `1px solid ${t.border}`,
+      background: t.sectionBg,
       marginTop: '4px',
     }}>
       {title}
@@ -282,16 +257,16 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       style={{
         position: 'fixed', top: 0, right: 0, height: '100vh', width: '300px',
-        background: panelBg, zIndex: 100,
+        background: t.panelBg, zIndex: 100,
         display: 'flex', flexDirection: 'column',
-        borderLeft: `1.5px solid ${borderCol}`,
+        borderLeft: `1.5px solid ${t.border}`,
         overflowY: 'auto',
       }}
     >
       {/* Header */}
       <div style={{
-        height: '52px', background: headerBg,
-        borderBottom: `1.5px solid ${borderCol}`,
+        height: '52px', background: t.cardBg,
+        borderBottom: `1.5px solid ${t.border}`,
         display: 'flex', alignItems: 'center',
         justifyContent: 'space-between', padding: '0 12px', flexShrink: 0,
         position: 'sticky', top: 0, zIndex: 10,
@@ -352,7 +327,7 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
           onMouseLeave={() => setPhotoHovered(false)}
           style={{
             width: '80px', height: '80px', borderRadius: '6px',
-            background: btn1Bg, border: `2px dashed ${photoHovered ? '#FB923C' : borderCol}`,
+            background: btn1Bg, border: `2px dashed ${photoHovered ? '#FB923C' : t.border}`,
             overflow: 'hidden', cursor: 'pointer', position: 'relative',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             transition: 'border-color 0.15s ease',
@@ -394,7 +369,7 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
         />
         {draft.photoUrl && (
           <button onClick={() => setDraft(p => ({ ...p, photoUrl: undefined }))}
-            style={{ marginTop: '5px', background: 'none', border: 'none', fontSize: '10px', color: mutedCol, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
+            style={{ marginTop: '5px', background: 'none', border: 'none', fontSize: '10px', color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
             <IconTrash size={10} /> Remove photo
           </button>
         )}
@@ -451,7 +426,7 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
                   background: draft.gender === g.value
                     ? '#EA580C'
                     : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'),
-                  color: draft.gender === g.value ? '#fff' : textCol,
+                  color: draft.gender === g.value ? '#fff' : t.text,
                   transition: 'background 0.15s, color 0.15s',
                 }}
               >
@@ -625,7 +600,7 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
         <AnimatePresence>
           {isDirty && saveState === 'idle' && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ fontSize: '10px', color: mutedCol, textAlign: 'center', margin: '6px 0 0', letterSpacing: '0.04em' }}>
+              style={{ fontSize: '10px', color: t.textMuted, textAlign: 'center', margin: '6px 0 0', letterSpacing: '0.04em' }}>
               Ctrl + S to save
             </motion.p>
           )}
@@ -681,6 +656,79 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
           <IconHeart size={15} /> Add spouse / partner
         </button>
       </div>
+
+      {/* ── Invite to claim ── */}
+      {d.canInvite && (
+        <>
+          {sectionHeader('Invite to claim')}
+          <div style={{ padding: '12px 16px 28px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {!inviteCode ? (
+              <motion.button
+                onClick={handleGenerateInvite}
+                disabled={inviteGenerating}
+                whileHover={!inviteGenerating ? { scale: 1.015 } : {}}
+                whileTap={!inviteGenerating ? { scale: 0.975 } : {}}
+                style={{
+                  width: '100%', height: '38px', borderRadius: '8px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  cursor: inviteGenerating ? 'default' : 'pointer',
+                  fontSize: '12.5px', fontWeight: 500, border: 'none', fontFamily: 'inherit',
+                  background: isDark ? '#1A2A1A' : '#F0FDF4',
+                  color: isDark ? '#4ADE80' : '#16A34A',
+                  transition: 'opacity 0.15s',
+                  opacity: inviteGenerating ? 0.6 : 1,
+                }}
+              >
+                {inviteGenerating
+                  ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={14} /></motion.div> Generating…</>
+                  : '⚡ Generate invite code'
+                }
+              </motion.button>
+            ) : (
+              <>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  background: isDark ? '#1A2A1A' : '#F0FDF4',
+                  border: `1.5px solid ${isDark ? '#14532D' : '#BBF7D0'}`,
+                  borderRadius: '8px', padding: '0 12px', height: '42px',
+                }}>
+                  <span style={{
+                    flex: 1, fontFamily: 'monospace', fontSize: '15px',
+                    fontWeight: 700, letterSpacing: '0.12em',
+                    color: isDark ? '#4ADE80' : '#15803D',
+                  }}>
+                    {inviteCode}
+                  </span>
+                  <button
+                    onClick={handleCopyInvite}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
+                      color: isDark ? '#4ADE80' : '#16A34A', fontSize: '11px', fontFamily: 'inherit',
+                      fontWeight: 600, flexShrink: 0,
+                    }}
+                  >
+                    {inviteCopied ? <IconCheck size={15} strokeWidth={2.5} /> : '📋 Copy'}
+                  </button>
+                </div>
+                <p style={{ fontSize: '11px', color: t.textMuted, margin: 0, lineHeight: 1.5 }}>
+                  Share this code with {d.fullName?.split(' ')[0] ?? 'them'}. They can enter it on the{' '}
+                  <span style={{ color: '#EA580C' }}>/invite</span> page to join the family tree.
+                </p>
+                <button
+                  onClick={handleGenerateInvite}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                    fontSize: '11px', color: t.textMuted, textAlign: 'left', fontFamily: 'inherit',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Regenerate code
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </motion.div>
   )
 }
