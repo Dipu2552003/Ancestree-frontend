@@ -1,12 +1,12 @@
 import type { LayoutOption } from './types'
-import { defaultLayout }  from './defaultLayout'
-import { fullViewLayout } from './fullViewLayout'
+import { defaultLayout } from './defaultLayout'
 
 export type { LayoutId } from './types'
 
 export const LAYOUTS: LayoutOption[] = [
-  { id: 'default',  label: 'Default',   algorithm: defaultLayout  },
-  { id: 'fullView', label: 'Full View', algorithm: fullViewLayout },
+  { id: 'default',    label: 'Papa Side',   algorithm: defaultLayout },
+  { id: 'maaSide',    label: 'Maa Side',    algorithm: defaultLayout },
+  { id: 'spouseSide', label: 'Spouse Side', algorithm: defaultLayout },
 ]
 
 export const LAYOUT_MAP = new Map(LAYOUTS.map(l => [l.id, l]))

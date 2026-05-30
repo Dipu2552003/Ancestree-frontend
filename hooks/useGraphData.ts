@@ -9,9 +9,8 @@ import {
 import type { Dispatch, SetStateAction } from 'react'
 import { api, getToken } from '@/lib/api'
 import { LAYOUT_MAP, type LayoutId } from '@/lib/layouts'
-import { classifyFamilySides } from '@/lib/layouts/classifyNodes'
+import { filterGraphBySide, type ViewSide } from '@/lib/layouts/familySideFilter'
 import { bfsDelays, buildDisplayEdges } from '@/lib/graph/edgeUtils'
-import type { EdgeData } from '@/types'
 
 interface GraphDataReturn {
   nodes: Node[]
@@ -26,6 +25,8 @@ interface GraphDataReturn {
   fetchGraph: () => Promise<void>
   layoutId: LayoutId
   onLayoutChange: (id: LayoutId) => void
+  viewSide: ViewSide
+  onViewSideChange: (side: ViewSide) => void
   familyName: string
 }
 
@@ -39,6 +40,7 @@ export function useGraphData(): GraphDataReturn {
   const [graphLoading, setGraphLoading] = useState(true)
   const [familyName, setFamilyName] = useState('Family')
   const [layoutId, setLayoutId] = useState<LayoutId>('default')
+  const [viewSide, setViewSide] = useState<ViewSide>('papa')
 
   const fetchGraph = useCallback(async () => {
     try {
@@ -63,42 +65,14 @@ export function useGraphData(): GraphDataReturn {
     }
   }, [setNodes, setEdges])
 
-  const idsToHide = useMemo(() => {
-    if (layoutId !== 'default') return new Set<string>()
-    const cls = classifyFamilySides(nodes, edges)
-    if (!cls) return new Set<string>()
-    const { maternalSet } = cls
-
-    const keepVisible = new Set<string>()
-    for (const e of edges) {
-      const rel = (e.data as unknown as EdgeData)?.relType
-      if (rel !== 'SPOUSE_OF') continue
-      if (maternalSet.has(e.source) && !maternalSet.has(e.target)) keepVisible.add(e.source)
-      if (maternalSet.has(e.target) && !maternalSet.has(e.source)) keepVisible.add(e.target)
-    }
-
-    const hide = new Set<string>()
-    for (const id of maternalSet) {
-      if (!keepVisible.has(id)) hide.add(id)
-    }
-    return hide
-  }, [layoutId, nodes, edges])
-
-  const visibleNodes = useMemo(
-    () => idsToHide.size > 0 ? nodes.filter(n => !idsToHide.has(n.id)) : nodes,
-    [nodes, idsToHide],
-  )
-
-  const visibleEdges = useMemo(
-    () => idsToHide.size > 0
-      ? edges.filter(e => !idsToHide.has(e.source) && !idsToHide.has(e.target))
-      : edges,
-    [edges, idsToHide],
+  const { nodes: visibleNodes, edges: filteredEdges } = useMemo(
+    () => filterGraphBySide(nodes, edges, viewSide),
+    [nodes, edges, viewSide],
   )
 
   const displayEdges = useMemo(
-    () => buildDisplayEdges(visibleNodes, visibleEdges),
-    [visibleNodes, visibleEdges],
+    () => buildDisplayEdges(visibleNodes, filteredEdges),
+    [visibleNodes, filteredEdges],
   )
 
   const onLayoutChange = useCallback((id: LayoutId) => {
@@ -106,6 +80,10 @@ export function useGraphData(): GraphDataReturn {
     setLayoutId(id)
     setNodes(prev => LAYOUT_MAP.get(id)!.algorithm(prev, edges))
   }, [edges, setNodes])
+
+  const onViewSideChange = useCallback((side: ViewSide) => {
+    setViewSide(side)
+  }, [])
 
   useEffect(() => {
     if (!getToken()) { router.replace('/login'); return }
@@ -129,6 +107,7 @@ export function useGraphData(): GraphDataReturn {
     visibleNodes, displayEdges,
     graphLoading, fetchGraph,
     layoutId, onLayoutChange,
+    viewSide, onViewSideChange,
     familyName,
   }
 }

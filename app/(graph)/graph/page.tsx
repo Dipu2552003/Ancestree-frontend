@@ -37,7 +37,7 @@ function GraphInner() {
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
     graphLoading, fetchGraph,
-    layoutId, onLayoutChange, familyName,
+    viewSide, onViewSideChange, familyName,
   } = useGraphData()
 
   const { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation } = useNodeActions(
@@ -145,11 +145,11 @@ function GraphInner() {
         selectedNodeId={selectedNodeId}
         selectedNodeName={selectedNodeName}
         canDeleteSelected={canDeleteSelected}
-        layoutId={layoutId}
+        viewSide={viewSide}
         onHome={onHome}
         onAddRelation={onAddRelation}
         onDeleteSelected={() => onDeleteNode(selectedNodeId!)}
-        onLayoutChange={onLayoutChange}
+        onViewSideChange={onViewSideChange}
         isDark={isDark}
       />
     </div>

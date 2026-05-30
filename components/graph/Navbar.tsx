@@ -8,7 +8,7 @@ import {
   IconArrowUp, IconArrowDown, IconHeart, IconUsers, IconTrash, IconLoader2,
   IconSitemap, IconTimeline, IconBinaryTree2, IconLogout,
 } from '@tabler/icons-react'
-import type { LayoutId } from '@/lib/layouts'
+import type { ViewSide } from '@/lib/layouts/familySideFilter'
 import { getTheme } from '@/lib/theme'
 import { clearToken } from '@/lib/api'
 
@@ -19,11 +19,11 @@ interface NavbarProps {
   selectedNodeId: string | null
   selectedNodeName: string
   canDeleteSelected: boolean
-  layoutId: LayoutId
+  viewSide: ViewSide
   onHome: () => void
   onAddRelation: (action: RelAction) => void
   onDeleteSelected: () => Promise<void>
-  onLayoutChange: (id: LayoutId) => void
+  onViewSideChange: (side: ViewSide) => void
   isDark: boolean
 }
 
@@ -46,7 +46,7 @@ type DeleteState = 'idle' | 'confirm' | 'deleting'
 
 export default function Navbar({
   familyName, selectedNodeId, selectedNodeName,
-  canDeleteSelected, layoutId, onHome, onAddRelation, onDeleteSelected, onLayoutChange, isDark,
+  canDeleteSelected, viewSide, onHome, onAddRelation, onDeleteSelected, onViewSideChange, isDark,
 }: NavbarProps) {
   const router = useRouter()
   const [addOpen, setAddOpen]         = useState(false)
@@ -280,15 +280,16 @@ export default function Navbar({
           >
             {(
               [
-                { id: 'default',  label: 'Default',   icon: <IconSitemap     size={16} /> },
-                { id: 'fullView', label: 'Full View', icon: <IconBinaryTree2 size={16} /> },
-              ] as const
+                { id: 'papa'   as ViewSide, label: 'Papa Side',   icon: <IconSitemap     size={16} /> },
+                { id: 'maa'    as ViewSide, label: 'Maa Side',    icon: <IconBinaryTree2 size={16} /> },
+                { id: 'spouse' as ViewSide, label: 'Spouse Side', icon: <IconHeart       size={16} /> },
+              ]
             ).map(opt => {
-              const isActive = layoutId === opt.id
+              const isActive = viewSide === opt.id
               return (
                 <button
                   key={opt.id}
-                  onClick={() => { onLayoutChange(opt.id); setLayoutOpen(false) }}
+                  onClick={() => { onViewSideChange(opt.id); setLayoutOpen(false) }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '10px',
                     width: '100%', padding: '9px 12px', borderRadius: '10px',
@@ -415,25 +416,27 @@ export default function Navbar({
           style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: '2px', padding: '8px 10px', borderRadius: '14px',
-            background: layoutId !== 'default'
+            background: viewSide !== 'papa'
               ? (isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.08)')
               : layoutOpen
                 ? (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)')
                 : 'transparent',
             border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-            transition: 'background 0.15s', minWidth: '52px',
+            transition: 'background 0.15s', minWidth: '62px',
           }}
         >
-          {layoutId === 'fullView'
+          {viewSide === 'maa'
             ? <IconBinaryTree2 size={19} color="#EA580C" />
-            : <IconSitemap     size={19} color={t.textMuted} />
+            : viewSide === 'spouse'
+              ? <IconHeart size={19} color="#EA580C" />
+              : <IconSitemap size={19} color={t.textMuted} />
           }
           <span style={{
             fontSize: '9.5px',
-            color: layoutId !== 'default' ? '#EA580C' : (isDark ? '#5A4A38' : '#B8956A'),
+            color: viewSide !== 'papa' ? '#EA580C' : (isDark ? '#5A4A38' : '#B8956A'),
             letterSpacing: '0.04em', fontWeight: 500,
           }}>
-            {layoutId === 'default' ? 'Default' : 'Full View'}
+            {viewSide === 'maa' ? 'Maa Side' : viewSide === 'spouse' ? 'Spouse' : 'Papa Side'}
           </span>
         </button>
 
