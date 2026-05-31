@@ -11,6 +11,7 @@ export interface PersonData {
   isDeceased: boolean
   nodeState: NodeState
   isSelf: boolean
+  isViewerNode?: boolean
   relationshipToSelf: string
   canEdit?: boolean
   canDelete?: boolean

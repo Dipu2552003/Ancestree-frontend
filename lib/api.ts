@@ -44,11 +44,11 @@ export const api = {
   },
 
   graph: {
-    fetch: () => req<{
+    fetch: (perspectiveId?: string) => req<{
       nodes: import('@xyflow/react').Node[]
       edges: import('@xyflow/react').Edge[]
       meta: { totalNodes: number }
-    }>('/api/graph'),
+    }>(perspectiveId ? `/api/graph?perspective=${encodeURIComponent(perspectiveId)}` : '/api/graph'),
   },
 
   persons: {

@@ -1,5 +1,6 @@
 'use client'
 
+import { type MouseEvent } from 'react'
 import {
   ReactFlow,
   type Node,
@@ -22,12 +23,18 @@ interface GraphCanvasProps {
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onNodeClick: (nodeId: string) => void
+  onNodeContextMenu?: (event: MouseEvent, nodeId: string) => void
 }
 
-export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick }: GraphCanvasProps) {
+export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick, onNodeContextMenu }: GraphCanvasProps) {
   const { currentZoom } = useGraphStore()
 
   const handleNodeClick: NodeMouseHandler = (_event, node) => onNodeClick(node.id)
+
+  const handleNodeContextMenu: NodeMouseHandler = (event, node) => {
+    event.preventDefault()
+    onNodeContextMenu?.(event, node.id)
+  }
 
   return (
     <ReactFlow
@@ -38,6 +45,7 @@ export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange
       nodeTypes={nodeTypes}
       edgeTypes={allEdgeTypes}
       onNodeClick={handleNodeClick}
+      onNodeContextMenu={handleNodeContextMenu}
       fitView
       fitViewOptions={{ padding: 0.35 }}
       defaultViewport={{ x: 0, y: 0, zoom: currentZoom }}

@@ -1,36 +1,49 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ReactFlowProvider, Controls, MiniMap, useReactFlow } from '@xyflow/react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { IconSun, IconMoon } from '@tabler/icons-react'
 import GraphCanvas from '@/components/graph/GraphCanvas'
 import DotField from '@/components/graph/DotField'
 import NodePanel from '@/components/graph/NodePanel'
 import PersonProfileView from '@/components/graph/PersonProfileView'
 import Navbar from '@/components/graph/Navbar'
+import NodeContextMenu from '@/components/graph/NodeContextMenu'
+import PerspectiveBanner from '@/components/graph/PerspectiveBanner'
 import { useGraphStore } from '@/store/graphStore'
 import { useGraphData } from '@/hooks/useGraphData'
 import { useNodeActions } from '@/hooks/useNodeActions'
 import { useTiltEffect } from '@/hooks/useTiltEffect'
 import { getTheme } from '@/lib/theme'
+import { api } from '@/lib/api'
 import type { PersonData } from '@/types'
 
 export default function GraphPage() {
   return (
     <ReactFlowProvider>
-      <GraphInner />
+      <Suspense>
+        <GraphInner />
+      </Suspense>
     </ReactFlowProvider>
   )
 }
 
 function GraphInner() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const perspectiveId = searchParams.get('perspective') ?? undefined
+
   const { getNodes, setCenter, fitView } = useReactFlow()
   const { isDark, setIsDark } = useGraphStore()
   const t = getTheme(isDark)
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [profileNodeId, setProfileNodeId]   = useState<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<{
+    nodeId: string; x: number; y: number; personData: PersonData
+  } | null>(null)
 
   const {
     nodes, edges, setNodes, setEdges,
@@ -38,13 +51,18 @@ function GraphInner() {
     visibleNodes, displayEdges,
     graphLoading, fetchGraph,
     viewSide, onViewSideChange, familyName,
-  } = useGraphData()
+  } = useGraphData(perspectiveId)
 
   const { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation } = useNodeActions(
     edges, setNodes, setEdges, fetchGraph, selectedNodeId, setSelectedNodeId,
   )
 
   const { rotateX, rotateY, handleMouseMove, handleMouseLeave } = useTiltEffect()
+
+  const perspectivePerson = perspectiveId
+    ? nodes.find(n => (n.data as unknown as PersonData)?.isSelf) ?? null
+    : null
+  const perspectiveName = (perspectivePerson?.data as unknown as PersonData)?.fullName ?? ''
 
   const selectedNode     = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) ?? null : null
   const profileNode      = profileNodeId  ? nodes.find(n => n.id === profileNodeId)  ?? null : null
@@ -83,6 +101,7 @@ function GraphInner() {
           nodes={visibleNodes} edges={displayEdges}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
           onNodeClick={id => {
+            setContextMenu(null)
             const clicked = nodes.find(n => n.id === id)
             const canEdit = (clicked?.data as unknown as PersonData)?.canEdit ?? false
             if (canEdit) {
@@ -92,6 +111,18 @@ function GraphInner() {
               setProfileNodeId(prev => prev === id ? null : id)
               setSelectedNodeId(null)
             }
+          }}
+          onNodeContextMenu={(event, nodeId) => {
+            const node = nodes.find(n => n.id === nodeId)
+            if (!node) return
+            setSelectedNodeId(null)
+            setProfileNodeId(null)
+            setContextMenu({
+              nodeId,
+              x: event.clientX,
+              y: event.clientY,
+              personData: node.data as unknown as PersonData,
+            })
           }}
         />
       </motion.div>
@@ -112,6 +143,37 @@ function GraphInner() {
         {isDark ? <IconSun size={17} /> : <IconMoon size={17} />}
       </button>
 
+
+      {perspectiveId && perspectiveName && (
+        <PerspectiveBanner
+          personName={perspectiveName}
+          onBack={() => router.push('/graph')}
+          isDark={isDark}
+        />
+      )}
+
+      {contextMenu && (
+        <NodeContextMenu
+          nodeId={contextMenu.nodeId}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          personName={contextMenu.personData.fullName}
+          gender={contextMenu.personData.gender}
+          canEdit={contextMenu.personData.canEdit ?? false}
+          canInvite={contextMenu.personData.canInvite ?? false}
+          isSelf={contextMenu.personData.isSelf}
+          onViewTree={() => router.push(`/graph?perspective=${contextMenu.nodeId}`)}
+          onEdit={() => setSelectedNodeId(contextMenu.nodeId)}
+          onInvite={async () => {
+            try {
+              const { invite_token } = await api.persons.generateInvite(contextMenu.nodeId)
+              const url = `${window.location.origin}/invite?token=${invite_token}`
+              await navigator.clipboard.writeText(url)
+            } catch { /* ignore */ }
+          }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
 
       <AnimatePresence>
         {selectedNodeId && selectedNode && (

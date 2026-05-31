@@ -11,7 +11,7 @@ export function filterGraphBySide(
   if (nodes.length === 0) return { nodes, edges }
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
-  const d = (id: string) => (nodeMap.get(id)?.data ?? {}) as PersonData
+  const d = (id: string) => (nodeMap.get(id)?.data ?? {}) as unknown as PersonData
 
   // Build adjacency maps
   const parentsOf  = new Map<string, string[]>()
@@ -24,7 +24,7 @@ export function filterGraphBySide(
   }
   for (const e of edges) {
     if (!nodeMap.has(e.source) || !nodeMap.has(e.target)) continue
-    const rel = (e.data as EdgeData)?.relType
+    const rel = (e.data as unknown as EdgeData)?.relType
     if (rel === 'PARENT_OF') {
       childrenOf.get(e.source)!.push(e.target)
       parentsOf.get(e.target)!.push(e.source)

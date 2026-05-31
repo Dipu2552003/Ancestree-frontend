@@ -50,7 +50,7 @@ function ownerBadge(nodeState: string, isSelf: boolean, firstName: string, isDar
 function PersonNode({ data, selected }: NodeProps) {
   const { isDark } = useGraphStore()
   const person = data as unknown as PersonData
-  const { fullName, birthYear, deathYear, isAlive, isDeceased, nodeState, isSelf, relationshipToSelf, photoUrl, animDelay } = person
+  const { fullName, birthYear, deathYear, isAlive, isDeceased, nodeState, isSelf, isViewerNode, relationshipToSelf, photoUrl, animDelay } = person
   const [firstName, lastName] = splitName(fullName)
   const [hovered, setHovered] = useState(false)
   const badge = ownerBadge(nodeState, isSelf, firstName, isDark)
@@ -91,6 +91,18 @@ function PersonNode({ data, selected }: NodeProps) {
       {isSelf && (
         <div style={{
           background: '#EA580C', color: '#fff',
+          fontSize: '7px', fontWeight: 700, letterSpacing: '0.12em',
+          padding: '2px 8px', marginBottom: '5px',
+          textTransform: 'uppercase' as const,
+        }}>
+          YOU
+        </div>
+      )}
+      {/* Viewer node badge — shown when this is the logged-in user in someone else's perspective */}
+      {isViewerNode && !isSelf && (
+        <div style={{
+          background: 'transparent', color: '#EA580C',
+          border: '1px solid #EA580C',
           fontSize: '7px', fontWeight: 700, letterSpacing: '0.12em',
           padding: '2px 8px', marginBottom: '5px',
           textTransform: 'uppercase' as const,

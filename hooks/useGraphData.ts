@@ -30,7 +30,7 @@ interface GraphDataReturn {
   familyName: string
 }
 
-export function useGraphData(): GraphDataReturn {
+export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const router = useRouter()
   const initialLoadDone = useRef(false)
   const layoutIdRef = useRef<LayoutId>('default')
@@ -44,7 +44,7 @@ export function useGraphData(): GraphDataReturn {
 
   const fetchGraph = useCallback(async () => {
     try {
-      const data = await api.graph.fetch()
+      const data = await api.graph.fetch(perspectivePersonId)
       const rawEdges = data.edges.map(e => ({ ...e, type: 'sketchEdge' }))
       const layoutedNodes = LAYOUT_MAP.get(layoutIdRef.current)!.algorithm(data.nodes, rawEdges)
       if (!initialLoadDone.current) {
@@ -63,7 +63,7 @@ export function useGraphData(): GraphDataReturn {
     } finally {
       setGraphLoading(false)
     }
-  }, [setNodes, setEdges])
+  }, [setNodes, setEdges, perspectivePersonId])
 
   const { nodes: visibleNodes, edges: filteredEdges } = useMemo(
     () => filterGraphBySide(nodes, edges, viewSide),
@@ -87,6 +87,8 @@ export function useGraphData(): GraphDataReturn {
 
   useEffect(() => {
     if (!getToken()) { router.replace('/login'); return }
+    setGraphLoading(true)
+    initialLoadDone.current = false
     try {
       const raw = localStorage.getItem('user')
       if (raw) {
