@@ -50,7 +50,8 @@ function GraphInner() {
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
     graphLoading, fetchGraph,
-    viewSide, onViewSideChange, familyName,
+    isMarriedWoman, womanView, onWomanViewChange,
+    familyName,
   } = useGraphData(perspectiveId)
 
   const { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation } = useNodeActions(
@@ -162,6 +163,7 @@ function GraphInner() {
           canEdit={contextMenu.personData.canEdit ?? false}
           canInvite={contextMenu.personData.canInvite ?? false}
           isSelf={contextMenu.personData.isSelf}
+          isViewerNode={contextMenu.personData.isViewerNode ?? false}
           onViewTree={() => router.push(`/graph?perspective=${contextMenu.nodeId}`)}
           onEdit={() => setSelectedNodeId(contextMenu.nodeId)}
           onInvite={async () => {
@@ -207,11 +209,12 @@ function GraphInner() {
         selectedNodeId={selectedNodeId}
         selectedNodeName={selectedNodeName}
         canDeleteSelected={canDeleteSelected}
-        viewSide={viewSide}
         onHome={onHome}
         onAddRelation={onAddRelation}
         onDeleteSelected={() => onDeleteNode(selectedNodeId!)}
-        onViewSideChange={onViewSideChange}
+        isMarriedWoman={isMarriedWoman}
+        womanView={womanView}
+        onWomanViewChange={onWomanViewChange}
         isDark={isDark}
       />
     </div>

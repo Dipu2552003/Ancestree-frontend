@@ -6,9 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   IconHome2, IconPlus, IconSearch, IconUsersGroup, IconX,
   IconArrowUp, IconArrowDown, IconHeart, IconUsers, IconTrash, IconLoader2,
-  IconSitemap, IconTimeline, IconBinaryTree2, IconLogout,
+  IconLogout,
 } from '@tabler/icons-react'
-import type { ViewSide } from '@/lib/layouts/familySideFilter'
+import type { WomanView } from '@/lib/layouts/familySideFilter'
 import { getTheme } from '@/lib/theme'
 import { clearToken } from '@/lib/api'
 
@@ -19,11 +19,12 @@ interface NavbarProps {
   selectedNodeId: string | null
   selectedNodeName: string
   canDeleteSelected: boolean
-  viewSide: ViewSide
   onHome: () => void
   onAddRelation: (action: RelAction) => void
   onDeleteSelected: () => Promise<void>
-  onViewSideChange: (side: ViewSide) => void
+  isMarriedWoman: boolean
+  womanView: WomanView
+  onWomanViewChange: (v: WomanView) => void
   isDark: boolean
 }
 
@@ -46,11 +47,11 @@ type DeleteState = 'idle' | 'confirm' | 'deleting'
 
 export default function Navbar({
   familyName, selectedNodeId, selectedNodeName,
-  canDeleteSelected, viewSide, onHome, onAddRelation, onDeleteSelected, onViewSideChange, isDark,
+  canDeleteSelected, onHome, onAddRelation, onDeleteSelected,
+  isMarriedWoman, womanView, onWomanViewChange, isDark,
 }: NavbarProps) {
   const router = useRouter()
   const [addOpen, setAddOpen]         = useState(false)
-  const [layoutOpen, setLayoutOpen]   = useState(false)
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [deleteError, setDeleteError] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
@@ -63,18 +64,17 @@ export default function Navbar({
 
   // close menus on outside click
   useEffect(() => {
-    if (!addOpen && deleteState === 'idle' && !layoutOpen) return
+    if (!addOpen && deleteState === 'idle') return
     const handler = (e: MouseEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) {
         setAddOpen(false)
         setDeleteState('idle')
         setDeleteError('')
-        setLayoutOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [addOpen, deleteState, layoutOpen])
+  }, [addOpen, deleteState])
 
   // close menus when node deselects
   useEffect(() => {
@@ -261,63 +261,53 @@ export default function Navbar({
         )}
       </AnimatePresence>
 
-      {/* ── Layout picker dropdown ── */}
-      <AnimatePresence>
-        {layoutOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            style={{
-              background: t.panelBg,
-              border: `1px solid ${t.borderNeutral}`,
-              borderRadius: '14px',
-              padding: '6px',
-              boxShadow: t.shadow,
-              width: '152px',
-            }}
-          >
-            {(
-              [
-                { id: 'papa'   as ViewSide, label: 'Papa Side',   icon: <IconSitemap     size={16} /> },
-                { id: 'maa'    as ViewSide, label: 'Maa Side',    icon: <IconBinaryTree2 size={16} /> },
-                { id: 'spouse' as ViewSide, label: 'Spouse Side', icon: <IconHeart       size={16} /> },
-              ]
-            ).map(opt => {
-              const isActive = viewSide === opt.id
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => { onViewSideChange(opt.id); setLayoutOpen(false) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    width: '100%', padding: '9px 12px', borderRadius: '10px',
-                    border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                    fontSize: '12.5px', fontWeight: isActive ? 600 : 500,
-                    background: isActive
-                      ? (isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.08)')
-                      : 'transparent',
-                    color: isActive ? '#EA580C' : t.text,
-                    transition: 'background 0.12s',
-                  }}
-                  onMouseEnter={e => {
-                    if (!isActive) e.currentTarget.style.background = t.itemHoverBg
-                  }}
-                  onMouseLeave={e => {
-                    if (!isActive) e.currentTarget.style.background = 'transparent'
-                  }}
-                >
-                  <span style={{ color: isActive ? '#EA580C' : t.textMuted, display: 'flex' }}>
-                    {opt.icon}
-                  </span>
-                  {opt.label}
-                </button>
-              )
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── Mayka / Piyar toggle (married women only) ── */}
+      {isMarriedWoman && (
+        <motion.div
+          initial={{ opacity: 0, y: 6, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 6, scale: 0.97 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.borderNeutral}`,
+            borderRadius: '14px',
+            boxShadow: t.shadow,
+            display: 'flex',
+            padding: '4px',
+            gap: '2px',
+          }}
+        >
+          {(['piyar', 'mayka'] as WomanView[]).map(v => {
+            const active = womanView === v
+            return (
+              <button
+                key={v}
+                onClick={() => onWomanViewChange(v)}
+                style={{
+                  padding: '6px 18px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: '12px',
+                  fontWeight: active ? 700 : 500,
+                  letterSpacing: '0.03em',
+                  background: active
+                    ? (isDark ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.10)')
+                    : 'transparent',
+                  color: active ? '#EA580C' : t.textMuted,
+                  transition: 'background 0.15s, color 0.15s',
+                }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.itemHoverBg }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+              >
+                {v === 'piyar' ? 'Piyar' : 'Mayka'}
+              </button>
+            )
+          })}
+        </motion.div>
+      )}
 
       {/* ── Navbar pill ── */}
       <div style={{
@@ -406,39 +396,6 @@ export default function Navbar({
         <NavItem isDark={isDark} onClick={() => {}} label="Members">
           <IconUsersGroup size={19} color={t.textMuted} />
         </NavItem>
-
-        <Divider isDark={isDark} />
-
-        {/* Layout dropdown */}
-        <button
-          onClick={() => setLayoutOpen(v => !v)}
-          title="Switch layout"
-          style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            gap: '2px', padding: '8px 10px', borderRadius: '14px',
-            background: viewSide !== 'papa'
-              ? (isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.08)')
-              : layoutOpen
-                ? (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)')
-                : 'transparent',
-            border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-            transition: 'background 0.15s', minWidth: '62px',
-          }}
-        >
-          {viewSide === 'maa'
-            ? <IconBinaryTree2 size={19} color="#EA580C" />
-            : viewSide === 'spouse'
-              ? <IconHeart size={19} color="#EA580C" />
-              : <IconSitemap size={19} color={t.textMuted} />
-          }
-          <span style={{
-            fontSize: '9.5px',
-            color: viewSide !== 'papa' ? '#EA580C' : (isDark ? '#5A4A38' : '#B8956A'),
-            letterSpacing: '0.04em', fontWeight: 500,
-          }}>
-            {viewSide === 'maa' ? 'Maa Side' : viewSide === 'spouse' ? 'Spouse' : 'Papa Side'}
-          </span>
-        </button>
 
         <Divider isDark={isDark} />
 

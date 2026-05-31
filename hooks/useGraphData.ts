@@ -9,7 +9,8 @@ import {
 import type { Dispatch, SetStateAction } from 'react'
 import { api, getToken } from '@/lib/api'
 import { LAYOUT_MAP, type LayoutId } from '@/lib/layouts'
-import { filterGraphBySide, type ViewSide } from '@/lib/layouts/familySideFilter'
+import { layoutEngine } from '@/lib/layouts/layoutEngine'
+import { filterGraphBySide, type WomanView } from '@/lib/layouts/familySideFilter'
 import { bfsDelays, buildDisplayEdges } from '@/lib/graph/edgeUtils'
 
 interface GraphDataReturn {
@@ -25,8 +26,9 @@ interface GraphDataReturn {
   fetchGraph: () => Promise<void>
   layoutId: LayoutId
   onLayoutChange: (id: LayoutId) => void
-  viewSide: ViewSide
-  onViewSideChange: (side: ViewSide) => void
+  isMarriedWoman: boolean
+  womanView: WomanView
+  onWomanViewChange: (v: WomanView) => void
   familyName: string
 }
 
@@ -40,7 +42,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const [graphLoading, setGraphLoading] = useState(true)
   const [familyName, setFamilyName] = useState('Family')
   const [layoutId, setLayoutId] = useState<LayoutId>('default')
-  const [viewSide, setViewSide] = useState<ViewSide>('papa')
+  const [womanView, setWomanView] = useState<WomanView>('piyar')
 
   const fetchGraph = useCallback(async () => {
     try {
@@ -65,10 +67,16 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     }
   }, [setNodes, setEdges, perspectivePersonId])
 
-  const { nodes: visibleNodes, edges: filteredEdges } = useMemo(
-    () => filterGraphBySide(nodes, edges, viewSide),
-    [nodes, edges, viewSide],
+  const { nodes: filteredNodes, edges: filteredEdges, isMarriedWoman } = useMemo(
+    () => filterGraphBySide(nodes, edges, womanView),
+    [nodes, edges, womanView],
   )
+
+  const visibleNodes = useMemo(() => {
+    if (!isMarriedWoman || filteredNodes.length === 0) return filteredNodes
+    if (womanView === 'mayka') return layoutEngine(filteredNodes, filteredEdges, 'self')
+    return layoutEngine(filteredNodes, filteredEdges, 'spouse')
+  }, [filteredNodes, filteredEdges, isMarriedWoman, womanView])
 
   const displayEdges = useMemo(
     () => buildDisplayEdges(visibleNodes, filteredEdges),
@@ -81,9 +89,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     setNodes(prev => LAYOUT_MAP.get(id)!.algorithm(prev, edges))
   }, [edges, setNodes])
 
-  const onViewSideChange = useCallback((side: ViewSide) => {
-    setViewSide(side)
-  }, [])
+  const onWomanViewChange = useCallback((v: WomanView) => setWomanView(v), [])
 
   useEffect(() => {
     if (!getToken()) { router.replace('/login'); return }
@@ -102,14 +108,13 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     fetchGraph()
   }, [fetchGraph, router])
 
-  console.log(nodes)
   return {
     nodes, edges, setNodes, setEdges,
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
     graphLoading, fetchGraph,
     layoutId, onLayoutChange,
-    viewSide, onViewSideChange,
+    isMarriedWoman, womanView, onWomanViewChange,
     familyName,
   }
 }

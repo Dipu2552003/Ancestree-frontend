@@ -14,6 +14,7 @@ interface NodeContextMenuProps {
   canEdit: boolean
   canInvite: boolean
   isSelf: boolean
+  isViewerNode?: boolean
   onViewTree: () => void
   onEdit: () => void
   onInvite: () => void
@@ -22,7 +23,7 @@ interface NodeContextMenuProps {
 
 export default function NodeContextMenu({
   nodeId, x, y, personName, gender,
-  canEdit, canInvite, isSelf,
+  canEdit, canInvite, isSelf, isViewerNode,
   onViewTree, onEdit, onInvite, onClose,
 }: NodeContextMenuProps) {
   const { isDark } = useGraphStore()
@@ -107,7 +108,7 @@ export default function NodeContextMenu({
 
       {/* Items */}
       <div style={{ padding: '4px' }}>
-        {!isSelf && item(<IconEye size={14} />, treeLinkLabel, onViewTree)}
+        {!isSelf && !isViewerNode && item(<IconEye size={14} />, treeLinkLabel, onViewTree)}
         {canEdit && item(<IconPencil size={14} />, 'Edit details', onEdit)}
         {item(<IconRoute size={14} />, 'View connection to me', () => {}, true)}
         {canInvite && item(<IconSend size={14} />, 'Invite to join', onInvite)}

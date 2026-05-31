@@ -1,19 +1,36 @@
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData, PersonData } from '@/types'
 
-export type ViewSide = 'papa' | 'maa' | 'spouse'
+/**
+ * For married women the graph can be viewed from two angles:
+ *  'piyar'  — husband's paternal family (ससुराल / पियर)
+ *  'mayka'  — her own birth family       (मायका)
+ *
+ * For all other users (men, unmarried women) only the papa-side
+ * view is computed and `isMarriedWoman` is returned as false.
+ *
+ * BFS rules (apply to every anchor node):
+ *  DOWN (children) — always blood (addFull).
+ *  UP   (parents)  — couple rule when both parents are new:
+ *                      male parent  → blood (addFull)
+ *                      female parent → married-in (addSealed)
+ *                    solo parent (co-parent already in set) → blood.
+ *  SPOUSE_OF links — always addSealed (visible, BFS never traverses).
+ *
+ * addSealed = rendered but BFS never processes it.
+ */
+export type WomanView = 'piyar' | 'mayka'
 
 export function filterGraphBySide(
   nodes: Node[],
   edges: Edge[],
-  viewSide: ViewSide,
-): { nodes: Node[]; edges: Edge[] } {
-  if (nodes.length === 0) return { nodes, edges }
+  womanView: WomanView = 'piyar',
+): { nodes: Node[]; edges: Edge[]; isMarriedWoman: boolean } {
+  if (nodes.length === 0) return { nodes, edges, isMarriedWoman: false }
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
   const d = (id: string) => (nodeMap.get(id)?.data ?? {}) as unknown as PersonData
 
-  // Build adjacency maps
   const parentsOf  = new Map<string, string[]>()
   const childrenOf = new Map<string, string[]>()
   const spousesOf  = new Map<string, string[]>()
@@ -36,11 +53,9 @@ export function filterGraphBySide(
     }
   }
 
-  // Find self
   const selfId = nodes.find(n => d(n.id).isSelf)?.id
-  if (!selfId) return { nodes, edges }
+  if (!selfId) return { nodes, edges, isMarriedWoman: false }
 
-  // Resolve papa and maa (mirrors classifyNodes resolution logic)
   const selfParents = parentsOf.get(selfId) ?? []
   const papaId = selfParents.find(p => d(p).gender === 'male') ?? selfParents[0]
   let maaId: string | undefined =
@@ -53,8 +68,6 @@ export function filterGraphBySide(
       (papaSpouses.length > 0 ? papaSpouses[0] : undefined)
   }
 
-  // includedNodes = all visible node IDs
-  // spouseNodes   = sealed boundary nodes (subset of includedNodes, NOT traversed)
   const includedNodes = new Set<string>()
   const spouseNodes   = new Set<string>()
   const queue: string[] = []
@@ -65,42 +78,83 @@ export function filterGraphBySide(
     queue.push(id)
   }
 
-  // Visible but sealed — family behind them is not traversed
-  const addSpouse = (id: string) => {
+  const addSealed = (id: string) => {
     if (includedNodes.has(id)) return
     includedNodes.add(id)
     spouseNodes.add(id)
   }
 
-  // Seed the traversal
-  if (viewSide === 'papa') {
-    addFull(selfId)
-    if (maaId) addSpouse(maaId)
-    // papaId is reached naturally from self via PARENT_OF upward
-    // selfSpouse is sealed naturally when BFS hits the SPOUSE_OF edge from self
-  } else if (viewSide === 'maa') {
-    addFull(selfId)
-    if (papaId) addSpouse(papaId)
+  // Detect married woman: self is female and has at least one spouse
+  const selfGender  = d(selfId).gender as string | undefined
+  const selfSpouses = spousesOf.get(selfId) ?? []
+  const husband     = selfGender === 'female'
+    ? (selfSpouses.find(s => d(s).gender === 'male') ?? (selfSpouses.length > 0 ? selfSpouses[0] : undefined))
+    : undefined
+  const isMarriedWoman = !!husband
+
+  // Seed
+  if (isMarriedWoman && womanView === 'piyar') {
+    // Piyar — husband's paternal tree; self is sealed (visible but not BFS root)
+    addSealed(selfId)
+    addFull(husband!)
   } else {
-    // Spouse view: self is the one who "married in" — sealed from spouse side
-    addSpouse(selfId)
-    const selfSpouses = spousesOf.get(selfId) ?? []
-    for (const sp of selfSpouses) addFull(sp)
-    if (selfSpouses.length === 0) return { nodes: [], edges: [] }
+    // Mayka (birth family) for married women, OR papa-side for everyone else
+    addFull(selfId)
+    if (maaId) addSealed(maaId)
   }
 
-  // BFS — follow PARENT_OF freely, stop at SPOUSE_OF
+  // BFS
   while (queue.length > 0) {
     const cur = queue.shift()!
 
-    for (const pid of parentsOf.get(cur) ?? []) {
-      if (!includedNodes.has(pid)) addFull(pid)
-    }
+    // Children — always blood
     for (const cid of childrenOf.get(cur) ?? []) {
-      if (!includedNodes.has(cid)) addFull(cid)
+      addFull(cid)
     }
+
+    // Parents — couple rule only when both parents are new
+    const parentIds = parentsOf.get(cur) ?? []
+    const handled   = new Set<string>()
+
+    for (const pid of parentIds) {
+      if (handled.has(pid) || includedNodes.has(pid)) {
+        handled.add(pid)
+        continue
+      }
+
+      const coParent = parentIds.find(
+        other =>
+          other !== pid &&
+          !handled.has(other) &&
+          !includedNodes.has(other) &&
+          (spousesOf.get(pid) ?? []).includes(other),
+      )
+
+      if (coParent) {
+        handled.add(pid)
+        handled.add(coParent)
+
+        const pg  = d(pid).gender as string | undefined
+        const cpg = d(coParent).gender as string | undefined
+
+        let blood: string, marriedIn: string
+        if (pg === 'female' && cpg !== 'female') {
+          blood = coParent; marriedIn = pid
+        } else {
+          blood = pid; marriedIn = coParent
+        }
+
+        addFull(blood)
+        addSealed(marriedIn)
+      } else {
+        handled.add(pid)
+        addFull(pid)
+      }
+    }
+
+    // Same-generation spouses — always sealed
     for (const sid of spousesOf.get(cur) ?? []) {
-      if (!includedNodes.has(sid)) addSpouse(sid)
+      addSealed(sid)
     }
   }
 
@@ -110,7 +164,9 @@ export function filterGraphBySide(
       ...n,
       data: {
         ...n.data,
-        nodeRole: d(n.id).isSelf ? 'self' : spouseNodes.has(n.id) ? 'spouse' : 'family',
+        nodeRole: d(n.id).isSelf
+          ? 'self'
+          : spouseNodes.has(n.id) ? 'spouse' : 'family',
       },
     }))
 
@@ -118,5 +174,5 @@ export function filterGraphBySide(
     e => includedNodes.has(e.source) && includedNodes.has(e.target),
   )
 
-  return { nodes: resultNodes, edges: resultEdges }
+  return { nodes: resultNodes, edges: resultEdges, isMarriedWoman }
 }
