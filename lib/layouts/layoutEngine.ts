@@ -37,8 +37,6 @@ interface CoupleUnit {
   x:        number          // final absolute x (center of unit)
   prelim:   number
   mod:      number
-  shift:    number
-  change:   number
   parent:   CoupleUnit | null
   index:    number          // position among siblings
   gen:      number
@@ -114,7 +112,7 @@ export function layoutEngine(
   function makeUnit(left: string, right: string | null, gen: number): CoupleUnit {
     const u: CoupleUnit = {
       left, right, children: [],
-      x: 0, prelim: 0, mod: 0, shift: 0, change: 0,
+      x: 0, prelim: 0, mod: 0,
       parent: null, index: 0, gen,
     }
     allUnits.push(u)
@@ -141,8 +139,9 @@ export function layoutEngine(
           const gA = d(n.id).gender as string | undefined
           const gB = d(spouse).gender as string | undefined
           let left = n.id, right = spouse
-          if (gA === 'female' && gB !== 'female')  { left = spouse; right = n.id }
-          else if (gB === 'male' && gA !== 'male') { left = spouse; right = n.id }
+          // Male goes left, female goes right; unknown preserves original order
+          if (gA === 'female' && gB === 'male') { left = spouse; right = n.id }
+          else if (gA !== 'male' && gB === 'male') { left = spouse; right = n.id }
           makeUnit(left, right, g)
         }
       }
@@ -156,7 +155,14 @@ export function layoutEngine(
     const shared    = u.right
       ? [...leftKids].filter(c => rightKids.has(c))
       : [...leftKids]
-    u.children = shared.sort((a, b) => a.localeCompare(b))
+    u.children = shared.sort((a, b) => {
+      const byA = d(a).birthYear as number | undefined
+      const byB = d(b).birthYear as number | undefined
+      if (byA !== undefined && byB !== undefined) return byA - byB
+      if (byA !== undefined) return -1
+      if (byB !== undefined) return 1
+      return a.localeCompare(b)
+    })
   }
 
   // ── Wire unit parent↔children links ──────────────────────────────────────
@@ -212,20 +218,11 @@ export function layoutEngine(
     for (const child of kids) firstWalk(child)
 
     if (kids.length === 0) {
-      if (u.index === 0) {
-        u.prelim = 0
+      if (u.index > 0) {
+        const prev = (unitChildren.get(u.parent!) ?? [])[u.index - 1]
+        u.prelim = prev.prelim + unitWidth(prev) + H_GAP
       } else {
-        // Place to the right of the previous sibling's full right contour, not just its own width.
-        const siblings = unitChildren.get(u.parent!) ?? []
-        let minPrelim = 0
-        for (let i = 0; i < u.index; i++) {
-          const leftSib = siblings[i]
-          const rc = new Map<number, number>()
-          rightContour(leftSib, 0, 0, rc)
-          const rightEdge = Math.max(...rc.values(), leftSib.prelim + unitWidth(leftSib))
-          minPrelim = Math.max(minPrelim, rightEdge + H_GAP)
-        }
-        u.prelim = minPrelim
+        u.prelim = 0
       }
       return
     }
@@ -271,29 +268,12 @@ export function layoutEngine(
     if (totalShift > 0) {
       u.prelim += totalShift
       u.mod    += totalShift
-      // Distribute the shift evenly across the gap between siblings
-      const numGaps = u.index
-      const inc = totalShift / numGaps
-      for (let k = 1; k < u.index; k++) {
-        siblings[k].shift  += inc
-        siblings[k].change -= inc
-      }
-      u.change += inc
     }
   }
 
   function secondWalk(u: CoupleUnit, modAcc: number) {
     u.x = u.prelim + modAcc
-    modAcc += u.mod
-    // Propagate shift/change from apportion
-    let shiftAcc = 0
-    for (const child of unitChildren.get(u) ?? []) {
-      shiftAcc    += child.change
-      child.shift += shiftAcc
-      child.prelim += child.shift
-      child.mod    += child.shift
-    }
-    for (const child of unitChildren.get(u) ?? []) secondWalk(child, modAcc)
+    for (const child of unitChildren.get(u) ?? []) secondWalk(child, modAcc + u.mod)
   }
 
   // ── Layout each connected component (forest roots) ────────────────────────
@@ -301,7 +281,7 @@ export function layoutEngine(
 
   // Reset scratch state before layout
   for (const u of allUnits) {
-    u.prelim = 0; u.mod = 0; u.shift = 0; u.change = 0; u.x = 0
+    u.prelim = 0; u.mod = 0; u.x = 0
   }
 
   // Compute bounds per root tree

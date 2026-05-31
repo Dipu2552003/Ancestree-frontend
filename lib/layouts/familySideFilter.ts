@@ -10,7 +10,9 @@ import type { EdgeData, PersonData } from '@/types'
  * view is computed and `isMarriedWoman` is returned as false.
  *
  * BFS rules (apply to every anchor node):
- *  DOWN (children) — always blood (addFull).
+ *  DOWN (children) — blood (addFull), EXCEPT a married daughter:
+ *                    she is shown (addSealed) but BFS stops at her —
+ *                    her children and husband's family are not part of this tree.
  *  UP   (parents)  — couple rule when both parents are new:
  *                      male parent  → blood (addFull)
  *                      female parent → married-in (addSealed)
@@ -107,9 +109,18 @@ export function filterGraphBySide(
   while (queue.length > 0) {
     const cur = queue.shift()!
 
-    // Children — always blood
+    // Children — blood, but a married daughter belongs to her husband's family:
+    // show her (sealed) but never traverse her children or her husband's tree.
     for (const cid of childrenOf.get(cur) ?? []) {
-      addFull(cid)
+      const isMarriedDaughter =
+        (d(cid).gender as string | undefined) === 'female' &&
+        (spousesOf.get(cid) ?? []).length > 0
+      if (isMarriedDaughter) {
+        addSealed(cid)
+        for (const sid of spousesOf.get(cid) ?? []) addSealed(sid)
+      } else {
+        addFull(cid)
+      }
     }
 
     // Parents — couple rule only when both parents are new
