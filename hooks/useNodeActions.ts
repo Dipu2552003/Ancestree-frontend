@@ -4,8 +4,9 @@ import { useCallback } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import type { Dispatch, SetStateAction } from 'react'
 import { api } from '@/lib/api'
-import type { PersonData, SavePayload, EdgeData } from '@/types'
+import type { PersonData, SavePayload } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
+import { computeCascadeOps } from '@/lib/graph/relationshipRules'
 
 interface NodeActionsReturn {
   onUpdateNode: (id: string, data: Partial<PersonData>) => void
@@ -73,78 +74,24 @@ export function useNodeActions(
 
   const onAddRelation = useCallback(async (action: RelAction) => {
     if (!selectedNodeId) return
+
     const genderMap: Partial<Record<RelAction, string>> = {
       father: 'male', mother: 'female',
       son: 'male', daughter: 'female',
       brother: 'male', sister: 'female',
     }
-    const relMap: Record<RelAction, 'PARENT_OF' | 'SPOUSE_OF' | 'SIBLING_OF'> = {
-      father: 'PARENT_OF', mother: 'PARENT_OF',
-      son: 'PARENT_OF', daughter: 'PARENT_OF',
-      brother: 'SIBLING_OF', sister: 'SIBLING_OF',
-      spouse: 'SPOUSE_OF',
-    }
-    const gender = genderMap[action]
-    const isParentOfChild = action === 'son' || action === 'daughter'
-    const isParent = action === 'father' || action === 'mother'
 
     try {
       const person = await api.persons.create({
-        full_name: 'Unknown', is_alive: true, ...(gender ? { gender } : {}),
+        full_name: 'Unknown', is_alive: true,
+        ...(genderMap[action] ? { gender: genderMap[action] } : {}),
       })
 
-      await api.relationships.create({
-        from_person_id: isParentOfChild ? selectedNodeId : person.id,
-        to_person_id:   isParentOfChild ? person.id : selectedNodeId,
-        rel_type: relMap[action],
-      })
-
-      if (isParent) {
-        const existingParents = edges
-          .filter(e => e.target === selectedNodeId && (e.data as unknown as EdgeData)?.relType === 'PARENT_OF')
-          .map(e => e.source)
-        for (const parentId of existingParents) {
-          try { await api.relationships.create({ from_person_id: person.id, to_person_id: parentId, rel_type: 'SPOUSE_OF' }) }
-          catch { /* ignore duplicate */ }
-        }
-
-        const siblings = edges
-          .filter(e => (e.data as unknown as EdgeData)?.relType === 'SIBLING_OF' && (e.source === selectedNodeId || e.target === selectedNodeId))
-          .map(e => e.source === selectedNodeId ? e.target : e.source)
-        for (const siblingId of siblings) {
-          try { await api.relationships.create({ from_person_id: person.id, to_person_id: siblingId, rel_type: 'PARENT_OF' }) }
-          catch { /* ignore duplicate */ }
-        }
-      }
-
-      if (isParentOfChild) {
-        const spouses = edges
-          .filter(e => (e.data as unknown as EdgeData)?.relType === 'SPOUSE_OF' && (e.source === selectedNodeId || e.target === selectedNodeId))
-          .map(e => e.source === selectedNodeId ? e.target : e.source)
-        for (const spouseId of spouses) {
-          try { await api.relationships.create({ from_person_id: spouseId, to_person_id: person.id, rel_type: 'PARENT_OF' }) }
-          catch { /* ignore duplicate */ }
-        }
-      }
-
-      if (action === 'spouse') {
-        const existingChildren = edges
-          .filter(e => e.source === selectedNodeId && (e.data as unknown as EdgeData)?.relType === 'PARENT_OF')
-          .map(e => e.target)
-        for (const childId of existingChildren) {
-          try { await api.relationships.create({ from_person_id: person.id, to_person_id: childId, rel_type: 'PARENT_OF' }) }
-          catch { /* ignore duplicate */ }
-        }
-      }
-
-      if (action === 'brother' || action === 'sister') {
-        const existingParents = edges
-          .filter(e => e.target === selectedNodeId && (e.data as unknown as EdgeData)?.relType === 'PARENT_OF')
-          .map(e => e.source)
-        for (const parentId of existingParents) {
-          try { await api.relationships.create({ from_person_id: parentId, to_person_id: person.id, rel_type: 'PARENT_OF' }) }
-          catch { /* ignore duplicate */ }
-        }
+      // All cascade logic (base edge + derived edges) lives in relationshipRules.ts
+      const ops = computeCascadeOps(action, selectedNodeId, person.id, edges)
+      for (const op of ops) {
+        try { await api.relationships.create(op) }
+        catch { /* ignore duplicate edges */ }
       }
 
       await fetchGraph()

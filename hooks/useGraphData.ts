@@ -13,6 +13,7 @@ import { layoutEngine } from '@/lib/layouts/layoutEngine'
 import { filterGraphBySide, type WomanView } from '@/lib/layouts/familySideFilter'
 import { computeNodeRoles, computeDefaultCollapsedUnits } from '@/lib/layouts/computeNodeRoles'
 import { bfsDelays, buildDisplayEdges, buildCollapseMap, remapEdgesForCollapse } from '@/lib/graph/edgeUtils'
+import { computeFamilyName } from '@/lib/graph/computeFamilyName'
 import { useGraphStore } from '@/store/graphStore'
 
 interface GraphDataReturn {
@@ -47,7 +48,6 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
   const [graphLoading, setGraphLoading] = useState(true)
-  const [familyName, setFamilyName] = useState('Family')
   const [womanView, setWomanView] = useState<WomanView>('piyar')
   const layoutId: LayoutId = 'default'
 
@@ -94,6 +94,12 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     [rawNodes, rawEdges, womanView],
   )
 
+  // ── Family name — topmost blood-line ancestor's first name ───────────────
+  const familyName = useMemo(
+    () => computeFamilyName(filteredNodes, filteredEdges),
+    [filteredNodes, filteredEdges],
+  )
+
   // ── Layout with collapse ──────────────────────────────────────────────────
   const visibleNodes = useMemo(() => {
     if (filteredNodes.length === 0) return []
@@ -128,16 +134,6 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     if (!getToken()) { router.replace('/login'); return }
     setGraphLoading(true)
     collapseInitialised.current = false
-    try {
-      const raw = localStorage.getItem('user')
-      if (raw) {
-        const u = JSON.parse(raw) as { display_name?: string }
-        if (u.display_name) {
-          const last = u.display_name.trim().split(' ').pop() ?? u.display_name
-          setFamilyName(last)
-        }
-      }
-    } catch { /* ignore */ }
     fetchGraph()
   }, [fetchGraph, router])
 

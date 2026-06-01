@@ -135,7 +135,7 @@ export function applyCoupleFold(
             sourceHandle: 'bottom',
             targetHandle: 'top',
             data: { relType: 'PARENT_OF', animDelay } as unknown as EdgeData,
-          } as Edge)
+          } as unknown as Edge)
         }
         continue
       }

@@ -36,10 +36,12 @@ export function filterGraphBySide(
   const parentsOf  = new Map<string, string[]>()
   const childrenOf = new Map<string, string[]>()
   const spousesOf  = new Map<string, string[]>()
+  const siblingsOf = new Map<string, string[]>()
   for (const n of nodes) {
     parentsOf.set(n.id, [])
     childrenOf.set(n.id, [])
     spousesOf.set(n.id, [])
+    siblingsOf.set(n.id, [])
   }
   for (const e of edges) {
     if (!nodeMap.has(e.source) || !nodeMap.has(e.target)) continue
@@ -50,6 +52,11 @@ export function filterGraphBySide(
     } else if (rel === 'SPOUSE_OF') {
       const s = spousesOf.get(e.source)!
       const t = spousesOf.get(e.target)!
+      if (!s.includes(e.target)) s.push(e.target)
+      if (!t.includes(e.source)) t.push(e.source)
+    } else if (rel === 'SIBLING_OF') {
+      const s = siblingsOf.get(e.source)!
+      const t = siblingsOf.get(e.target)!
       if (!s.includes(e.target)) s.push(e.target)
       if (!t.includes(e.source)) t.push(e.source)
     }
@@ -120,6 +127,21 @@ export function filterGraphBySide(
         for (const sid of spousesOf.get(cid) ?? []) addSealed(sid)
       } else {
         addFull(cid)
+      }
+    }
+
+    // Siblings via SIBLING_OF — only when no shared parent exists in graph yet.
+    // Apply the same married-daughter rule: sealed if female with spouse.
+    for (const sid of siblingsOf.get(cur) ?? []) {
+      if (includedNodes.has(sid)) continue
+      const isMarriedSister =
+        (d(sid).gender as string | undefined) === 'female' &&
+        (spousesOf.get(sid) ?? []).length > 0
+      if (isMarriedSister) {
+        addSealed(sid)
+        for (const spId of spousesOf.get(sid) ?? []) addSealed(spId)
+      } else {
+        addFull(sid)
       }
     }
 

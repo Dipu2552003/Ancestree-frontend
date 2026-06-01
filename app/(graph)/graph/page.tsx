@@ -139,6 +139,29 @@ function GraphInner() {
         />
       </div>
 
+      {/* Family name badge — top left */}
+      <div style={{
+        position: 'absolute', top: '16px', left: '16px', zIndex: 50,
+        display: 'flex', alignItems: 'center', gap: '8px',
+        padding: '7px 14px',
+        background: t.cardBg,
+        border: `1.5px solid ${t.controlBorder}`,
+        borderRadius: '10px',
+        boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.45)' : '0 2px 8px rgba(0,0,0,0.08)',
+        userSelect: 'none',
+        transition: 'background 0.3s',
+      }}>
+        <span style={{ fontSize: '15px', lineHeight: 1 }}>🌸</span>
+        <div style={{ lineHeight: 1.2 }}>
+          <div style={{ fontSize: '8.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: t.textMuted }}>
+            Family
+          </div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#EA580C', letterSpacing: '0.01em' }}>
+            {familyName}
+          </div>
+        </div>
+      </div>
+
       <button
         onClick={() => setIsDark(!isDark)}
         style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 50, width: '38px', height: '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'background 0.3s, color 0.3s' }}
