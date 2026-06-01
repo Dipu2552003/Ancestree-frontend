@@ -11,9 +11,11 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { nodeTypes } from './PersonNode'
+import { collapsedCoupleNodeType } from './CollapsedCoupleNode'
 import { edgeTypes } from './SketchEdge'
 import { familyEdgeType } from './FamilyEdge'
 
+const allNodeTypes = { ...nodeTypes, ...collapsedCoupleNodeType }
 const allEdgeTypes = { ...edgeTypes, ...familyEdgeType }
 import { useGraphStore } from '@/store/graphStore'
 
@@ -42,7 +44,7 @@ export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
-      nodeTypes={nodeTypes}
+      nodeTypes={allNodeTypes}
       edgeTypes={allEdgeTypes}
       onNodeClick={handleNodeClick}
       onNodeContextMenu={handleNodeContextMenu}

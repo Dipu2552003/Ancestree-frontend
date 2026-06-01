@@ -60,6 +60,7 @@ function GraphInner() {
 
   const { rotateX, rotateY, handleMouseMove, handleMouseLeave } = useTiltEffect()
 
+
   const perspectivePerson = perspectiveId
     ? nodes.find(n => (n.data as unknown as PersonData)?.isSelf) ?? null
     : null
@@ -103,6 +104,8 @@ function GraphInner() {
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
           onNodeClick={id => {
             setContextMenu(null)
+            // Collapsed couple nodes handle their own click (expand toggle)
+            if (id.startsWith('couple_')) return
             const clicked = nodes.find(n => n.id === id)
             const canEdit = (clicked?.data as unknown as PersonData)?.canEdit ?? false
             if (canEdit) {

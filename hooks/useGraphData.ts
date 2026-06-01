@@ -8,10 +8,12 @@ import {
 } from '@xyflow/react'
 import type { Dispatch, SetStateAction } from 'react'
 import { api, getToken } from '@/lib/api'
-import { LAYOUT_MAP, type LayoutId } from '@/lib/layouts'
+import { type LayoutId } from '@/lib/layouts'
 import { layoutEngine } from '@/lib/layouts/layoutEngine'
 import { filterGraphBySide, type WomanView } from '@/lib/layouts/familySideFilter'
-import { bfsDelays, buildDisplayEdges } from '@/lib/graph/edgeUtils'
+import { computeNodeRoles, computeDefaultCollapsedUnits } from '@/lib/layouts/computeNodeRoles'
+import { bfsDelays, buildDisplayEdges, buildCollapseMap, remapEdgesForCollapse } from '@/lib/graph/edgeUtils'
+import { useGraphStore } from '@/store/graphStore'
 
 interface GraphDataReturn {
   nodes: Node[]
@@ -34,67 +36,98 @@ interface GraphDataReturn {
 
 export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const router = useRouter()
-  const initialLoadDone = useRef(false)
-  const layoutIdRef = useRef<LayoutId>('default')
+  const collapseInitialised = useRef(false)
 
+  // Raw backend data — no layout applied
+  const [rawNodes, setRawNodes] = useState<Node[]>([])
+  const [rawEdges, setRawEdges] = useState<Edge[]>([])
+
+  // React Flow internal state (selection, etc.) — synced to visibleNodes
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+
   const [graphLoading, setGraphLoading] = useState(true)
   const [familyName, setFamilyName] = useState('Family')
-  const [layoutId, setLayoutId] = useState<LayoutId>('default')
   const [womanView, setWomanView] = useState<WomanView>('piyar')
+  const layoutId: LayoutId = 'default'
 
+  const { collapsedUnitIds, initCollapseState } = useGraphStore()
+
+  // ── Fetch raw data from backend ───────────────────────────────────────────
   const fetchGraph = useCallback(async () => {
     try {
       const data = await api.graph.fetch(perspectivePersonId)
-      const rawEdges = data.edges.map(e => ({ ...e, type: 'sketchEdge' }))
-      const layoutedNodes = LAYOUT_MAP.get(layoutIdRef.current)!.algorithm(data.nodes, rawEdges)
-      if (!initialLoadDone.current) {
-        initialLoadDone.current = true
-        const delays = bfsDelays(layoutedNodes, rawEdges)
-        setNodes(layoutedNodes.map((n: Node) => ({
-          ...n,
-          data: { ...(n.data as object), animDelay: delays.get(n.id) ?? 0 },
-        })))
-      } else {
-        setNodes(layoutedNodes)
+      const rawE = data.edges.map(e => ({ ...e, type: 'sketchEdge' }))
+
+      // Bake animation delays into rawNodes (once, uses only edge structure)
+      const delays = bfsDelays(data.nodes, rawE)
+      const rawN = data.nodes.map((n: Node) => ({
+        ...n,
+        data: { ...(n.data as object), animDelay: delays.get(n.id) ?? 0 },
+      }))
+
+      setRawNodes(rawN)
+      setRawEdges(rawE)
+
+      // Initialise collapse state from node roles (only on the very first load)
+      if (!collapseInitialised.current) {
+        collapseInitialised.current = true
+        const roles = computeNodeRoles(rawN, rawE)
+        const defaultCollapsed = computeDefaultCollapsedUnits(rawE, roles)
+        initCollapseState(defaultCollapsed)
       }
-      setEdges(rawEdges)
     } catch (err) {
       console.error('Failed to fetch graph:', err)
     } finally {
       setGraphLoading(false)
     }
-  }, [setNodes, setEdges, perspectivePersonId])
+  }, [perspectivePersonId, initCollapseState])
 
+  // ── Derive collapse set from store ────────────────────────────────────────
+  const collapsedSet = useMemo(() => new Set(collapsedUnitIds), [collapsedUnitIds])
+
+  // ── Filter by side (mayka / piyar) ───────────────────────────────────────
   const { nodes: filteredNodes, edges: filteredEdges, isMarriedWoman } = useMemo(
-    () => filterGraphBySide(nodes, edges, womanView),
-    [nodes, edges, womanView],
+    () => rawNodes.length > 0
+      ? filterGraphBySide(rawNodes, rawEdges, womanView)
+      : { nodes: [], edges: [], isMarriedWoman: false },
+    [rawNodes, rawEdges, womanView],
   )
 
+  // ── Layout with collapse ──────────────────────────────────────────────────
   const visibleNodes = useMemo(() => {
-    if (!isMarriedWoman || filteredNodes.length === 0) return filteredNodes
-    if (womanView === 'mayka') return layoutEngine(filteredNodes, filteredEdges, 'self')
-    return layoutEngine(filteredNodes, filteredEdges, 'spouse')
-  }, [filteredNodes, filteredEdges, isMarriedWoman, womanView])
+    if (filteredNodes.length === 0) return []
+    let perspective: 'self' | 'mother' | 'spouse' = 'self'
+    if (isMarriedWoman && womanView === 'piyar') perspective = 'spouse'
+    return layoutEngine(filteredNodes, filteredEdges, perspective, collapsedSet)
+  }, [filteredNodes, filteredEdges, isMarriedWoman, womanView, collapsedSet])
 
-  const displayEdges = useMemo(
-    () => buildDisplayEdges(visibleNodes, filteredEdges),
-    [visibleNodes, filteredEdges],
+  // ── Remap edges for collapsed units ──────────────────────────────────────
+  const collapseMap = useMemo(
+    () => buildCollapseMap(filteredEdges, collapsedSet),
+    [filteredEdges, collapsedSet],
   )
 
-  const onLayoutChange = useCallback((id: LayoutId) => {
-    layoutIdRef.current = id
-    setLayoutId(id)
-    setNodes(prev => LAYOUT_MAP.get(id)!.algorithm(prev, edges))
-  }, [edges, setNodes])
+  const remappedEdges = useMemo(
+    () => remapEdgesForCollapse(filteredEdges, collapseMap),
+    [filteredEdges, collapseMap],
+  )
 
-  const onWomanViewChange = useCallback((v: WomanView) => setWomanView(v), [])
+  // ── Build display edges ───────────────────────────────────────────────────
+  const displayEdges = useMemo(
+    () => buildDisplayEdges(visibleNodes, remappedEdges),
+    [visibleNodes, remappedEdges],
+  )
 
+  // ── Sync to React Flow internal state ────────────────────────────────────
+  useEffect(() => { if (visibleNodes.length) setNodes(visibleNodes) }, [visibleNodes, setNodes])
+  useEffect(() => { setEdges(remappedEdges) }, [remappedEdges, setEdges])
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!getToken()) { router.replace('/login'); return }
     setGraphLoading(true)
-    initialLoadDone.current = false
+    collapseInitialised.current = false
     try {
       const raw = localStorage.getItem('user')
       if (raw) {
@@ -107,6 +140,9 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     } catch { /* ignore */ }
     fetchGraph()
   }, [fetchGraph, router])
+
+  const onLayoutChange = useCallback((_id: LayoutId) => { /* single layout only */ }, [])
+  const onWomanViewChange = useCallback((v: WomanView) => setWomanView(v), [])
 
   return {
     nodes, edges, setNodes, setEdges,

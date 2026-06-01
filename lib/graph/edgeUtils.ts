@@ -1,6 +1,59 @@
 import type { Node, Edge } from '@xyflow/react'
 import type { PersonData, EdgeData } from '@/types'
 
+// ── Collapse helpers ──────────────────────────────────────────────────────────
+
+/** Builds a map from each collapsed person ID → their couple node ID. */
+export function buildCollapseMap(edges: Edge[], collapsedUnitKeys: Set<string>): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const e of edges) {
+    const rel = (e.data as unknown as EdgeData)?.relType
+    if (rel !== 'SPOUSE_OF') continue
+    const key = [e.source, e.target].sort().join('|')
+    if (!collapsedUnitKeys.has(key)) continue
+    const coupleId = `couple_${key}`
+    map.set(e.source, coupleId)
+    map.set(e.target, coupleId)
+  }
+  return map
+}
+
+/**
+ * Rewrites edges so collapsed person IDs are replaced by their couple node ID.
+ * Removes SPOUSE_OF within a collapsed unit and PARENT_OF from a collapsed parent
+ * to their (now hidden) children.
+ */
+export function remapEdgesForCollapse(edges: Edge[], collapseMap: Map<string, string>): Edge[] {
+  if (collapseMap.size === 0) return edges
+  const collapsedPersonIds = new Set(collapseMap.keys())
+  const result: Edge[] = []
+  const seen = new Set<string>()
+
+  for (const e of edges) {
+    const rel = (e.data as unknown as EdgeData)?.relType
+
+    // SPOUSE_OF within same collapsed unit → drop
+    if (rel === 'SPOUSE_OF') {
+      const sc = collapseMap.get(e.source)
+      const tc = collapseMap.get(e.target)
+      if (sc && tc && sc === tc) continue
+    }
+
+    // PARENT_OF where source is a collapsed person → children are hidden, drop
+    if (rel === 'PARENT_OF' && collapsedPersonIds.has(e.source)) continue
+
+    const src = collapseMap.get(e.source) ?? e.source
+    const tgt = collapseMap.get(e.target) ?? e.target
+    if (src === tgt) continue
+
+    const id = `r_${src}_${tgt}`
+    if (seen.has(id)) continue
+    seen.add(id)
+    result.push({ ...e, id, source: src, target: tgt })
+  }
+  return result
+}
+
 export function bfsDelays(nodes: Node[], edges: Edge[]): Map<string, number> {
   const selfId = nodes.find(n => (n.data as Record<string, unknown>).isSelf)?.id
   if (!selfId) return new Map(nodes.map(n => [n.id, 0]))

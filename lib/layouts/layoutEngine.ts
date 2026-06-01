@@ -30,16 +30,32 @@ type Pos = { x: number; y: number }
 
 // ── Couple unit ───────────────────────────────────────────────────────────────
 interface CoupleUnit {
-  left:     string          // left person id (male or first added)
-  right:    string | null   // spouse id; null for solo nodes
-  children: string[]        // ordered child ids (shared by the couple)
+  left:     string
+  right:    string | null
+  children: string[]
+  // collapse state
+  collapsed:        boolean
+  hiddenChildCount: number
+  totalDescendants: number
   // Reingold-Tilford scratch
-  x:        number          // final absolute x (center of unit)
+  x:        number
   prelim:   number
   mod:      number
   parent:   CoupleUnit | null
-  index:    number          // position among siblings
+  index:    number
   gen:      number
+}
+
+function countDescendants(startIds: string[], childrenOf: Map<string, string[]>): number {
+  const queue = [...startIds]
+  const visited = new Set<string>()
+  while (queue.length) {
+    const id = queue.shift()!
+    if (visited.has(id)) continue
+    visited.add(id)
+    for (const c of childrenOf.get(id) ?? []) queue.push(c)
+  }
+  return visited.size
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -47,6 +63,7 @@ export function layoutEngine(
   nodes: Node[],
   edges: Edge[],
   perspective: PerspectiveType = 'self',
+  collapsedUnitKeys: Set<string> = new Set(),
 ): Node[] {
   if (nodes.length === 0) return nodes
 
@@ -112,6 +129,7 @@ export function layoutEngine(
   function makeUnit(left: string, right: string | null, gen: number): CoupleUnit {
     const u: CoupleUnit = {
       left, right, children: [],
+      collapsed: false, hiddenChildCount: 0, totalDescendants: 0,
       x: 0, prelim: 0, mod: 0,
       parent: null, index: 0, gen,
     }
@@ -163,6 +181,35 @@ export function layoutEngine(
       if (byB !== undefined) return 1
       return a.localeCompare(b)
     })
+  }
+
+  // ── Mark collapsed units — treat them as leaves in RT ────────────────────
+  // collapsedDescendants: every person that should be hidden from the output
+  //   (right person merged into the couple card + all their subtree descendants)
+  const collapsedDescendants = new Set<string>()
+
+  for (const u of allUnits) {
+    if (!u.right) continue
+    const unitKey = [u.left, u.right].sort().join('|')
+    if (!collapsedUnitKeys.has(unitKey)) continue
+
+    // Right person is merged into the collapsedCouple node — hide individually
+    collapsedDescendants.add(u.right)
+
+    // BFS all children and their subtree — they are fully hidden
+    const queue = [...u.children]
+    while (queue.length) {
+      const id = queue.shift()!
+      if (collapsedDescendants.has(id)) continue
+      collapsedDescendants.add(id)
+      for (const c of childrenOf.get(id) ?? []) queue.push(c)
+      for (const s of spousesOf.get(id) ?? []) collapsedDescendants.add(s)
+    }
+
+    u.hiddenChildCount = u.children.length
+    u.totalDescendants = countDescendants(u.children, childrenOf)
+    u.children = []
+    u.collapsed = true
   }
 
   // ── Wire unit parent↔children links ──────────────────────────────────────
@@ -340,8 +387,8 @@ export function layoutEngine(
     }
   }
 
-  // ── Append any still-unplaced nodes (truly disconnected) ──────────────────
-  const unplaced = nodes.filter(n => !pos.has(n.id))
+  // ── Append any still-unplaced nodes (truly disconnected, not collapsed) ────
+  const unplaced = nodes.filter(n => !pos.has(n.id) && !collapsedDescendants.has(n.id))
   const byGen    = new Map<number, string[]>()
   for (const n of unplaced) {
     const g = genOf(n.id)
@@ -364,8 +411,38 @@ export function layoutEngine(
   const anchorPos = pos.get(anchorId)
   const anchorX   = anchorPos ? anchorPos.x + NODE_W / 2 : 0
 
-  return nodes.map(n => {
+  const seenCollapsed = new Set<string>()
+  return nodes.flatMap(n => {
+    // Nodes hidden by a collapsed ancestor — right person + full subtree
+    if (collapsedDescendants.has(n.id)) return []
+
+    const u = unitOf.get(n.id)
+    if (u?.collapsed && u.right) {
+      const unitKey = [u.left, u.right].sort().join('|')
+      if (seenCollapsed.has(unitKey)) return []
+      seenCollapsed.add(unitKey)
+
+      const p       = pos.get(u.left) ?? { x: 0, y: BASE_Y }
+      const lData   = (nodeMap.get(u.left)?.data  ?? {}) as Record<string, unknown>
+      const rData   = (nodeMap.get(u.right)?.data ?? {}) as Record<string, unknown>
+      const animDelay = Math.min(lData.animDelay as number ?? 0, rData.animDelay as number ?? 0)
+
+      return [{
+        id: `couple_${unitKey}`,
+        type: 'collapsedCouple',
+        position: { x: p.x - anchorX, y: p.y },
+        data: {
+          person1: lData, person2: rData,
+          unitKey,
+          leftId: u.left, rightId: u.right,
+          hiddenChildCount: u.hiddenChildCount,
+          totalDescendants: u.totalDescendants,
+          animDelay,
+        },
+      } as Node]
+    }
+
     const p = pos.get(n.id) ?? { x: 0, y: BASE_Y }
-    return { ...n, position: { x: p.x - anchorX, y: p.y } }
+    return [{ ...n, position: { x: p.x - anchorX, y: p.y } }]
   })
 }
