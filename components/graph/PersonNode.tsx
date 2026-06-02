@@ -13,7 +13,8 @@ function splitName(fullName: string): [string, string] {
 }
 
 function getInitials(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/)
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
@@ -47,7 +48,7 @@ function ownerBadge(nodeState: string, isSelf: boolean, firstName: string, isDar
   }
 }
 
-function PersonNode({ data, selected }: NodeProps) {
+function PersonNode({ id, data, selected }: NodeProps) {
   const { isDark } = useGraphStore()
   const person = data as unknown as PersonData
   const { fullName, birthYear, deathYear, isAlive, isDeceased, nodeState, isSelf, isViewerNode, relationshipToSelf, photoUrl, animDelay } = person
@@ -74,7 +75,7 @@ function PersonNode({ data, selected }: NodeProps) {
     ? `0 0 0 2.5px #EA580C, ${isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'}`
     : isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'
 
-  const gradId = `grad-${fullName.replace(/\s/g, '')}-${isDark ? 'd' : 'l'}`
+  const gradId = `grad-${id}-${isDark ? 'd' : 'l'}`
 
   return (
     <motion.div

@@ -14,10 +14,10 @@ interface TiltEffectReturn {
 export function useTiltEffect(): TiltEffectReturn {
   const rawX = useMotionValue(0)
   const rawY = useMotionValue(0)
-  const springX = useSpring(rawX, { stiffness: 50, damping: 18 })
-  const springY = useSpring(rawY, { stiffness: 50, damping: 18 })
-  const rotateY = useTransform(springX, [-0.5, 0.5], [-8, 8])
-  const rotateX = useTransform(springY, [-0.5, 0.5], [5, -5])
+  const springX = useSpring(rawX, { stiffness: 120, damping: 40 })
+  const springY = useSpring(rawY, { stiffness: 120, damping: 40 })
+  const rotateY = useTransform(springX, [-0.5, 0.5], [-2, 2])
+  const rotateX = useTransform(springY, [-0.5, 0.5], [1.5, -1.5])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()

@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { IconHome2, IconSearch, IconUsers } from '@tabler/icons-react'
 import type { Node } from '@xyflow/react'
+import type { PersonData } from '@/types'
 
 interface Props {
   isDark: boolean
@@ -24,8 +25,7 @@ export default function BottomNav({
   const { setCenter } = useReactFlow()
 
   const handleHome = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const selfNode = nodes.find(n => (n.data as any)?.isSelf)
+    const selfNode = nodes.find(n => (n.data as unknown as PersonData)?.isSelf)
     if (selfNode) {
       setCenter(selfNode.position.x + 64, selfNode.position.y + 79, { zoom: 1.2, duration: 600 })
     }

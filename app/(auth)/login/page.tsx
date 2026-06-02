@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { IconBrandGoogle, IconEye, IconEyeOff } from '@tabler/icons-react'
+import { useRouter } from 'next/navigation'
+import { IconEye, IconEyeOff } from '@tabler/icons-react'
 import { api, setToken } from '@/lib/api'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw]     = useState(false)
@@ -21,16 +23,12 @@ export default function LoginPage() {
       const { token, user } = await api.auth.login({ email, password })
       setToken(token)
       localStorage.setItem('user', JSON.stringify(user))
-      window.location.href = '/graph'
+      router.push('/graph')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Login failed. Please try again.'
       setError(msg)
       setLoading(false)
     }
-  }
-
-  const handleGoogle = () => {
-    // Google OAuth not yet supported
   }
 
   return (
@@ -69,31 +67,6 @@ export default function LoginPage() {
           border: '1px solid rgba(0,0,0,0.07)',
           boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
         }}>
-
-          {/* Google */}
-          <button
-            onClick={handleGoogle}
-            style={{
-              width: '100%', height: '44px', borderRadius: '8px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              background: '#fff', border: '1.5px solid rgba(0,0,0,0.12)',
-              fontSize: '14px', fontWeight: 500, color: '#1A0A00',
-              cursor: 'pointer', fontFamily: 'inherit', marginBottom: '20px',
-              transition: 'border-color 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = '#EA580C')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)')}
-          >
-            <IconBrandGoogle size={18} />
-            Continue with Google
-          </button>
-
-          {/* Divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(0,0,0,0.08)' }} />
-            <span style={{ fontSize: '12px', color: '#C4A070', letterSpacing: '0.06em' }}>or</span>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(0,0,0,0.08)' }} />
-          </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 

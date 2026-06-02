@@ -1,6 +1,6 @@
 'use client'
 
-import { type MouseEvent } from 'react'
+import { type MouseEvent, useCallback } from 'react'
 import {
   ReactFlow,
   type Node,
@@ -38,18 +38,24 @@ export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange
     onNodeContextMenu?.(event, node.id)
   }
 
+  // Positions are owned exclusively by the layout engine. Discard any
+  // `position` NodeChange events React Flow fires internally during
+  // initialisation or node measurement — they would override computed positions.
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    const stable = changes.filter(c => c.type !== 'position')
+    if (stable.length > 0) onNodesChange(stable)
+  }, [onNodesChange])
+
   return (
     <ReactFlow
       nodes={nodes}
       edges={edges}
-      onNodesChange={onNodesChange}
+      onNodesChange={handleNodesChange}
       onEdgesChange={onEdgesChange}
       nodeTypes={allNodeTypes}
       edgeTypes={allEdgeTypes}
       onNodeClick={handleNodeClick}
       onNodeContextMenu={handleNodeContextMenu}
-      fitView
-      fitViewOptions={{ padding: 0.35 }}
       defaultViewport={{ x: 0, y: 0, zoom: currentZoom }}
       minZoom={0.15}
       maxZoom={3}

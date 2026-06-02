@@ -30,6 +30,65 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T
 }
 
+// ── Shared types ──────────────────────────────────────────────────
+
+export type ConflictType =
+  | 'double_parent'
+  | 'double_spouse'
+  | 'parent_sibling_paradox'
+  | 'cycle'
+  | 'secondary_duplicate'
+  | 'claimed_orphan'
+
+export interface SearchResult {
+  id:          string
+  full_name:   string
+  family_name: string
+  birth_year:  number | null
+  node_state:  string
+  photo_url:   string | null
+}
+
+export interface MergeConflict {
+  type:             ConflictType
+  severity:         'warning' | 'error'
+  message:          string
+  affected_persons: string[]
+  resolution_options: never[]
+}
+
+export interface PotentialMatch {
+  id:             string
+  full_name:      string
+  birth_year:     number | null
+  native_village: string | null
+  family_name:    string
+  family_id:      string
+  member_count:   number
+}
+
+export interface AppNotification {
+  id:                string
+  user_id:           string
+  type:              'merge_request_received' | 'merge_request_accepted' | 'merge_request_rejected' | 'family_name_changed' | 'claim_suggestion'
+  merge_record_id:   string | null
+  related_person_id: string | null
+  message:           string
+  is_read:           boolean
+  created_at:        string
+  merge_status:      'proposed' | 'confirmed' | 'rejected' | 'reversed' | null
+}
+
+export interface SentMergeRequest {
+  id:                    string
+  status:                'proposed' | 'confirmed' | 'rejected' | 'reversed'
+  canonical_person_name: string
+  canonical_family_name: string
+  merged_person_name:    string
+  created_at:            string
+  merged_at:             string | null
+}
+
 // ── API surface ───────────────────────────────────────────────────
 export const api = {
   auth: {
@@ -41,6 +100,10 @@ export const api = {
       req<{ token: string; user: Record<string, unknown> }>('/api/auth/login', {
         method: 'POST', body: JSON.stringify(b),
       }),
+    // Re-issues a JWT with the correct familyId after a merge transfers the user
+    // to a different family.  Call this whenever the graph loads empty.
+    refreshToken: () =>
+      req<{ token: string }>('/api/auth/refresh-token', { method: 'POST' }),
   },
 
   graph: {
@@ -57,27 +120,46 @@ export const api = {
       gender?: string
       birth_year?: number
       is_alive?: boolean
-    }) => req<{ id: string; person_code: string }>('/api/persons', {
+    }) => req<{ id: string; person_code: string; potential_matches: PotentialMatch[] }>('/api/persons', {
       method: 'POST', body: JSON.stringify(b),
     }),
 
     update: (id: string, b: {
       full_name?: string
+      first_name?: string | null
+      middle_name?: string | null
+      last_name?: string | null
+      name_native?: string | null
       nickname?: string | null
       gender?: string | null
+      gotra?: string | null
+      religion?: string | null
+      birth_date?: string | null
       birth_year?: number | null
       birth_place?: string | null
-      death_year?: number | null
       is_alive?: boolean
-      photo_url?: string | null
-      gotra?: string | null
-      native_village?: string | null
+      death_date?: string | null
+      death_year?: number | null
+      death_place?: string | null
+      phone?: string | null
+      whatsapp?: string | null
+      email?: string | null
+      current_address?: string | null
       current_city?: string | null
+      current_state?: string | null
       current_country?: string | null
+      current_pincode?: string | null
+      native_village?: string | null
+      native_tehsil?: string | null
+      native_district?: string | null
+      native_state?: string | null
+      native_country?: string | null
       occupation?: string | null
-      bio?: string | null
+      occupation_detail?: string | null
       education?: string | null
-    }) => req<{ id: string }>(`/api/persons/${id}`, {
+      bio?: string | null
+      photo_url?: string | null
+    }) => req<{ id: string; potential_matches?: PotentialMatch[] }>(`/api/persons/${id}`, {
       method: 'PATCH', body: JSON.stringify(b),
     }),
 
@@ -113,5 +195,34 @@ export const api = {
     }) => req<{ id: string }>('/api/relationships', {
       method: 'POST', body: JSON.stringify(b),
     }),
+  },
+
+  search: {
+    persons: (q: string) =>
+      req<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`),
+  },
+
+  merges: {
+    create: (b: { new_person_id: string; canonical_person_id: string }) =>
+      req<{ merge_record_id: string }>('/api/merges', {
+        method: 'POST', body: JSON.stringify(b),
+      }),
+    listSent: () =>
+      req<{ requests: SentMergeRequest[] }>('/api/merges/sent'),
+    accept: (mergeRecordId: string) =>
+      req<{ canonical_person_id: string; conflicts: MergeConflict[] }>(
+        `/api/merges/${mergeRecordId}/accept`, { method: 'POST' },
+      ),
+    reject: (mergeRecordId: string) =>
+      req<{ success: boolean }>(`/api/merges/${mergeRecordId}/reject`, { method: 'POST' }),
+  },
+
+  notifications: {
+    list: () =>
+      req<{ notifications: AppNotification[]; unread_count: number }>('/api/notifications'),
+    markRead: (id: string) =>
+      req<{ success: boolean }>(`/api/notifications/${id}/read`, { method: 'POST' }),
+    markAllRead: () =>
+      req<{ success: boolean }>('/api/notifications/read-all', { method: 'POST' }),
   },
 }

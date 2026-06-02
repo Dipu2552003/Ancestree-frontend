@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  IconHome2, IconPlus, IconSearch, IconUsersGroup, IconX,
-  IconArrowUp, IconArrowDown, IconHeart, IconUsers, IconTrash, IconLoader2,
-  IconLogout,
+  IconHome2, IconPlus, IconX, IconArrowBack,
+  IconArrowUp, IconArrowDown, IconHeart, IconTrash, IconLoader2,
+  IconLogout, IconPencil, IconEye, IconUsers,
 } from '@tabler/icons-react'
 import type { WomanView } from '@/lib/layouts/familySideFilter'
 import { getTheme } from '@/lib/theme'
@@ -19,9 +19,12 @@ interface NavbarProps {
   selectedNodeId: string | null
   selectedNodeName: string
   canDeleteSelected: boolean
+  panelMode: 'none' | 'edit' | 'view'
   onHome: () => void
-  onAddRelation: (action: RelAction) => void
+  onAddRelation: (action: RelAction, name: string) => Promise<void>
   onDeleteSelected: () => Promise<void>
+  onEdit: () => void
+  onView: () => void
   isMarriedWoman: boolean
   womanView: WomanView
   onWomanViewChange: (v: WomanView) => void
@@ -38,8 +41,8 @@ const RELATIONS: {
   { action: 'mother',   label: 'Mother',   icon: <IconArrowUp size={18} />,   color: '#C06FAE' },
   { action: 'son',      label: 'Son',      icon: <IconArrowDown size={18} />, color: '#2EAA7C' },
   { action: 'daughter', label: 'Daughter', icon: <IconArrowDown size={18} />, color: '#9C6FD6' },
-  { action: 'brother',  label: 'Brother',  icon: <IconUsers size={18} />,     color: '#D97706' },
-  { action: 'sister',   label: 'Sister',   icon: <IconUsers size={18} />,     color: '#E06070' },
+  { action: 'brother',  label: 'Brother',  icon: <IconUsers size={18} />,     color: '#0E9F78' },
+  { action: 'sister',   label: 'Sister',   icon: <IconUsers size={18} />,     color: '#A855F7' },
   { action: 'spouse',   label: 'Spouse',   icon: <IconHeart size={18} />,     color: '#EA580C' },
 ]
 
@@ -47,14 +50,29 @@ type DeleteState = 'idle' | 'confirm' | 'deleting'
 
 export default function Navbar({
   familyName, selectedNodeId, selectedNodeName,
-  canDeleteSelected, onHome, onAddRelation, onDeleteSelected,
+  canDeleteSelected, panelMode,
+  onHome, onAddRelation, onDeleteSelected,
+  onEdit, onView,
   isMarriedWoman, womanView, onWomanViewChange, isDark,
 }: NavbarProps) {
   const router = useRouter()
-  const [addOpen, setAddOpen]         = useState(false)
-  const [deleteState, setDeleteState] = useState<DeleteState>('idle')
-  const [deleteError, setDeleteError] = useState('')
-  const menuRef = useRef<HTMLDivElement>(null)
+  const [addOpen, setAddOpen]             = useState(false)
+  const [pendingAction, setPendingAction] = useState<RelAction | null>(null)
+  const [nameInput, setNameInput]         = useState('')
+  const [nameError, setNameError]         = useState('')
+  const [saving, setSaving]               = useState(false)
+  const [deleteState, setDeleteState]     = useState<DeleteState>('idle')
+  const [deleteError, setDeleteError]     = useState('')
+  const menuRef  = useRef<HTMLDivElement>(null)
+  const nameRef  = useRef<HTMLInputElement>(null)
+
+  const closeAdd = () => {
+    setAddOpen(false)
+    setPendingAction(null)
+    setNameInput('')
+    setNameError('')
+    setSaving(false)
+  }
 
   const handleLogout = () => {
     clearToken()
@@ -62,12 +80,32 @@ export default function Navbar({
     router.replace('/login')
   }
 
-  // close menus on outside click
+  const handleRelationSelect = (action: RelAction) => {
+    setPendingAction(action)
+    setNameInput('')
+    setNameError('')
+    setTimeout(() => nameRef.current?.focus(), 50)
+  }
+
+  const handleAddSave = async () => {
+    if (!nameInput.trim()) { setNameError('Name is required'); nameRef.current?.focus(); return }
+    if (!pendingAction) return
+    setSaving(true)
+    setNameError('')
+    try {
+      await onAddRelation(pendingAction, nameInput.trim())
+      closeAdd()
+    } catch (err: unknown) {
+      setNameError(err instanceof Error ? err.message : 'Failed to create')
+      setSaving(false)
+    }
+  }
+
   useEffect(() => {
     if (!addOpen && deleteState === 'idle') return
     const handler = (e: MouseEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) {
-        setAddOpen(false)
+        closeAdd()
         setDeleteState('idle')
         setDeleteError('')
       }
@@ -76,10 +114,9 @@ export default function Navbar({
     return () => document.removeEventListener('mousedown', handler)
   }, [addOpen, deleteState])
 
-  // close menus when node deselects
   useEffect(() => {
     if (!selectedNodeId) {
-      setAddOpen(false)
+      closeAdd()
       setDeleteState('idle')
       setDeleteError('')
     }
@@ -100,6 +137,22 @@ export default function Navbar({
     : delEnabled
       ? (isDark ? 'rgba(239,68,68,0.10)' : 'rgba(239,68,68,0.06)')
       : (isDark ? '#2A2520' : '#F5F0EA')
+
+  const editActive = panelMode === 'edit'
+  const viewActive = panelMode === 'view'
+  const actionEnabled = !!selectedNodeId
+
+  const actionBg = (active: boolean) => active
+    ? (isDark ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.10)')
+    : actionEnabled
+      ? (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')
+      : (isDark ? '#2A2520' : '#F5F0EA')
+
+  const actionColor = (active: boolean) => active
+    ? '#EA580C'
+    : actionEnabled
+      ? t.textMuted
+      : (isDark ? '#4A3F35' : '#C4A882')
 
   return (
     <div
@@ -124,55 +177,123 @@ export default function Navbar({
               borderRadius: '16px',
               padding: '16px',
               boxShadow: t.shadow,
-              width: '248px',
+              width: '260px',
             }}
           >
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: '12px',
-            }}>
-              <div>
-                <p style={{ margin: 0, fontSize: '11px', color: t.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Add relation
-                </p>
-                <p style={{
-                  margin: 0, fontSize: '13px', fontWeight: 600, color: t.text,
-                  maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {selectedNodeName || 'Selected person'}
-                </p>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {pendingAction && (
+                  <button
+                    onClick={() => { setPendingAction(null); setNameInput(''); setNameError('') }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '2px', display: 'flex' }}
+                  >
+                    <IconArrowBack size={14} />
+                  </button>
+                )}
+                <div>
+                  <p style={{ margin: 0, fontSize: '11px', color: t.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                    {pendingAction ? `Adding ${RELATIONS.find(r => r.action === pendingAction)?.label}` : 'Add relation'}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: t.text, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selectedNodeName || 'Selected person'}
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={() => setAddOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '2px', display: 'flex' }}
-              >
+              <button onClick={closeAdd} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '2px', display: 'flex' }}>
                 <IconX size={15} />
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-              {RELATIONS.map(r => (
-                <button
-                  key={r.action}
-                  onClick={() => { onAddRelation(r.action); setAddOpen(false) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '9px 12px', borderRadius: '10px',
-                    border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                    background: 'transparent', color: t.text,
-                    fontSize: '12.5px', fontWeight: 500,
-                    transition: 'background 0.12s',
-                    gridColumn: r.action === 'spouse' ? '1 / -1' : 'auto',
-                    justifyContent: r.action === 'spouse' ? 'center' : 'flex-start',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = t.itemHoverBg)}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <span style={{ color: r.color, display: 'flex' }}>{r.icon}</span>
-                  {r.label}
-                </button>
-              ))}
-            </div>
+            {/* Step 1 — relation type grid */}
+            {!pendingAction && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                {RELATIONS.map(r => (
+                  <button
+                    key={r.action}
+                    onClick={() => handleRelationSelect(r.action)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '9px 12px', borderRadius: '10px',
+                      border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                      background: 'transparent', color: t.text,
+                      fontSize: '12.5px', fontWeight: 500,
+                      transition: 'background 0.12s',
+                      gridColumn: r.action === 'spouse' ? '1 / -1' : 'auto',
+                      justifyContent: r.action === 'spouse' ? 'center' : 'flex-start',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = t.itemHoverBg)}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <span style={{ color: r.color, display: 'flex' }}>{r.icon}</span>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Step 2 — name form */}
+            {pendingAction && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: t.textMuted, display: 'block', marginBottom: '6px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                    Full name <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <input
+                    ref={nameRef}
+                    value={nameInput}
+                    onChange={e => { setNameInput(e.target.value); setNameError('') }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddSave() }}
+                    placeholder={`e.g. Ramesh Khandelwal`}
+                    style={{
+                      width: '100%', height: '38px', padding: '0 12px',
+                      border: `1.5px solid ${nameError ? '#EF4444' : '#EA580C44'}`,
+                      borderRadius: '10px', fontSize: '13px',
+                      color: t.text, background: t.inputBg ?? t.panelBg,
+                      outline: 'none', fontFamily: 'inherit',
+                      boxSizing: 'border-box',
+                    }}
+                    onFocus={e => { if (!nameError) e.currentTarget.style.borderColor = '#EA580C' }}
+                    onBlur={e  => { if (!nameError) e.currentTarget.style.borderColor = '#EA580C44' }}
+                  />
+                  {nameError && (
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#EF4444' }}>{nameError}</p>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => { setPendingAction(null); setNameInput(''); setNameError('') }}
+                    disabled={saving}
+                    style={{
+                      flex: 1, height: '36px', borderRadius: '10px',
+                      border: `1px solid ${t.borderNeutral}`,
+                      background: 'transparent', cursor: 'pointer',
+                      fontSize: '13px', fontFamily: 'inherit', color: t.textMuted,
+                    }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleAddSave}
+                    disabled={saving}
+                    style={{
+                      flex: 2, height: '36px', borderRadius: '10px', border: 'none',
+                      background: saving ? '#F0A070' : '#EA580C',
+                      color: '#fff', fontSize: '13px', fontWeight: 600,
+                      fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    {saving
+                      ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={14} /></motion.div>Creating…</>
+                      : `Add ${RELATIONS.find(r => r.action === pendingAction)?.label}`
+                    }
+                  </button>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -320,28 +441,17 @@ export default function Navbar({
         gap: '2px',
       }}>
 
-        {/* Family name */}
-        <NavItem isDark={isDark} onClick={() => {}}>
-          <span style={{ fontSize: '16px', lineHeight: 1 }}>🌸</span>
-          <span style={{
-            fontSize: '11.5px', fontWeight: 600, color: t.text,
-            maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {familyName}
-          </span>
-        </NavItem>
-
-        <Divider isDark={isDark} />
-
         {/* Home */}
         <NavItem isDark={isDark} onClick={onHome} label="Home">
           <IconHome2 size={19} color={t.textMuted} />
         </NavItem>
 
-        {/* + Add — primary CTA */}
+        <Divider isDark={isDark} />
+
+        {/* + Add */}
         <div style={{ padding: '0 2px' }}>
           <motion.button
-            onClick={() => addEnabled && setAddOpen(v => !v)}
+            onClick={() => { if (!addEnabled) return; if (addOpen) closeAdd(); else setAddOpen(true) }}
             whileHover={addEnabled ? { scale: 1.04 } : {}}
             whileTap={addEnabled ? { scale: 0.96 } : {}}
             style={{
@@ -360,6 +470,54 @@ export default function Navbar({
             Add
           </motion.button>
         </div>
+
+        {/* Edit */}
+        <div style={{ padding: '0 2px' }}>
+          <motion.button
+            onClick={() => actionEnabled && onEdit()}
+            whileHover={actionEnabled ? { scale: 1.04 } : {}}
+            whileTap={actionEnabled ? { scale: 0.96 } : {}}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              padding: '8px 14px', borderRadius: '14px',
+              background: actionBg(editActive), border: 'none',
+              color: actionColor(editActive), fontFamily: 'inherit',
+              fontSize: '13px', fontWeight: editActive ? 700 : 500,
+              cursor: actionEnabled ? 'pointer' : 'default',
+              transition: 'background 0.2s, color 0.2s',
+              letterSpacing: '0.01em',
+            }}
+            title={actionEnabled ? `Edit ${selectedNodeName}` : 'Select a person first'}
+          >
+            <IconPencil size={15} strokeWidth={2} />
+            Edit
+          </motion.button>
+        </div>
+
+        {/* View */}
+        <div style={{ padding: '0 2px' }}>
+          <motion.button
+            onClick={() => actionEnabled && onView()}
+            whileHover={actionEnabled ? { scale: 1.04 } : {}}
+            whileTap={actionEnabled ? { scale: 0.96 } : {}}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              padding: '8px 14px', borderRadius: '14px',
+              background: actionBg(viewActive), border: 'none',
+              color: actionColor(viewActive), fontFamily: 'inherit',
+              fontSize: '13px', fontWeight: viewActive ? 700 : 500,
+              cursor: actionEnabled ? 'pointer' : 'default',
+              transition: 'background 0.2s, color 0.2s',
+              letterSpacing: '0.01em',
+            }}
+            title={actionEnabled ? `View ${selectedNodeName}` : 'Select a person first'}
+          >
+            <IconEye size={15} strokeWidth={2} />
+            View
+          </motion.button>
+        </div>
+
+        <Divider isDark={isDark} />
 
         {/* 🗑 Delete */}
         <div style={{ padding: '0 2px' }}>
@@ -385,18 +543,6 @@ export default function Navbar({
           </motion.button>
         </div>
 
-        {/* Search */}
-        <NavItem isDark={isDark} onClick={() => {}} label="Search">
-          <IconSearch size={19} color={t.textMuted} />
-        </NavItem>
-
-        <Divider isDark={isDark} />
-
-        {/* Members */}
-        <NavItem isDark={isDark} onClick={() => {}} label="Members">
-          <IconUsersGroup size={19} color={t.textMuted} />
-        </NavItem>
-
         <Divider isDark={isDark} />
 
         {/* Logout */}
@@ -407,8 +553,6 @@ export default function Navbar({
     </div>
   )
 }
-
-// ── tiny sub-components ───────────────────────────────────────────
 
 function NavItem({ children, onClick, label, isDark }: {
   children: React.ReactNode

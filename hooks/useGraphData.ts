@@ -7,8 +7,7 @@ import {
   type Node, type Edge, type NodeChange, type EdgeChange,
 } from '@xyflow/react'
 import type { Dispatch, SetStateAction } from 'react'
-import { api, getToken } from '@/lib/api'
-import { type LayoutId } from '@/lib/layouts'
+import { api, getToken, setToken } from '@/lib/api'
 import { layoutEngine } from '@/lib/layouts/layoutEngine'
 import { filterGraphBySide, type WomanView } from '@/lib/layouts/familySideFilter'
 import { computeNodeRoles, computeDefaultCollapsedUnits } from '@/lib/layouts/computeNodeRoles'
@@ -27,8 +26,6 @@ interface GraphDataReturn {
   displayEdges: Edge[]
   graphLoading: boolean
   fetchGraph: () => Promise<void>
-  layoutId: LayoutId
-  onLayoutChange: (id: LayoutId) => void
   isMarriedWoman: boolean
   womanView: WomanView
   onWomanViewChange: (v: WomanView) => void
@@ -49,7 +46,6 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
 
   const [graphLoading, setGraphLoading] = useState(true)
   const [womanView, setWomanView] = useState<WomanView>('piyar')
-  const layoutId: LayoutId = 'default'
 
   const { collapsedUnitIds, initCollapseState } = useGraphStore()
 
@@ -66,16 +62,19 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
         data: { ...(n.data as object), animDelay: delays.get(n.id) ?? 0 },
       }))
 
-      setRawNodes(rawN)
-      setRawEdges(rawE)
-
-      // Initialise collapse state from node roles (only on the very first load)
+      // Initialise collapse state BEFORE setting raw nodes so that both
+      // the Zustand store and the React state update in the same render batch.
+      // (If we set raw nodes first, the layout runs once with empty collapsedSet,
+      // then again after initCollapseState — causing nodes to visibly jump.)
       if (!collapseInitialised.current) {
         collapseInitialised.current = true
         const roles = computeNodeRoles(rawN, rawE)
         const defaultCollapsed = computeDefaultCollapsedUnits(rawE, roles)
         initCollapseState(defaultCollapsed)
       }
+
+      setRawNodes(rawN)
+      setRawEdges(rawE)
     } catch (err) {
       console.error('Failed to fetch graph:', err)
     } finally {
@@ -133,11 +132,31 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   useEffect(() => {
     if (!getToken()) { router.replace('/login'); return }
     setGraphLoading(true)
+    setRawNodes([])
+    setRawEdges([])
     collapseInitialised.current = false
     fetchGraph()
   }, [fetchGraph, router])
 
-  const onLayoutChange = useCallback((_id: LayoutId) => { /* single layout only */ }, [])
+  // ── Stale-JWT recovery ────────────────────────────────────────────────────
+  // After a merge the user's JWT still contains their old familyId, so the
+  // graph loads with 0 nodes.  Detect this once and re-issue the token —
+  // the backend picks the family containing their active person_id.
+  const refreshAttempted = useRef(false)
+  useEffect(() => {
+    if (graphLoading) return
+    if (rawNodes.length > 0) { refreshAttempted.current = false; return }
+    if (refreshAttempted.current) return
+    refreshAttempted.current = true
+    api.auth.refreshToken()
+      .then(({ token }) => {
+        setToken(token)
+        collapseInitialised.current = false
+        fetchGraph()
+      })
+      .catch(() => {})
+  }, [graphLoading, rawNodes.length, fetchGraph])
+
   const onWomanViewChange = useCallback((v: WomanView) => setWomanView(v), [])
 
   return {
@@ -145,7 +164,6 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
     graphLoading, fetchGraph,
-    layoutId, onLayoutChange,
     isMarriedWoman, womanView, onWomanViewChange,
     familyName,
   }

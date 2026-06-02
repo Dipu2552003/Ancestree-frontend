@@ -1,16 +1,21 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import type { AppNotification } from '@/lib/api'
 
 interface GraphState {
   currentZoom: number
   isDark: boolean
   collapsedUnitIds: string[]
   expandedCouples: string[]
+  notifications: AppNotification[]
+  unreadCount: number
   setCurrentZoom: (zoom: number) => void
   setIsDark: (dark: boolean) => void
   toggleCollapse: (key: string) => void
   initCollapseState: (ids: string[]) => void
   expandCouple: (key: string) => void
+  setNotifications: (notifications: AppNotification[], unreadCount: number) => void
+  markNotificationRead: (id: string) => void
 }
 
 export const useGraphStore = create<GraphState>()(
@@ -20,6 +25,8 @@ export const useGraphStore = create<GraphState>()(
       isDark: false,
       collapsedUnitIds: [],
       expandedCouples: [],
+      notifications: [],
+      unreadCount: 0,
       setCurrentZoom: (zoom) => set({ currentZoom: zoom }),
       setIsDark: (dark) => set({ isDark: dark }),
       toggleCollapse: (key) => set(s => ({
@@ -32,6 +39,11 @@ export const useGraphStore = create<GraphState>()(
         expandedCouples: s.expandedCouples.includes(key)
           ? s.expandedCouples.filter(k => k !== key)
           : [...s.expandedCouples, key],
+      })),
+      setNotifications: (notifications, unreadCount) => set({ notifications, unreadCount }),
+      markNotificationRead: (id) => set(s => ({
+        notifications: s.notifications.map(n => n.id === id ? { ...n, is_read: true } : n),
+        unreadCount: Math.max(0, s.unreadCount - 1),
       })),
     }),
     {

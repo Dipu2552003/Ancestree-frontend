@@ -1,29 +1,37 @@
 'use client'
 
-import { useState, useCallback, Suspense } from 'react'
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ReactFlowProvider, Controls, MiniMap, useReactFlow } from '@xyflow/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { IconSun, IconMoon } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconBell } from '@tabler/icons-react'
 import GraphCanvas from '@/components/graph/GraphCanvas'
+import SearchBar from '@/components/graph/SearchBar'
 import DotField from '@/components/graph/DotField'
 import NodePanel from '@/components/graph/NodePanel'
 import PersonProfileView from '@/components/graph/PersonProfileView'
 import Navbar from '@/components/graph/Navbar'
 import NodeContextMenu from '@/components/graph/NodeContextMenu'
 import PerspectiveBanner from '@/components/graph/PerspectiveBanner'
+import DuplicateFoundModal from '@/components/graph/DuplicateFoundModal'
+import NotificationPanel from '@/components/graph/NotificationPanel'
+import MergeConflictModal from '@/components/graph/MergeConflictModal'
 import { useGraphStore } from '@/store/graphStore'
 import { useGraphData } from '@/hooks/useGraphData'
 import { useNodeActions } from '@/hooks/useNodeActions'
-import { useTiltEffect } from '@/hooks/useTiltEffect'
 import { getTheme } from '@/lib/theme'
-import { api } from '@/lib/api'
+import { api, type PotentialMatch, type MergeConflict } from '@/lib/api'
 import type { PersonData } from '@/types'
+import type { RelAction } from '@/components/graph/Navbar'
+
+function asPersonData(data: unknown): PersonData {
+  return data as PersonData
+}
 
 export default function GraphPage() {
   return (
     <ReactFlowProvider>
-      <Suspense>
+      <Suspense fallback={null}>
         <GraphInner />
       </Suspense>
     </ReactFlowProvider>
@@ -36,14 +44,21 @@ function GraphInner() {
   const perspectiveId = searchParams.get('perspective') ?? undefined
 
   const { getNodes, setCenter, fitView } = useReactFlow()
-  const { isDark, setIsDark } = useGraphStore()
+  const { isDark, setIsDark, unreadCount, setNotifications } = useGraphStore()
   const t = getTheme(isDark)
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const [profileNodeId, setProfileNodeId]   = useState<string | null>(null)
+  const [panelMode, setPanelMode] = useState<'none' | 'edit' | 'view'>('none')
+  const [canvasReady, setCanvasReady] = useState(false)
+  const fitDone = useRef(false)
   const [contextMenu, setContextMenu] = useState<{
     nodeId: string; x: number; y: number; personData: PersonData
   } | null>(null)
+  const [duplicateInfo, setDuplicateInfo] = useState<{
+    newPersonId: string; matches: PotentialMatch[]
+  } | null>(null)
+  const [notifPanelOpen,  setNotifPanelOpen]  = useState(false)
+  const [mergeConflicts,  setMergeConflicts]  = useState<MergeConflict[]>([])
 
   const {
     nodes, edges, setNodes, setEdges,
@@ -56,27 +71,65 @@ function GraphInner() {
 
   const { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation } = useNodeActions(
     edges, setNodes, setEdges, fetchGraph, selectedNodeId, setSelectedNodeId,
+    (newPersonId, matches) => setDuplicateInfo({ newPersonId, matches }),
   )
 
-  const { rotateX, rotateY, handleMouseMove, handleMouseLeave } = useTiltEffect()
+  // Fetch notification unread count on load
+  useEffect(() => {
+    api.notifications.list()
+      .then(({ notifications, unread_count }) => setNotifications(notifications, unread_count))
+      .catch(() => {})
+  }, [setNotifications])
 
 
   const perspectivePerson = perspectiveId
-    ? nodes.find(n => (n.data as unknown as PersonData)?.isSelf) ?? null
+    ? nodes.find(n => asPersonData(n.data)?.isSelf) ?? null
     : null
-  const perspectiveName = (perspectivePerson?.data as unknown as PersonData)?.fullName ?? ''
+  const perspectiveName = asPersonData(perspectivePerson?.data)?.fullName ?? ''
 
-  const selectedNode     = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) ?? null : null
-  const profileNode      = profileNodeId  ? nodes.find(n => n.id === profileNodeId)  ?? null : null
-  const selectedNodeName = (selectedNode?.data as unknown as PersonData)?.fullName ?? ''
-  const selectedIsSelf   = (selectedNode?.data as unknown as PersonData)?.isSelf ?? false
+  const selectedNode      = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) ?? null : null
+  const selectedNodeName  = asPersonData(selectedNode?.data)?.fullName ?? ''
+  const selectedIsSelf    = asPersonData(selectedNode?.data)?.isSelf ?? false
   const canDeleteSelected = !!selectedNodeId && !selectedIsSelf
 
   const onHome = useCallback(() => {
-    const self = getNodes().find(n => (n.data as unknown as PersonData)?.isSelf)
+    const self = getNodes().find(n => asPersonData(n.data)?.isSelf)
     if (self) setCenter(self.position.x + 64, self.position.y + 70, { zoom: 1, duration: 600 })
     else fitView({ padding: 0.35, duration: 600 })
   }, [getNodes, setCenter, fitView])
+
+  // Reset viewport state when switching perspective so the new tree is fitted.
+  useEffect(() => {
+    fitDone.current = false
+    setCanvasReady(false)
+  }, [perspectiveId])
+
+  // Fit the viewport once after the graph first loads — imperatively, so we can
+  // wait for two animation frames (ResizeObserver fires between them) before
+  // calling fitView. The canvas stays hidden (opacity 0) until this completes.
+  useEffect(() => {
+    if (graphLoading || visibleNodes.length === 0 || fitDone.current) return
+    fitDone.current = true
+    // Two rAF passes: first renders nodes, second fires ResizeObserver + layout.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        fitView({ padding: 0.35, duration: 0 })
+        setCanvasReady(true)
+      })
+    })
+  }, [graphLoading, visibleNodes.length, fitView])
+
+  // When adding a relation from the Navbar, auto-open edit panel for the new node
+  const onNavbarAddRelation = useCallback(async (action: RelAction, name: string) => {
+    await onAddRelation(action, name)
+    setPanelMode('edit')
+  }, [onAddRelation])
+
+  const onMergeAccepted = useCallback((conflicts: MergeConflict[]) => {
+    fetchGraph()
+    setNotifPanelOpen(false)
+    if (conflicts.length > 0) setMergeConflicts(conflicts)
+  }, [fetchGraph])
 
   if (graphLoading) {
     return (
@@ -92,40 +145,33 @@ function GraphInner() {
 
   return (
     <div
-      style={{ position: 'relative', height: '100vh', overflow: 'hidden', perspective: '1100px', background: t.pageBg, transition: 'background 0.4s' }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+      style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: t.pageBg, transition: 'background 0.4s' }}
     >
       <DotField isDark={isDark} />
 
-      <motion.div style={{ position: 'absolute', inset: 0, zIndex: 1, rotateY, rotateX, transformOrigin: 'center center' }}>
+      <motion.div style={{ position: 'absolute', inset: 0, zIndex: 1, opacity: canvasReady ? 1 : 0, transition: 'opacity 0.15s ease' }}>
         <GraphCanvas
           nodes={visibleNodes} edges={displayEdges}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
           onNodeClick={id => {
             setContextMenu(null)
-            // Collapsed couple nodes handle their own click (expand toggle)
             if (id.startsWith('couple_')) return
-            const clicked = nodes.find(n => n.id === id)
-            const canEdit = (clicked?.data as unknown as PersonData)?.canEdit ?? false
-            if (canEdit) {
-              setSelectedNodeId(prev => prev === id ? null : id)
-              setProfileNodeId(null)
-            } else {
-              setProfileNodeId(prev => prev === id ? null : id)
-              setSelectedNodeId(null)
-            }
+            setSelectedNodeId(prev => {
+              if (prev === id) { setPanelMode('none'); return null }
+              setPanelMode('edit')
+              return id
+            })
           }}
           onNodeContextMenu={(event, nodeId) => {
             const node = nodes.find(n => n.id === nodeId)
             if (!node) return
             setSelectedNodeId(null)
-            setProfileNodeId(null)
+            setPanelMode('none')
             setContextMenu({
               nodeId,
               x: event.clientX,
               y: event.clientY,
-              personData: node.data as unknown as PersonData,
+              personData: asPersonData(node.data),
             })
           }}
         />
@@ -162,6 +208,22 @@ function GraphInner() {
         </div>
       </div>
 
+      {/* Notification bell */}
+      <div style={{ position: 'absolute', top: '16px', right: '64px', zIndex: 50 }}>
+        <button
+          onClick={() => setNotifPanelOpen(v => !v)}
+          style={{ position: 'relative', width: '38px', height: '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'background 0.3s, color 0.3s' }}
+          title="Notifications"
+        >
+          <IconBell size={17} />
+          {unreadCount > 0 && (
+            <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#EA580C', color: '#fff', borderRadius: '999px', fontSize: '9px', fontWeight: 700, minWidth: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1 }}>
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+      </div>
+
       <button
         onClick={() => setIsDark(!isDark)}
         style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 50, width: '38px', height: '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'background 0.3s, color 0.3s' }}
@@ -170,6 +232,18 @@ function GraphInner() {
         {isDark ? <IconSun size={17} /> : <IconMoon size={17} />}
       </button>
 
+
+      {/* Search bar — centered top */}
+      <div style={{
+        position:  'absolute',
+        top:       '16px',
+        left:      '50%',
+        transform: 'translateX(-50%)',
+        zIndex:    50,
+        width:     '320px',
+      }}>
+        <SearchBar isDark={isDark} />
+      </div>
 
       {perspectiveId && perspectiveName && (
         <PerspectiveBanner
@@ -204,40 +278,76 @@ function GraphInner() {
       )}
 
       <AnimatePresence>
-        {selectedNodeId && selectedNode && (
+        {panelMode === 'edit' && selectedNodeId && selectedNode && (
           <NodePanel
             key={selectedNodeId}
             node={selectedNode}
-            onClose={() => setSelectedNodeId(null)}
-            onViewProfile={() => { setProfileNodeId(selectedNodeId); setSelectedNodeId(null) }}
+            onClose={() => setPanelMode('none')}
+            onViewProfile={() => setPanelMode('view')}
             onUpdate={onUpdateNode}
             onSave={onSaveNode}
-            onAddParent={id => onAddRelation('father').then(() => setSelectedNodeId(id))}
-            onAddChild={id  => onAddRelation('son').then(() => setSelectedNodeId(id))}
-            onAddSpouse={id => onAddRelation('spouse').then(() => setSelectedNodeId(id))}
+            onAddParent={async (name) => { await onAddRelation('father',  name) }}
+            onAddChild={async  (name) => { await onAddRelation('son',     name) }}
+            onAddSpouse={async (name) => { await onAddRelation('spouse',  name) }}
           />
         )}
       </AnimatePresence>
 
       <AnimatePresence>
-        {profileNodeId && profileNode && (
+        {panelMode === 'view' && selectedNodeId && selectedNode && (
           <PersonProfileView
-            key={profileNodeId}
-            node={profileNode}
-            onBack={() => setProfileNodeId(null)}
-            onEdit={() => { setSelectedNodeId(profileNodeId); setProfileNodeId(null) }}
+            key={selectedNodeId}
+            node={selectedNode}
+            onBack={() => setPanelMode('none')}
+            onEdit={() => setPanelMode('edit')}
           />
         )}
       </AnimatePresence>
+
+      {/* Duplicate-found modal — shown after a node is created with matches */}
+      {duplicateInfo && (
+        <DuplicateFoundModal
+          newPersonId={duplicateInfo.newPersonId}
+          matches={duplicateInfo.matches}
+          isDark={isDark}
+          onSent={() => {}}
+          onKeepBoth={() => setDuplicateInfo(null)}
+        />
+      )}
+
+      {/* Notification panel — slides in from right */}
+      <AnimatePresence>
+        {notifPanelOpen && (
+          <NotificationPanel
+            key="notif-panel"
+            isDark={isDark}
+            onClose={() => setNotifPanelOpen(false)}
+            onMergeAccepted={onMergeAccepted}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Merge conflict modal — blocks until dismissed so user can't miss it */}
+      {mergeConflicts.length > 0 && (
+        <MergeConflictModal
+          conflicts={mergeConflicts}
+          nodes={nodes}
+          isDark={isDark}
+          onClose={() => setMergeConflicts([])}
+        />
+      )}
 
       <Navbar
         familyName={familyName}
         selectedNodeId={selectedNodeId}
         selectedNodeName={selectedNodeName}
         canDeleteSelected={canDeleteSelected}
+        panelMode={panelMode}
         onHome={onHome}
-        onAddRelation={onAddRelation}
+        onAddRelation={onNavbarAddRelation}
         onDeleteSelected={() => onDeleteNode(selectedNodeId!)}
+        onEdit={() => setPanelMode(m => m === 'edit' ? 'none' : 'edit')}
+        onView={() => setPanelMode(m => m === 'view' ? 'none' : 'view')}
         isMarriedWoman={isMarriedWoman}
         womanView={womanView}
         onWomanViewChange={onWomanViewChange}

@@ -265,8 +265,8 @@ export function layoutEngine(
     for (const child of kids) firstWalk(child)
 
     if (kids.length === 0) {
-      if (u.index > 0) {
-        const prev = (unitChildren.get(u.parent!) ?? [])[u.index - 1]
+      if (u.index > 0 && u.parent) {
+        const prev = (unitChildren.get(u.parent) ?? [])[u.index - 1]
         u.prelim = prev.prelim + unitWidth(prev) + H_GAP
       } else {
         u.prelim = 0
@@ -280,8 +280,8 @@ export function layoutEngine(
     const kidMid   = (firstKid.prelim + lastKid.prelim + unitWidth(lastKid)) / 2
     const half     = unitHalfWidth(u)
 
-    if (u.index > 0) {
-      const prev = (unitChildren.get(u.parent!) ?? [])[u.index - 1]
+    if (u.index > 0 && u.parent) {
+      const prev = (unitChildren.get(u.parent) ?? [])[u.index - 1]
       u.prelim = prev.prelim + unitWidth(prev) + H_GAP
       u.mod    = u.prelim + half - kidMid
     } else {
@@ -389,21 +389,27 @@ export function layoutEngine(
 
   // ── Append any still-unplaced nodes (truly disconnected, not collapsed) ────
   const unplaced = nodes.filter(n => !pos.has(n.id) && !collapsedDescendants.has(n.id))
-  const byGen    = new Map<number, string[]>()
-  for (const n of unplaced) {
-    const g = genOf(n.id)
-    if (!byGen.has(g)) byGen.set(g, [])
-    byGen.get(g)!.push(n.id)
-  }
-  for (const [g, ids] of byGen) {
-    let rightmost = -Infinity
-    for (const [id, p] of pos) {
-      if (genOf(id) === g) rightmost = Math.max(rightmost, p.x)
+  if (unplaced.length > 0) {
+    // Anchor to the global tree max-X so these nodes never shift when the main
+    // tree topology changes (per-generation rightmost would vary each render).
+    let overallMaxX = 0
+    for (const p of pos.values()) {
+      if (p.x > overallMaxX) overallMaxX = p.x
     }
-    let x = rightmost === -Infinity ? 0 : rightmost + STEP
-    for (const id of ids) {
-      pos.set(id, { x, y: BASE_Y + g * V })
-      x += STEP
+    const disconnectedBaseX = overallMaxX + STEP * 3
+
+    const byGen = new Map<number, string[]>()
+    for (const n of unplaced) {
+      const g = genOf(n.id)
+      if (!byGen.has(g)) byGen.set(g, [])
+      byGen.get(g)!.push(n.id)
+    }
+    for (const [g, ids] of byGen) {
+      let x = disconnectedBaseX
+      for (const id of ids) {
+        pos.set(id, { x, y: BASE_Y + g * V })
+        x += STEP
+      }
     }
   }
 
@@ -425,7 +431,7 @@ export function layoutEngine(
       const p       = pos.get(u.left) ?? { x: 0, y: BASE_Y }
       const lData   = (nodeMap.get(u.left)?.data  ?? {}) as Record<string, unknown>
       const rData   = (nodeMap.get(u.right)?.data ?? {}) as Record<string, unknown>
-      const animDelay = Math.min(lData.animDelay as number ?? 0, rData.animDelay as number ?? 0)
+      const animDelay = Math.min((lData.animDelay ?? 0) as number, (rData.animDelay ?? 0) as number)
 
       return [{
         id: `couple_${unitKey}`,

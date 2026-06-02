@@ -2,48 +2,100 @@ export type NodeState = 'proxy' | 'invited' | 'claimed'
 
 export interface PersonData {
   fullName: string
+  firstName?: string
+  middleName?: string
+  lastName?: string
+  nameNative?: string
   nickname?: string
   gender?: string
+  gotra?: string
+  religion?: string
+
+  birthDate?: string
   birthYear?: number
   birthPlace?: string
-  deathYear?: number
   isAlive: boolean
   isDeceased: boolean
+  deathDate?: string
+  deathYear?: number
+  deathPlace?: string
+
+  phone?: string
+  whatsapp?: string
+  email?: string
+
+  currentAddress?: string
+  currentCity?: string
+  currentState?: string
+  currentCountry?: string
+  currentPincode?: string
+
+  nativeVillage?: string
+  nativeTehsil?: string
+  nativeDistrict?: string
+  nativeState?: string
+  nativeCountry?: string
+
+  occupation?: string
+  occupationDetail?: string
+  education?: string
+  bio?: string
+
+  photoUrl?: string
   nodeState: NodeState
   isSelf: boolean
   isViewerNode?: boolean
   relationshipToSelf: string
   canEdit?: boolean
+  canEditProfile?: boolean
   canDelete?: boolean
   canInvite?: boolean
-  photoUrl?: string
   animDelay?: number
-  gotra?: string
-  nativeVillage?: string
-  currentCity?: string
-  currentCountry?: string
-  occupation?: string
-  bio?: string
-  education?: string
+  nodeRole?: 'self' | 'spouse' | 'family'
 }
 
 export interface SavePayload {
   fullName: string
+  firstName?: string | null
+  middleName?: string | null
+  lastName?: string | null
+  nameNative?: string | null
   nickname?: string | null
   gender?: string | null
+  gotra?: string | null
+  religion?: string | null
+
+  birthDate?: string | null
   birthYear?: number | null
   birthPlace?: string | null
   isDeceased: boolean
   isAlive: boolean
+  deathDate?: string | null
   deathYear?: number | null
-  photoUrl?: string | null
-  gotra?: string | null
-  nativeVillage?: string | null
+  deathPlace?: string | null
+
+  phone?: string | null
+  whatsapp?: string | null
+  email?: string | null
+
+  currentAddress?: string | null
   currentCity?: string | null
+  currentState?: string | null
   currentCountry?: string | null
+  currentPincode?: string | null
+
+  nativeVillage?: string | null
+  nativeTehsil?: string | null
+  nativeDistrict?: string | null
+  nativeState?: string | null
+  nativeCountry?: string | null
+
   occupation?: string | null
-  bio?: string | null
+  occupationDetail?: string | null
   education?: string | null
+  bio?: string | null
+
+  photoUrl?: string | null
 }
 
 export interface EdgeData {
