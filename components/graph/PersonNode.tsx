@@ -51,7 +51,7 @@ function ownerBadge(nodeState: string, isSelf: boolean, firstName: string, isDar
 function PersonNode({ id, data, selected }: NodeProps) {
   const { isDark } = useGraphStore()
   const person = data as unknown as PersonData
-  const { fullName, birthYear, deathYear, isAlive, isDeceased, nodeState, isSelf, isViewerNode, relationshipToSelf, photoUrl, animDelay } = person
+  const { fullName, birthYear, deathYear, isAlive, isDeceased, nodeState, isSelf, isViewerNode, relationshipToSelf, photoUrl, animDelay, isMatchHighlight } = person
   const [firstName, lastName] = splitName(fullName)
   const [hovered, setHovered] = useState(false)
   const badge = ownerBadge(nodeState, isSelf, firstName, isDark)
@@ -87,6 +87,29 @@ function PersonNode({ id, data, selected }: NodeProps) {
       <Handle id="top"   type="target" position={Position.Top}   style={{ opacity: 0, width: 1, height: 1, minWidth: 1, minHeight: 1 }} />
       <Handle id="left"  type="target" position={Position.Left}  style={{ opacity: 0, width: 1, height: 1, minWidth: 1, minHeight: 1 }} />
       <Handle id="right" type="target" position={Position.Right} style={{ opacity: 0, width: 1, height: 1, minWidth: 1, minHeight: 1 }} />
+
+      {/* Pulsing ring for exploration highlight */}
+      {isMatchHighlight && (
+        <>
+          <motion.div
+            animate={{ boxShadow: ['0 0 0 0px rgba(234,88,12,0.55)', '0 0 0 12px rgba(234,88,12,0)'] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
+            style={{ position: 'absolute', inset: -6, borderRadius: '12px', zIndex: -1, pointerEvents: 'none' }}
+          />
+          <div style={{
+            position: 'absolute', top: isSelf ? -36 : -24, left: '50%',
+            transform: 'translateX(-50%)', zIndex: 20,
+            background: '#EA580C', color: '#fff',
+            fontSize: '8px', fontWeight: 700, letterSpacing: '0.08em',
+            padding: '3px 10px', borderRadius: '999px',
+            whiteSpace: 'nowrap', pointerEvents: 'none',
+            boxShadow: '0 2px 8px rgba(234,88,12,0.45)',
+          }}>
+            POSSIBLE MATCH
+          </div>
+          <style>{`@keyframes pulse-ring { 0%,100%{opacity:1}50%{opacity:0.5} }`}</style>
+        </>
+      )}
 
       {/* YOU badge — outside card, above it */}
       {isSelf && (

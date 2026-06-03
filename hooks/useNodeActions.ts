@@ -4,7 +4,7 @@ import { useCallback } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import type { Dispatch, SetStateAction } from 'react'
 import { api, type PotentialMatch } from '@/lib/api'
-import type { PersonData, SavePayload } from '@/types'
+import type { PersonData, SavePayload, MyPersonInfo } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 import { computeCascadeOps } from '@/lib/graph/relationshipRules'
 
@@ -28,7 +28,7 @@ export function useNodeActions(
   fetchGraph: () => Promise<void>,
   selectedNodeId: string | null,
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>,
-  onDuplicateFound: (newPersonId: string, matches: PotentialMatch[]) => void,
+  onDuplicateFound: (newPersonId: string, matches: PotentialMatch[], myInfo: MyPersonInfo) => void,
 ): NodeActionsReturn {
   const onUpdateNode = useCallback((id: string, data: Partial<PersonData>) => {
     setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, ...data } } : n))
@@ -114,10 +114,15 @@ export function useNodeActions(
       bio:              payload.bio ?? undefined,
       photoUrl:         payload.photoUrl ?? undefined,
     })
-    // If the name was changed to a real value and the backend found matches,
-    // show the duplicate-found modal immediately after save.
     if (result.potential_matches && result.potential_matches.length > 0) {
-      onDuplicateFound(id, result.potential_matches)
+      onDuplicateFound(id, result.potential_matches, {
+        fullName:      payload.fullName,
+        gender:        payload.gender ?? null,
+        birthYear:     payload.birthYear ?? null,
+        nativeVillage: payload.nativeVillage ?? null,
+        gotra:         payload.gotra ?? null,
+        photoUrl:      payload.photoUrl ?? null,
+      })
     }
   }, [onUpdateNode, onDuplicateFound])
 
@@ -140,9 +145,11 @@ export function useNodeActions(
       await fetchGraph()
       setSelectedNodeId(person.id)
 
-      // Notify page if the backend found potential duplicates
       if (person.potential_matches && person.potential_matches.length > 0) {
-        onDuplicateFound(person.id, person.potential_matches)
+        onDuplicateFound(person.id, person.potential_matches, {
+          fullName: fullName.trim() || 'Unknown',
+          gender:   GENDER_BY_RELATION[action] ?? null,
+        })
       }
     } catch (err) {
       console.error('Failed to add relation:', err)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef, Suspense } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ReactFlowProvider, Controls, MiniMap, useReactFlow } from '@xyflow/react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -13,15 +13,17 @@ import PersonProfileView from '@/components/graph/PersonProfileView'
 import Navbar from '@/components/graph/Navbar'
 import NodeContextMenu from '@/components/graph/NodeContextMenu'
 import PerspectiveBanner from '@/components/graph/PerspectiveBanner'
+import ExplorationBanner from '@/components/graph/ExplorationBanner'
 import DuplicateFoundModal from '@/components/graph/DuplicateFoundModal'
 import NotificationPanel from '@/components/graph/NotificationPanel'
 import MergeConflictModal from '@/components/graph/MergeConflictModal'
+import MergeComparisonPanel from '@/components/graph/MergeComparisonPanel'
 import { useGraphStore } from '@/store/graphStore'
 import { useGraphData } from '@/hooks/useGraphData'
 import { useNodeActions } from '@/hooks/useNodeActions'
 import { getTheme } from '@/lib/theme'
-import { api, type PotentialMatch, type MergeConflict } from '@/lib/api'
-import type { PersonData } from '@/types'
+import { api, getToken, type PotentialMatch, type MergeConflict } from '@/lib/api'
+import type { PersonData, PendingMatchData, MyPersonInfo } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 
 function asPersonData(data: unknown): PersonData {
@@ -41,7 +43,23 @@ export default function GraphPage() {
 function GraphInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const perspectiveId = searchParams.get('perspective') ?? undefined
+  const perspectiveId  = searchParams.get('perspective') ?? undefined
+  const viewMergeParam = searchParams.get('viewMerge') ?? undefined
+
+  useEffect(() => {
+    if (!getToken()) router.replace('/login')
+  }, [router])
+
+  // Read exploration / review context stored by DuplicateFoundModal or NotificationPanel.
+  // Must depend on perspectiveId: when already on /graph and "View tree" is clicked,
+  // router.push doesn't remount the component — the effect must re-run on URL change.
+  useEffect(() => {
+    const raw = sessionStorage.getItem('pendingMatch')
+    if (raw) {
+      try { setPendingMatch(JSON.parse(raw) as PendingMatchData) } catch {}
+      sessionStorage.removeItem('pendingMatch')
+    }
+  }, [perspectiveId])
 
   const { getNodes, setCenter, fitView } = useReactFlow()
   const { isDark, setIsDark, unreadCount, setNotifications } = useGraphStore()
@@ -55,23 +73,25 @@ function GraphInner() {
     nodeId: string; x: number; y: number; personData: PersonData
   } | null>(null)
   const [duplicateInfo, setDuplicateInfo] = useState<{
-    newPersonId: string; matches: PotentialMatch[]
+    newPersonId: string; matches: PotentialMatch[]; myInfo: MyPersonInfo
   } | null>(null)
   const [notifPanelOpen,  setNotifPanelOpen]  = useState(false)
   const [mergeConflicts,  setMergeConflicts]  = useState<MergeConflict[]>([])
+  const [pendingMatch,    setPendingMatch]    = useState<PendingMatchData | null>(null)
+  const [matchPanelOpen,  setMatchPanelOpen]  = useState(false)
 
   const {
     nodes, edges, setNodes, setEdges,
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
-    graphLoading, fetchGraph,
+    graphLoading, fetchGraph, resetAndFetch,
     isMarriedWoman, womanView, onWomanViewChange,
     familyName,
   } = useGraphData(perspectiveId)
 
   const { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation } = useNodeActions(
     edges, setNodes, setEdges, fetchGraph, selectedNodeId, setSelectedNodeId,
-    (newPersonId, matches) => setDuplicateInfo({ newPersonId, matches }),
+    (newPersonId, matches, myInfo) => setDuplicateInfo({ newPersonId, matches, myInfo }),
   )
 
   // Fetch notification unread count on load
@@ -86,6 +106,23 @@ function GraphInner() {
     ? nodes.find(n => asPersonData(n.data)?.isSelf) ?? null
     : null
   const perspectiveName = asPersonData(perspectivePerson?.data)?.fullName ?? ''
+
+  // Exploration mode — true when we're viewing another tree to evaluate a merge
+  const isExploration     = !!perspectiveId && !!pendingMatch
+  const matchHighlightNode = useMemo(
+    () => isExploration ? (nodes.find(n => asPersonData(n.data).isSelf) ?? null) : null,
+    [nodes, isExploration],
+  )
+
+  // Inject isMatchHighlight into the isSelf node when in exploration mode
+  const explorationNodes = useMemo(() => {
+    if (!isExploration) return visibleNodes
+    return visibleNodes.map(n => {
+      if (asPersonData(n.data).isSelf)
+        return { ...n, data: { ...n.data, isMatchHighlight: true } }
+      return n
+    })
+  }, [visibleNodes, isExploration])
 
   const selectedNode      = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) ?? null : null
   const selectedNodeName  = asPersonData(selectedNode?.data)?.fullName ?? ''
@@ -125,11 +162,26 @@ function GraphInner() {
     setPanelMode('edit')
   }, [onAddRelation])
 
+  // Auto-open the merge comparison panel once the exploration tree has loaded
+  useEffect(() => {
+    if (isExploration && matchHighlightNode && !graphLoading) {
+      setMatchPanelOpen(true)
+    }
+  }, [isExploration, matchHighlightNode?.id, graphLoading])
+
   const onMergeAccepted = useCallback((conflicts: MergeConflict[]) => {
-    fetchGraph()
+    // Use resetAndFetch so the collapse state is recomputed to include the
+    // newly-added family unit (e.g. Dipkul + Shilpa + children) from the merge.
+    resetAndFetch()
+    // Refresh notification list so all family members' unread counts update
+    api.notifications.list()
+      .then(({ notifications, unread_count }) => setNotifications(notifications, unread_count))
+      .catch(() => {})
     setNotifPanelOpen(false)
+    setMatchPanelOpen(false)
+    if (isExploration) router.push('/graph')
     if (conflicts.length > 0) setMergeConflicts(conflicts)
-  }, [fetchGraph])
+  }, [resetAndFetch, isExploration, router, setNotifications])
 
   if (graphLoading) {
     return (
@@ -151,11 +203,16 @@ function GraphInner() {
 
       <motion.div style={{ position: 'absolute', inset: 0, zIndex: 1, opacity: canvasReady ? 1 : 0, transition: 'opacity 0.15s ease' }}>
         <GraphCanvas
-          nodes={visibleNodes} edges={displayEdges}
+          nodes={explorationNodes} edges={displayEdges}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
           onNodeClick={id => {
             setContextMenu(null)
             if (id.startsWith('couple_')) return
+            // In exploration mode, clicking the highlighted node opens the merge comparison panel
+            if (isExploration && matchHighlightNode && id === matchHighlightNode.id) {
+              setMatchPanelOpen(true)
+              return
+            }
             setSelectedNodeId(prev => {
               if (prev === id) { setPanelMode('none'); return null }
               setPanelMode('edit')
@@ -245,7 +302,16 @@ function GraphInner() {
         <SearchBar isDark={isDark} />
       </div>
 
-      {perspectiveId && perspectiveName && (
+      {perspectiveId && isExploration && pendingMatch && (
+        <ExplorationBanner
+          mode={pendingMatch.mode}
+          familyName={pendingMatch.canonicalFamilyName}
+          personName={pendingMatch.myPersonName}
+          canonicalPersonName={pendingMatch.canonicalPersonName}
+          isDark={isDark}
+        />
+      )}
+      {perspectiveId && !isExploration && perspectiveName && (
         <PerspectiveBanner
           personName={perspectiveName}
           onBack={() => router.push('/graph')}
@@ -308,10 +374,10 @@ function GraphInner() {
       {duplicateInfo && (
         <DuplicateFoundModal
           newPersonId={duplicateInfo.newPersonId}
+          myInfo={duplicateInfo.myInfo}
           matches={duplicateInfo.matches}
           isDark={isDark}
-          onSent={() => {}}
-          onKeepBoth={() => setDuplicateInfo(null)}
+          onDismiss={() => setDuplicateInfo(null)}
         />
       )}
 
@@ -336,6 +402,26 @@ function GraphInner() {
           onClose={() => setMergeConflicts([])}
         />
       )}
+
+      {/* Merge comparison panel — opened by clicking the highlighted match node */}
+      <AnimatePresence>
+        {matchPanelOpen && pendingMatch && matchHighlightNode && (
+          <MergeComparisonPanel
+            key="merge-panel"
+            pendingMatch={pendingMatch}
+            matchNode={matchHighlightNode}
+            nodes={nodes}
+            edges={edges}
+            isDark={isDark}
+            onClose={() => setMatchPanelOpen(false)}
+            onNotSamePerson={() => setMatchPanelOpen(false)}
+            onRequestSent={() => router.push('/graph')}
+            onBackToTree={() => router.push('/graph')}
+            onAccepted={onMergeAccepted}
+            onRejected={() => router.push('/graph')}
+          />
+        )}
+      </AnimatePresence>
 
       <Navbar
         familyName={familyName}

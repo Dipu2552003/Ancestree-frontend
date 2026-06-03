@@ -1,48 +1,55 @@
 'use client'
 
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconX, IconGitMerge, IconUsers, IconLoader2 } from '@tabler/icons-react'
-import { api, type PotentialMatch } from '@/lib/api'
+import { IconX, IconSearch, IconArrowRight } from '@tabler/icons-react'
+import type { PotentialMatch } from '@/lib/api'
+import type { MyPersonInfo, PendingMatchData } from '@/types'
 import { getTheme } from '@/lib/theme'
 
 interface DuplicateFoundModalProps {
-  newPersonId: string
-  matches:     PotentialMatch[]
-  isDark:      boolean
-  onSent:      () => void   // after merge request is sent
-  onKeepBoth:  () => void   // user chose to keep separate
+  newPersonId:  string
+  myInfo:       MyPersonInfo
+  matches:      PotentialMatch[]
+  isDark:       boolean
+  onDismiss:    () => void
+}
+
+function confidence(score: number) {
+  if (score >= 70) return { label: 'Strong match',   color: '#EA580C' }
+  if (score >= 40) return { label: 'Possible match', color: '#D97706' }
+  return               { label: 'Weak match',        color: '#64748B' }
 }
 
 export default function DuplicateFoundModal({
-  newPersonId, matches, isDark, onSent, onKeepBoth,
+  newPersonId, myInfo, matches, isDark, onDismiss,
 }: DuplicateFoundModalProps) {
   const t = getTheme(isDark)
-  const [sending, setSending] = useState<string | null>(null)   // canonicalId being sent
-  const [sent,    setSent]    = useState<Set<string>>(new Set())
-  const [error,   setError]   = useState('')
+  const router = useRouter()
 
-  async function handleSendRequest(match: PotentialMatch) {
-    setSending(match.id)
-    setError('')
-    try {
-      await api.merges.create({
-        new_person_id:       newPersonId,
-        canonical_person_id: match.id,
-      })
-      setSent(prev => new Set([...prev, match.id]))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send request')
-    } finally {
-      setSending(null)
+  function viewInTheirTree(match: PotentialMatch) {
+    const data: PendingMatchData = {
+      myPersonId:          newPersonId,
+      myPersonName:        myInfo.fullName,
+      myBirthYear:         myInfo.birthYear ?? null,
+      myNativeVillage:     myInfo.nativeVillage ?? null,
+      myGotra:             myInfo.gotra ?? null,
+      myGender:            myInfo.gender ?? null,
+      myPhotoUrl:          myInfo.photoUrl ?? null,
+      matchScore:          match.match_score,
+      matchedFields:       match.matched_fields,
+      canonicalPersonId:   match.id,
+      canonicalFamilyName: match.family_name,
+      canonicalPersonName: match.full_name,
+      mode:                'explore',
     }
+    sessionStorage.setItem('pendingMatch', JSON.stringify(data))
+    onDismiss()
+    router.push(`/graph?perspective=${match.id}&match=${newPersonId}`)
   }
-
-  const allSent = sent.size === matches.length
 
   return (
     <AnimatePresence>
-      {/* Backdrop */}
       <motion.div
         key="backdrop"
         initial={{ opacity: 0 }}
@@ -50,17 +57,17 @@ export default function DuplicateFoundModal({
         exit={{ opacity: 0 }}
         style={{
           position: 'fixed', inset: 0, zIndex: 300,
-          background: 'rgba(0,0,0,0.45)',
+          background: 'rgba(0,0,0,0.35)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '16px',
         }}
-        onClick={e => { if (e.target === e.currentTarget) onKeepBoth() }}
+        onClick={e => { if (e.target === e.currentTarget) onDismiss() }}
       >
         <motion.div
           key="modal"
-          initial={{ opacity: 0, scale: 0.94, y: 12 }}
+          initial={{ opacity: 0, scale: 0.94, y: 10 }}
           animate={{ opacity: 1, scale: 1,    y: 0  }}
-          exit={{    opacity: 0, scale: 0.94, y: 12 }}
+          exit={{    opacity: 0, scale: 0.94, y: 10 }}
           transition={{ type: 'spring', stiffness: 380, damping: 32 }}
           style={{
             background:   t.panelBg,
@@ -68,149 +75,102 @@ export default function DuplicateFoundModal({
             borderRadius: '20px',
             boxShadow:    t.shadow,
             width:        '100%',
-            maxWidth:     '440px',
+            maxWidth:     '420px',
             overflow:     'hidden',
           }}
         >
           {/* Header */}
           <div style={{
-            padding: '20px 20px 0',
-            display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+            padding: '18px 18px 14px',
+            borderBottom: `1px solid ${t.borderNeutral}`,
+            display: 'flex', gap: '12px', alignItems: 'flex-start',
           }}>
-            <div>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                marginBottom: '4px',
-              }}>
-                <div style={{
-                  width: '32px', height: '32px', borderRadius: '10px',
-                  background: 'rgba(234,88,12,0.12)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <IconGitMerge size={17} color="#EA580C" />
-                </div>
-                <span style={{ fontSize: '15px', fontWeight: 700, color: t.text }}>
-                  Similar person found
-                </span>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
+              background: 'rgba(234,88,12,0.10)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <IconSearch size={16} color="#EA580C" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: t.text, marginBottom: '3px' }}>
+                {matches.length === 1
+                  ? 'Possible match found in another tree'
+                  : `${matches.length} possible matches found`}
               </div>
-              <p style={{ margin: 0, fontSize: '12.5px', color: t.textMuted, lineHeight: 1.5 }}>
-                This person already exists in another family tree.
-                You can send a merge request to connect your trees.
+              <p style={{ margin: 0, fontSize: '12px', color: t.textMuted, lineHeight: 1.5 }}>
+                <strong style={{ color: t.text }}>{myInfo.fullName}</strong> may already exist in another family. Explore their tree first to see where this person fits before deciding.
               </p>
             </div>
             <button
-              onClick={onKeepBoth}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: t.textMuted, padding: '2px', display: 'flex', flexShrink: 0,
-              }}
+              onClick={onDismiss}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '2px', flexShrink: 0, display: 'flex' }}
             >
-              <IconX size={16} />
+              <IconX size={15} />
             </button>
           </div>
 
-          {/* Match cards */}
-          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* Match list */}
+          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {matches.map(match => {
-              const isSending = sending === match.id
-              const isSent    = sent.has(match.id)
+              const conf = confidence(match.match_score)
               return (
                 <div
                   key={match.id}
                   style={{
-                    background:   isDark ? 'rgba(255,255,255,0.04)' : '#FFF7ED',
-                    border:       `1px solid ${t.borderNeutral}`,
-                    borderRadius: '14px',
-                    padding:      '14px 16px',
-                    display:      'flex',
-                    alignItems:   'center',
-                    justifyContent: 'space-between',
-                    gap:          '12px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: '12px', padding: '12px 14px', borderRadius: '13px',
+                    background: isDark ? 'rgba(255,255,255,0.035)' : '#FFFBF7',
+                    border: `1.5px solid ${t.borderNeutral}`,
                   }}
                 >
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: t.text, marginBottom: '3px' }}>
-                      {match.full_name}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '3px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: t.text }}>{match.full_name}</span>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: conf.color, padding: '1px 7px', borderRadius: '999px', background: `${conf.color}15`, border: `1px solid ${conf.color}25` }}>
+                        {conf.label}
+                      </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '11.5px', color: '#EA580C', fontWeight: 500 }}>
-                        {match.family_name}
-                      </span>
-                      <span style={{ color: t.textMuted, fontSize: '10px' }}>•</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11.5px', color: t.textMuted }}>
-                        <IconUsers size={11} />
-                        {match.member_count} {match.member_count === 1 ? 'member' : 'members'}
-                      </span>
-                      {match.birth_year && (
-                        <>
-                          <span style={{ color: t.textMuted, fontSize: '10px' }}>•</span>
-                          <span style={{ fontSize: '11.5px', color: t.textMuted }}>b. {match.birth_year}</span>
-                        </>
-                      )}
+                    <div style={{ fontSize: '11.5px', color: '#EA580C', fontWeight: 600, marginBottom: '2px' }}>
+                      {match.family_name}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {match.matched_fields.slice(0, 3).map(f => (
+                        <span key={f} style={{ fontSize: '10px', color: t.textMuted, background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', padding: '1px 6px', borderRadius: '5px' }}>
+                          {f}
+                        </span>
+                      ))}
                     </div>
                   </div>
 
                   <button
-                    onClick={() => handleSendRequest(match)}
-                    disabled={isSending || isSent}
+                    onClick={() => viewInTheirTree(match)}
                     style={{
-                      display:      'flex',
-                      alignItems:   'center',
-                      gap:          '5px',
-                      padding:      '7px 13px',
-                      borderRadius: '10px',
-                      border:       'none',
-                      cursor:       isSent || isSending ? 'default' : 'pointer',
-                      fontFamily:   'inherit',
-                      fontSize:     '12px',
-                      fontWeight:   600,
-                      whiteSpace:   'nowrap',
-                      flexShrink:   0,
-                      background:   isSent
-                        ? (isDark ? 'rgba(34,197,94,0.15)' : 'rgba(34,197,94,0.12)')
-                        : 'rgba(234,88,12,0.10)',
-                      color:        isSent ? '#22C55E' : '#EA580C',
-                      opacity:      isSending ? 0.7 : 1,
-                      transition:   'background 0.15s, color 0.15s',
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                      padding: '8px 13px', borderRadius: '10px', border: 'none',
+                      background: '#EA580C', color: '#fff',
+                      fontSize: '12px', fontWeight: 600, fontFamily: 'inherit',
+                      cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
                     }}
                   >
-                    {isSending
-                      ? <><motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={13} /></motion.span> Sending…</>
-                      : isSent
-                        ? '✓ Request sent'
-                        : <><IconGitMerge size={13} /> Send request</>
-                    }
+                    View tree <IconArrowRight size={12} />
                   </button>
                 </div>
               )
             })}
-
-            {error && (
-              <p style={{ margin: 0, fontSize: '12px', color: '#EF4444' }}>{error}</p>
-            )}
           </div>
 
           {/* Footer */}
-          <div style={{
-            padding:    '0 20px 20px',
-            display:    'flex',
-            justifyContent: 'center',
-          }}>
+          <div style={{ padding: '0 14px 14px' }}>
             <button
-              onClick={onKeepBoth}
+              onClick={onDismiss}
               style={{
-                background:   'none',
-                border:       `1px solid ${t.borderNeutral}`,
-                borderRadius: '10px',
-                padding:      '8px 20px',
-                cursor:       'pointer',
-                fontFamily:   'inherit',
-                fontSize:     '12.5px',
-                color:        t.textMuted,
-                width:        '100%',
+                width: '100%', background: 'none', border: `1px solid ${t.borderNeutral}`,
+                borderRadius: '11px', padding: '9px', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: '12px', color: t.textMuted,
               }}
             >
-              {allSent ? 'Done — close' : 'These are different people — keep both'}
+              These are different people — dismiss
             </button>
           </div>
         </motion.div>

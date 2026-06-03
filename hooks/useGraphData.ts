@@ -26,6 +26,7 @@ interface GraphDataReturn {
   displayEdges: Edge[]
   graphLoading: boolean
   fetchGraph: () => Promise<void>
+  resetAndFetch: () => Promise<void>
   isMarriedWoman: boolean
   womanView: WomanView
   onWomanViewChange: (v: WomanView) => void
@@ -157,13 +158,20 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
       .catch(() => {})
   }, [graphLoading, rawNodes.length, fetchGraph])
 
+  // Resets the collapse state so that new family units added by a merge are
+  // included in the default-collapse computation on the next fetch.
+  const resetAndFetch = useCallback(async () => {
+    collapseInitialised.current = false
+    await fetchGraph()
+  }, [fetchGraph])
+
   const onWomanViewChange = useCallback((v: WomanView) => setWomanView(v), [])
 
   return {
     nodes, edges, setNodes, setEdges,
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
-    graphLoading, fetchGraph,
+    graphLoading, fetchGraph, resetAndFetch,
     isMarriedWoman, womanView, onWomanViewChange,
     familyName,
   }

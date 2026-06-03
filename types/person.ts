@@ -52,6 +52,36 @@ export interface PersonData {
   canInvite?: boolean
   animDelay?: number
   nodeRole?: 'self' | 'spouse' | 'family'
+  isMatchHighlight?: boolean
+}
+
+/** Minimal data about "my" node stored before navigating to exploration mode */
+export interface MyPersonInfo {
+  fullName:      string
+  gender?:       string | null
+  birthYear?:    number | null
+  nativeVillage?: string | null
+  gotra?:        string | null
+  photoUrl?:     string | null
+}
+
+/** Stored in sessionStorage when navigating to explore / review another tree */
+export interface PendingMatchData {
+  myPersonId:           string
+  myPersonName:         string
+  myBirthYear?:         number | null
+  myNativeVillage?:     string | null
+  myGotra?:             string | null
+  myGender?:            string | null
+  myPhotoUrl?:          string | null
+  matchScore:           number
+  matchedFields:        string[]
+  canonicalPersonId:    string
+  canonicalFamilyName:  string
+  canonicalPersonName:  string
+  /** 'explore' = initiated from DuplicateFoundModal; 'review' = from notification */
+  mode:                 'explore' | 'review'
+  mergeRecordId?:       string  // only for 'review' mode
 }
 
 export interface SavePayload {

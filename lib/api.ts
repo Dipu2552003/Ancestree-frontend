@@ -62,21 +62,41 @@ export interface PotentialMatch {
   full_name:      string
   birth_year:     number | null
   native_village: string | null
+  gotra:          string | null
+  gender:         string | null
+  photo_url:      string | null
   family_name:    string
   family_id:      string
   member_count:   number
+  match_score:    number
+  matched_fields: string[]
+}
+
+export interface PossibleMatchNotificationDetails {
+  new_person_name:           string
+  new_person_birth_year:     number | null
+  new_person_native_village: string | null
+  new_person_gotra:          string | null
+  new_person_photo_url:      string | null
+  canonical_person_id:       string
+  canonical_person_name:     string
+  canonical_family_id:       string
+  canonical_family_name:     string
+  match_score:               number
+  matched_fields:            string[]
 }
 
 export interface AppNotification {
   id:                string
   user_id:           string
-  type:              'merge_request_received' | 'merge_request_accepted' | 'merge_request_rejected' | 'family_name_changed' | 'claim_suggestion'
+  type:              'merge_request_received' | 'merge_request_accepted' | 'merge_request_rejected' | 'family_name_changed' | 'claim_suggestion' | 'possible_match_found'
   merge_record_id:   string | null
   related_person_id: string | null
   message:           string
   is_read:           boolean
   created_at:        string
   merge_status:      'proposed' | 'confirmed' | 'rejected' | 'reversed' | null
+  details:           PossibleMatchNotificationDetails | null
 }
 
 export interface SentMergeRequest {
@@ -203,6 +223,16 @@ export const api = {
   },
 
   merges: {
+    getById: (id: string) =>
+      req<{
+        id: string; status: string
+        canonical_person_id: string; canonical_person_name: string
+        canonical_family_id: string; canonical_family_name: string
+        merged_person_id: string; merged_person_name: string
+        merged_family_id: string; merged_family_name: string
+        created_at: string
+      }>(`/api/merges/${id}`),
+
     create: (b: { new_person_id: string; canonical_person_id: string }) =>
       req<{ merge_record_id: string }>('/api/merges', {
         method: 'POST', body: JSON.stringify(b),

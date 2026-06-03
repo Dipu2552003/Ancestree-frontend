@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   IconX, IconBell, IconGitMerge, IconCheck, IconLoader2,
-  IconInbox, IconSend, IconClock,
+  IconInbox, IconSend, IconClock, IconArrowRight,
 } from '@tabler/icons-react'
-import { api, type AppNotification, type MergeConflict, type SentMergeRequest } from '@/lib/api'
+import { api, type AppNotification, type MergeConflict, type SentMergeRequest, type PossibleMatchNotificationDetails } from '@/lib/api'
+import type { PendingMatchData } from '@/types'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
 
@@ -79,9 +81,36 @@ function MergeRequestCard({
   onAccepted:   (conflicts: MergeConflict[]) => void
 }) {
   const t = getTheme(isDark)
+  const router = useRouter()
   const { markNotificationRead } = useGraphStore()
   const [actionState, setActionState] = useState<'idle' | 'loading' | 'done' | 'rejected'>('idle')
   const [err, setErr] = useState('')
+  const [viewLoading, setViewLoading] = useState(false)
+
+  async function handleViewTree() {
+    if (!notification.merge_record_id) return
+    setViewLoading(true)
+    try {
+      const merge = await api.merges.getById(notification.merge_record_id)
+      const data: PendingMatchData = {
+        mode:                'review',
+        mergeRecordId:       notification.merge_record_id,
+        myPersonId:          merge.canonical_person_id,
+        myPersonName:        merge.canonical_person_name,
+        canonicalPersonId:   merge.merged_person_id,
+        canonicalFamilyName: merge.merged_family_name,
+        canonicalPersonName: merge.merged_person_name,
+        matchScore:          0,
+        matchedFields:       [],
+      }
+      sessionStorage.setItem('pendingMatch', JSON.stringify(data))
+      router.push(`/graph?perspective=${merge.merged_person_id}&viewMerge=${notification.merge_record_id}`)
+    } catch {
+      // silently ignore — user can still use inline Accept/Reject
+    } finally {
+      setViewLoading(false)
+    }
+  }
 
   // If the merge record is already resolved (loaded from backend via merge_status),
   // show a status badge instead of action buttons.
@@ -153,6 +182,26 @@ function MergeRequestCard({
 
   return (
     <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      {/* View their tree — explore before deciding */}
+      <button
+        onClick={handleViewTree}
+        disabled={viewLoading}
+        style={{
+          height: '32px', borderRadius: '8px',
+          border: `1px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
+          background: isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)',
+          color: '#EA580C', fontSize: '11.5px', fontWeight: 600,
+          fontFamily: 'inherit', cursor: viewLoading ? 'default' : 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+          opacity: viewLoading ? 0.6 : 1,
+        }}
+      >
+        {viewLoading
+          ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={12} /></motion.span>
+          : <><IconArrowRight size={12} /> View their tree first</>
+        }
+      </button>
+
       {err && <p style={{ margin: 0, fontSize: '11px', color: '#EF4444' }}>{err}</p>}
       <div style={{ display: 'flex', gap: '8px' }}>
         <button
@@ -255,6 +304,107 @@ function ClaimSuggestionCard({
   )
 }
 
+// ── PossibleMatchCard ─────────────────────────────────────────────────────────
+
+function PossibleMatchCard({
+  notification, isDark, onMarkRead,
+}: {
+  notification: AppNotification
+  isDark:       boolean
+  onMarkRead:   (id: string) => void
+}) {
+  const t = getTheme(isDark)
+  const router = useRouter()
+  const [viewLoading,  setViewLoading]  = useState(false)
+  const [dismissed,    setDismissed]    = useState(notification.is_read)
+
+  const rawDetails = notification.details as PossibleMatchNotificationDetails | null
+
+  // Guard — render nothing if data is missing (shouldn't happen in practice)
+  if (!rawDetails || !notification.related_person_id) return null
+
+  // Narrowed non-null captures for use inside closures
+  const relPersonId: string = notification.related_person_id
+  if (dismissed) return <p style={{ margin: '6px 0 0', fontSize: '11px', color: t.textMuted }}>Dismissed</p>
+
+  // Capture narrowed constants so closures have non-null types
+  const details = rawDetails
+  const conf = details.match_score >= 70 ? 'Strong match' : details.match_score >= 40 ? 'Possible match' : 'Weak match'
+  const confColor = details.match_score >= 70 ? '#15803D' : details.match_score >= 40 ? '#B45309' : t.textMuted
+
+  async function handleViewTree() {
+    setViewLoading(true)
+    try {
+      const data: PendingMatchData = {
+        mode:                'explore',
+        myPersonId:          relPersonId,
+        myPersonName:        details.new_person_name,
+        myBirthYear:         details.new_person_birth_year,
+        myNativeVillage:     details.new_person_native_village,
+        myGotra:             details.new_person_gotra,
+        myPhotoUrl:          details.new_person_photo_url,
+        matchScore:          details.match_score,
+        matchedFields:       details.matched_fields,
+        canonicalPersonId:   details.canonical_person_id,
+        canonicalPersonName: details.canonical_person_name,
+        canonicalFamilyName: details.canonical_family_name,
+      }
+      sessionStorage.setItem('pendingMatch', JSON.stringify(data))
+      router.push(`/graph?perspective=${details.canonical_person_id}&match=${relPersonId}`)
+    } finally {
+      setViewLoading(false)
+    }
+  }
+
+  async function handleDismiss() {
+    setDismissed(true)
+    onMarkRead(notification.id)
+  }
+
+  return (
+    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      <div style={{ fontSize: '11.5px', color: t.textMuted, lineHeight: 1.5 }}>
+        <span style={{ color: t.text, fontWeight: 600 }}>{details.canonical_person_name}</span>
+        {' · '}
+        <span>{details.canonical_family_name}</span>
+        {' · '}
+        <span style={{ color: confColor, fontWeight: 600 }}>{conf}</span>
+      </div>
+
+      <button
+        onClick={handleViewTree}
+        disabled={viewLoading}
+        style={{
+          height: '32px', borderRadius: '8px',
+          border: `1px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
+          background: isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)',
+          color: '#EA580C', fontSize: '11.5px', fontWeight: 600,
+          fontFamily: 'inherit', cursor: viewLoading ? 'default' : 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+          opacity: viewLoading ? 0.6 : 1,
+        }}
+      >
+        {viewLoading
+          ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={12} /></motion.span>
+          : <><IconArrowRight size={12} /> View tree &amp; decide</>
+        }
+      </button>
+
+      <button
+        onClick={handleDismiss}
+        style={{
+          height: '30px', borderRadius: '8px',
+          border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+          background: 'transparent', color: t.textMuted,
+          fontSize: '11px', fontFamily: 'inherit', cursor: 'pointer',
+        }}
+      >
+        Dismiss
+      </button>
+    </div>
+  )
+}
+
 // ── Inbox notification row ────────────────────────────────────────────────────
 
 function InboxRow({
@@ -267,6 +417,7 @@ function InboxRow({
   onRequested:    (id: string) => void
 }) {
   const t = getTheme(isDark)
+  const router = useRouter()
 
   const iconMap: Record<AppNotification['type'], string> = {
     merge_request_received: '🔗',
@@ -274,6 +425,7 @@ function InboxRow({
     merge_request_rejected: '❌',
     family_name_changed:    '🌿',
     claim_suggestion:       '👋',
+    possible_match_found:   '🔍',
   }
 
   const accentMap: Record<AppNotification['type'], string> = {
@@ -282,6 +434,7 @@ function InboxRow({
     merge_request_rejected: 'rgba(239,68,68,0.06)',
     family_name_changed:    'transparent',
     claim_suggestion:       'rgba(99,102,241,0.06)',
+    possible_match_found:   'rgba(234,88,12,0.04)',
   }
 
   return (
@@ -290,11 +443,11 @@ function InboxRow({
         padding:      '14px 18px',
         borderBottom: `1px solid ${t.borderNeutral}`,
         background:   n.is_read ? 'transparent' : accentMap[n.type],
-        cursor:       (!n.is_read && n.type !== 'merge_request_received' && n.type !== 'claim_suggestion') ? 'pointer' : 'default',
+        cursor:       (!n.is_read && n.type !== 'merge_request_received' && n.type !== 'claim_suggestion' && n.type !== 'possible_match_found') ? 'pointer' : 'default',
         transition:   'background 0.15s',
       }}
       onClick={() => {
-        if (!n.is_read && n.type !== 'merge_request_received' && n.type !== 'claim_suggestion') {
+        if (!n.is_read && n.type !== 'merge_request_received' && n.type !== 'claim_suggestion' && n.type !== 'possible_match_found') {
           onMarkOne(n.id)
         }
       }}
@@ -327,11 +480,37 @@ function InboxRow({
               onAccepted={onMergeAccepted}
             />
           )}
+          {n.type === 'merge_request_accepted' && (
+            <button
+              onClick={() => {
+                if (!n.is_read) onMarkOne(n.id)
+                router.push('/graph')
+              }}
+              style={{
+                marginTop: '10px',
+                height: '32px', width: '100%', borderRadius: '8px',
+                border: `1px solid rgba(34,197,94,0.35)`,
+                background: isDark ? 'rgba(34,197,94,0.10)' : 'rgba(34,197,94,0.08)',
+                color: '#15803D', fontSize: '11.5px', fontWeight: 600,
+                fontFamily: 'inherit', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+              }}
+            >
+              <IconArrowRight size={12} /> View merged tree
+            </button>
+          )}
           {n.type === 'claim_suggestion' && n.related_person_id && (
             <ClaimSuggestionCard
               notification={n}
               isDark={isDark}
               onRequested={() => onRequested(n.id)}
+            />
+          )}
+          {n.type === 'possible_match_found' && n.details && (
+            <PossibleMatchCard
+              notification={n}
+              isDark={isDark}
+              onMarkRead={onMarkOne}
             />
           )}
         </div>

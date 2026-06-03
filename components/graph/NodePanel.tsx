@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, Fragment } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGraphStore } from '@/store/graphStore'
 import {
@@ -339,7 +339,9 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
   )
 
   const row = (...children: React.ReactNode[]) => (
-    <div style={{ display: 'flex', gap: '10px' }}>{children}</div>
+    <div style={{ display: 'flex', gap: '10px' }}>
+      {children.map((child, i) => <Fragment key={i}>{child}</Fragment>)}
+    </div>
   )
 
   return (
