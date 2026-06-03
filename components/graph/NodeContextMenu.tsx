@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, type ReactNode } from 'react'
-import { IconEye, IconPencil, IconRoute, IconSend } from '@tabler/icons-react'
+import { IconEye, IconPencil, IconRoute, IconSend, IconGitMerge } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
 
@@ -18,13 +18,14 @@ interface NodeContextMenuProps {
   onViewTree: () => void
   onEdit: () => void
   onInvite: () => void
+  onMergeNode: () => void
   onClose: () => void
 }
 
 export default function NodeContextMenu({
   nodeId, x, y, personName, gender,
   canEdit, canInvite, isSelf, isViewerNode,
-  onViewTree, onEdit, onInvite, onClose,
+  onViewTree, onEdit, onInvite, onMergeNode, onClose,
 }: NodeContextMenuProps) {
   const { isDark } = useGraphStore()
   const t = getTheme(isDark)
@@ -46,9 +47,9 @@ export default function NodeContextMenu({
     }
   }, [onClose])
 
-  // Clamp to viewport
+  // Clamp to viewport — base height + 28px per extra item
   const MENU_W = 220
-  const MENU_H = canEdit && canInvite ? 160 : canEdit || canInvite ? 132 : 104
+  const MENU_H = 76 + (canEdit ? 28 : 0) + (canInvite ? 28 : 0) + 28 /* merge */ + (!isSelf && !isViewerNode ? 28 : 0)
   const left = x + MENU_W > window.innerWidth  ? x - MENU_W : x
   const top  = y + MENU_H > window.innerHeight ? y - MENU_H : y
 
@@ -111,6 +112,7 @@ export default function NodeContextMenu({
         {!isSelf && !isViewerNode && item(<IconEye size={14} />, treeLinkLabel, onViewTree)}
         {canEdit && item(<IconPencil size={14} />, 'Edit details', onEdit)}
         {item(<IconRoute size={14} />, 'View connection to me', () => {}, true)}
+        {item(<IconGitMerge size={14} />, 'Merge node', onMergeNode)}
         {canInvite && item(<IconSend size={14} />, 'Invite to join', onInvite)}
       </div>
     </div>

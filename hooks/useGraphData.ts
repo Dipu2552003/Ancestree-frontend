@@ -18,6 +18,8 @@ import { useGraphStore } from '@/store/graphStore'
 interface GraphDataReturn {
   nodes: Node[]
   edges: Edge[]
+  rawNodes: Node[]
+  rawEdges: Edge[]
   setNodes: Dispatch<SetStateAction<Node[]>>
   setEdges: Dispatch<SetStateAction<Edge[]>>
   onNodesChange: (changes: NodeChange[]) => void
@@ -168,7 +170,8 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const onWomanViewChange = useCallback((v: WomanView) => setWomanView(v), [])
 
   return {
-    nodes, edges, setNodes, setEdges,
+    nodes, edges, rawNodes, rawEdges,
+    setNodes, setEdges,
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
     graphLoading, fetchGraph, resetAndFetch,

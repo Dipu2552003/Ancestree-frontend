@@ -215,6 +215,8 @@ export const api = {
     }) => req<{ id: string }>('/api/relationships', {
       method: 'POST', body: JSON.stringify(b),
     }),
+    delete: (id: string) =>
+      req<{ success: boolean }>(`/api/relationships/${id}`, { method: 'DELETE' }),
   },
 
   search: {

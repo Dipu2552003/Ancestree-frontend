@@ -352,13 +352,59 @@ export function layoutEngine(
     treeBounds.push({ root, minX, maxX })
   }
 
-  // Place trees left-to-right with a gap
+  // ── Cluster sibling-connected roots for tight placement ──────────────────
+  // Root units linked only by SIBLING_OF (no shared parent) are treated as
+  // separate trees by RT, landing TREE_GAP apart.  Detect them via union-find
+  // and pack them with H_GAP instead so siblings look like a real sibling row.
+
+  const rootSet = new Set(roots)
+  const sibUfParent = new Map<CoupleUnit, CoupleUnit>(roots.map(r => [r, r]))
+  const sibUfFind = (u: CoupleUnit): CoupleUnit => {
+    while (sibUfParent.get(u) !== u) {
+      const p = sibUfParent.get(u)!
+      sibUfParent.set(u, sibUfParent.get(p) ?? p)
+      u = sibUfParent.get(u)!
+    }
+    return u
+  }
+  for (const e of edges) {
+    if ((e.data as unknown as EdgeData)?.relType !== 'SIBLING_OF') continue
+    const uA = unitOf.get(e.source)
+    const uB = unitOf.get(e.target)
+    if (!uA || !uB || uA === uB) continue
+    if (!rootSet.has(uA) || !rootSet.has(uB)) continue
+    const ra = sibUfFind(uA), rb = sibUfFind(uB)
+    if (ra !== rb) sibUfParent.set(ra, rb)
+  }
+
+  // Assign a stable index to each cluster (order of first appearance)
+  const clusterIdx = new Map<CoupleUnit, number>()
+  let nextClusterIdx = 0
+  for (const { root } of treeBounds) {
+    const rep = sibUfFind(root)
+    if (!clusterIdx.has(rep)) clusterIdx.set(rep, nextClusterIdx++)
+  }
+
+  // Sort so same-cluster roots end up adjacent
+  treeBounds.sort((a, b) => {
+    const ca = clusterIdx.get(sibUfFind(a.root))!
+    const cb = clusterIdx.get(sibUfFind(b.root))!
+    if (ca !== cb) return ca - cb
+    return a.root.left.localeCompare(b.root.left)
+  })
+
+  // Place trees left-to-right: H_GAP within a sibling cluster, TREE_GAP between clusters
   const TREE_GAP = STEP * 2
   let cursor = 0
   const treeOffset = new Map<CoupleUnit, number>()
-  for (const { root, minX, maxX } of treeBounds) {
+  for (let i = 0; i < treeBounds.length; i++) {
+    const { root, minX, maxX } = treeBounds[i]
+    if (i > 0) {
+      const prevRoot = treeBounds[i - 1].root
+      cursor += sibUfFind(root) === sibUfFind(prevRoot) ? H_GAP : TREE_GAP
+    }
     treeOffset.set(root, cursor - minX)
-    cursor += (maxX - minX) + TREE_GAP
+    cursor += maxX - minX
   }
 
   // ── Convert unit positions → per-person pixel positions ──────────────────

@@ -14,6 +14,7 @@ import Navbar from '@/components/graph/Navbar'
 import NodeContextMenu from '@/components/graph/NodeContextMenu'
 import PerspectiveBanner from '@/components/graph/PerspectiveBanner'
 import ExplorationBanner from '@/components/graph/ExplorationBanner'
+import MergeSearchModal from '@/components/graph/MergeSearchModal'
 import DuplicateFoundModal from '@/components/graph/DuplicateFoundModal'
 import NotificationPanel from '@/components/graph/NotificationPanel'
 import MergeConflictModal from '@/components/graph/MergeConflictModal'
@@ -44,7 +45,7 @@ function GraphInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const perspectiveId  = searchParams.get('perspective') ?? undefined
-  const viewMergeParam = searchParams.get('viewMerge') ?? undefined
+  const viewMergeParam = searchParams.get('viewMerge')   ?? undefined
 
   useEffect(() => {
     if (!getToken()) router.replace('/login')
@@ -79,9 +80,11 @@ function GraphInner() {
   const [mergeConflicts,  setMergeConflicts]  = useState<MergeConflict[]>([])
   const [pendingMatch,    setPendingMatch]    = useState<PendingMatchData | null>(null)
   const [matchPanelOpen,  setMatchPanelOpen]  = useState(false)
+  const [mergeSearchNode, setMergeSearchNode] = useState<{ id: string; name: string } | null>(null)
 
   const {
-    nodes, edges, setNodes, setEdges,
+    nodes, edges, rawNodes, rawEdges,
+    setNodes, setEdges,
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
     graphLoading, fetchGraph, resetAndFetch,
@@ -208,6 +211,7 @@ function GraphInner() {
           onNodeClick={id => {
             setContextMenu(null)
             if (id.startsWith('couple_')) return
+
             // In exploration mode, clicking the highlighted node opens the merge comparison panel
             if (isExploration && matchHighlightNode && id === matchHighlightNode.id) {
               setMatchPanelOpen(true)
@@ -339,6 +343,7 @@ function GraphInner() {
               await navigator.clipboard.writeText(url)
             } catch { /* ignore */ }
           }}
+          onMergeNode={() => setMergeSearchNode({ id: contextMenu.nodeId, name: contextMenu.personData.fullName })}
           onClose={() => setContextMenu(null)}
         />
       )}
@@ -355,6 +360,13 @@ function GraphInner() {
             onAddParent={async (name) => { await onAddRelation('father',  name) }}
             onAddChild={async  (name) => { await onAddRelation('son',     name) }}
             onAddSpouse={async (name) => { await onAddRelation('spouse',  name) }}
+            rawEdges={rawEdges}
+            rawNodes={rawNodes}
+            onViewNode={(id) => { setSelectedNodeId(id); setPanelMode('edit') }}
+            onRemoveConnection={async (edgeId) => {
+              await api.relationships.delete(edgeId)
+              await fetchGraph()
+            }}
           />
         )}
       </AnimatePresence>
@@ -439,6 +451,19 @@ function GraphInner() {
         onWomanViewChange={onWomanViewChange}
         isDark={isDark}
       />
+
+      {/* Merge search modal — opened from context menu "Merge node" */}
+      <AnimatePresence>
+        {mergeSearchNode && (
+          <MergeSearchModal
+            key="merge-search"
+            sourceNodeId={mergeSearchNode.id}
+            sourceNodeName={mergeSearchNode.name}
+            onClose={() => setMergeSearchNode(null)}
+          />
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }

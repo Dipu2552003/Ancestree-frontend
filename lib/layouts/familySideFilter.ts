@@ -10,9 +10,9 @@ import type { EdgeData, PersonData } from '@/types'
  * view is computed and `isMarriedWoman` is returned as false.
  *
  * BFS rules (apply to every anchor node):
- *  DOWN (children) — blood (addFull), EXCEPT a married daughter:
- *                    she is shown (addSealed) but BFS stops at her —
- *                    her children and husband's family are not part of this tree.
+ *  DOWN (children) — all children are blood (addFull), including married daughters.
+ *                    A married daughter's children are therefore visible.
+ *                    Her husband's family is still sealed (SPOUSE_OF rule below).
  *  UP   (parents)  — couple rule when both parents are new:
  *                      male parent  → blood (addFull)
  *                      female parent → married-in (addSealed)
@@ -116,33 +116,17 @@ export function filterGraphBySide(
   while (queue.length > 0) {
     const cur = queue.shift()!
 
-    // Children — blood, but a married daughter belongs to her husband's family:
-    // show her (sealed) but never traverse her children or her husband's tree.
+    // Children — all are traversed fully. Married daughters' children are
+    // now visible; their spouse's family stays sealed via the spouse rule below.
     for (const cid of childrenOf.get(cur) ?? []) {
-      const isMarriedDaughter =
-        (d(cid).gender as string | undefined) === 'female' &&
-        (spousesOf.get(cid) ?? []).length > 0
-      if (isMarriedDaughter) {
-        addSealed(cid)
-        for (const sid of spousesOf.get(cid) ?? []) addSealed(sid)
-      } else {
-        addFull(cid)
-      }
+      addFull(cid)
     }
 
-    // Siblings via SIBLING_OF — only when no shared parent exists in graph yet.
-    // Apply the same married-daughter rule: sealed if female with spouse.
+    // Siblings via SIBLING_OF — same: traverse all, including married sisters.
+    // Spouse family is restricted by the sealed-spouse rule, not by stopping here.
     for (const sid of siblingsOf.get(cur) ?? []) {
       if (includedNodes.has(sid)) continue
-      const isMarriedSister =
-        (d(sid).gender as string | undefined) === 'female' &&
-        (spousesOf.get(sid) ?? []).length > 0
-      if (isMarriedSister) {
-        addSealed(sid)
-        for (const spId of spousesOf.get(sid) ?? []) addSealed(spId)
-      } else {
-        addFull(sid)
-      }
+      addFull(sid)
     }
 
     // Parents — couple rule only when both parents are new
