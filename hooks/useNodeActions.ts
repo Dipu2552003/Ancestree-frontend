@@ -15,9 +15,18 @@ const GENDER_BY_RELATION: Partial<Record<RelAction, string>> = {
 }
 
 export interface AddExtras {
-  gender?:    string
-  birthYear?: number
-  photoUrl?:  string
+  gender?:         string
+  birthYear?:      number
+  photoUrl?:       string
+  // Spouse-only — marriage step
+  marriageStatus?: 'married' | 'partner' | 'divorced' | 'widowed' | 'separated' | 'annulled' | 'unknown'
+  unionYear?:      number
+  separationYear?: number
+  // Son/daughter-only — adoption + mother choice + optional bio parents
+  adoptionStatus?: 'biological' | 'adopted'
+  motherChoice?:   string | 'unknown' | null
+  bioMotherName?:  string
+  bioFatherName?:  string
 }
 
 interface NodeActionsReturn {
@@ -149,11 +158,66 @@ export function useNodeActions(
         catch { /* non-critical: node is created, photo can be added later */ }
       }
 
-      // All cascade logic (base edge + derived edges) lives in relationshipRules.ts
+      // All cascade logic (base edge + derived edges) lives in relationshipRules.ts.
+      // For an "Add spouse" action, decorate the base SPOUSE_OF op with the
+      // marriage metadata so it lands on that single edge (not the cascades).
       const ops = computeCascadeOps(action, selectedNodeId, person.id, edges)
+      const isChildAdd        = action === 'son'     || action === 'daughter'
+      const isSiblingAdd      = action === 'brother' || action === 'sister'
+      const needsParentChoice = isChildAdd || isSiblingAdd
+      const adoptionSub = extras?.adoptionStatus === 'adopted' ? 'adopted' : 'biological'
+
       for (const op of ops) {
-        try { await api.relationships.create(op) }
+        const isBaseSpouseEdge =
+          action === 'spouse' &&
+          op.rel_type === 'SPOUSE_OF' &&
+          op.from_person_id === person.id &&
+          op.to_person_id === selectedNodeId
+        // For child & sibling adds, set sub_type on every PARENT_OF op so the
+        // cascaded parents share the adoption status of the new person.
+        const isParentEdgeForChildOrSibling = needsParentChoice && op.rel_type === 'PARENT_OF'
+        const payload = isBaseSpouseEdge ? {
+          ...op,
+          sub_type:        extras?.marriageStatus,
+          union_year:      extras?.unionYear,
+          separation_year: extras?.separationYear,
+        } : isParentEdgeForChildOrSibling ? {
+          ...op,
+          sub_type: adoptionSub,
+        } : op
+        try { await api.relationships.create(payload) }
         catch { /* ignore duplicate edges */ }
+      }
+
+      // ── Multi-spouse case: wizard passes explicit motherChoice ───────────────
+      // For son/daughter: chosen wife → new child.
+      // For brother/sister: chosen wife → new sibling (the wife is one of the
+      //   shared father's spouses; full vs half sibling is determined here).
+      if (needsParentChoice && extras?.motherChoice && extras.motherChoice !== 'unknown') {
+        try {
+          await api.relationships.create({
+            from_person_id: extras.motherChoice,
+            to_person_id:   person.id,
+            rel_type:       'PARENT_OF',
+            sub_type:       adoptionSub,
+          })
+        } catch { /* duplicate ok */ }
+      }
+
+      // ── Adopted child / sibling: persist bio-parent names on the person ────
+      // Names only — no proxy nodes — so the family tree stays clean. Promote
+      // to real person records later if needed.
+      if (needsParentChoice && extras?.adoptionStatus === 'adopted') {
+        const bioMomName = extras.bioMotherName?.trim()
+        const bioDadName = extras.bioFatherName?.trim()
+        if (bioMomName || bioDadName) {
+          try {
+            await api.persons.update(person.id, {
+              bio_mother_name: bioMomName || null,
+              bio_father_name: bioDadName || null,
+            })
+          } catch { /* non-fatal */ }
+        }
       }
 
       await fetchGraph()

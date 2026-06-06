@@ -18,6 +18,8 @@ export type RelAction = 'father' | 'mother' | 'son' | 'daughter' | 'brother' | '
 
 interface NavbarProps {
   familyName: string
+  /** Breadcrumb journey trail, stacked just above the navbar pill. */
+  timeline?: React.ReactNode
   selectedNodeId: string | null
   selectedNodeName: string
   canDeleteSelected: boolean
@@ -52,7 +54,7 @@ const RELATIONS: {
 type DeleteState = 'idle' | 'confirm' | 'deleting'
 
 export default function Navbar({
-  familyName, selectedNodeId, selectedNodeName,
+  familyName, timeline, selectedNodeId, selectedNodeName,
   canDeleteSelected, panelMode,
   onHome, onStartWizard, onDeleteSelected,
   onEdit, onView,
@@ -148,6 +150,9 @@ export default function Navbar({
         maxWidth: 'calc(100vw - 24px)',
       }}
     >
+      {/* ── Journey trail — sits above everything, just above the pill ── */}
+      {timeline}
+
       {/* ── Add relation menu ── */}
       <AnimatePresence>
         {addOpen && (

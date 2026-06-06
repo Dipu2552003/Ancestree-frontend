@@ -189,9 +189,13 @@ export function computeCascadeOps(
     // Base
     add(selectedNodeId, newPersonId, 'PARENT_OF')
 
-    // R2-A: selectedNode's spouses become co-parents
-    for (const spId of spousesOf(selectedNodeId, edges)) {
-      add(spId, newPersonId, 'PARENT_OF')
+    // R2-A: co-parent cascade — ONLY when anchor has exactly one spouse. With
+    // 0 spouses there's no co-parent to add; with 2+ we can't guess which one
+    // is the mother, so the wizard must pass an explicit motherChoice and add
+    // the edge itself. Otherwise we'd silently assign the child to all wives.
+    const sps = spousesOf(selectedNodeId, edges)
+    if (sps.length === 1) {
+      add(sps[0], newPersonId, 'PARENT_OF')
     }
   }
 
@@ -207,16 +211,29 @@ export function computeCascadeOps(
       for (const pid of parentsOf(memberId, edges)) allParents.add(pid)
     }
 
-    if (allParents.size > 0 && allParents.size !== directParents.length) {
-      console.warn(
-        '[relationshipRules] Sibling-component members have parents from multiple sources.',
-        'Cascading all parents to new sibling — verify correctness.',
-        [...allParents],
-      )
-    }
+    // Multi-spouse aware: if one of the inherited parents has 2+ spouses, we
+    // CANNOT auto-cascade the other inherited parent — that "other" parent is
+    // a specific wife and the new sibling might have a different mother (= half
+    // sibling). In that case, cascade ONLY the multi-spouse parent (the shared
+    // father). The wizard is responsible for adding the explicit mother edge
+    // via motherChoice. Single-spouse case keeps the original behavior.
+    const multiSpouseParents = [...allParents].filter(p => spousesOf(p, edges).length >= 2)
 
-    for (const pid of allParents) {
-      add(pid, newPersonId, 'PARENT_OF')
+    if (multiSpouseParents.length > 0) {
+      for (const pid of multiSpouseParents) {
+        add(pid, newPersonId, 'PARENT_OF')
+      }
+    } else {
+      if (allParents.size > 0 && allParents.size !== directParents.length) {
+        console.warn(
+          '[relationshipRules] Sibling-component members have parents from multiple sources.',
+          'Cascading all parents to new sibling — verify correctness.',
+          [...allParents],
+        )
+      }
+      for (const pid of allParents) {
+        add(pid, newPersonId, 'PARENT_OF')
+      }
     }
   }
 
@@ -225,9 +242,17 @@ export function computeCascadeOps(
     // Base
     add(newPersonId, selectedNodeId, 'SPOUSE_OF')
 
-    // R4-A: New spouse becomes co-parent of existing children
-    for (const childId of childrenOf(selectedNodeId, edges)) {
-      add(newPersonId, childId, 'PARENT_OF')
+    // R4-A: New spouse co-parents anchor's existing children — ONLY when this
+    // is the first spouse. Otherwise we'd silently assign the new spouse as
+    // mother of children belonging to the previous spouse. Flow E Phase 3
+    // (the SecondSpouseWizard + /reparent endpoint) does the explicit per-
+    // child assignment instead.
+    const existingSpouses = spousesOf(selectedNodeId, edges)
+    const isFirstSpouse   = existingSpouses.length === 0
+    if (isFirstSpouse) {
+      for (const childId of childrenOf(selectedNodeId, edges)) {
+        add(newPersonId, childId, 'PARENT_OF')
+      }
     }
   }
 

@@ -25,25 +25,34 @@ export default function SketchEdge({
   const markerSId = `arrow-s-${id}`
 
   if (relType === 'SPOUSE_OF') {
+    // Inactive marriage (divorced/separated/annulled/unknown) → sparser dots
+    // and lower opacity so the active couple bracket reads as the focal one.
+    const isInactive = (data as unknown as EdgeData)?.isActive === false
+    const dashArray  = isInactive ? '2 6' : '4 3'
+    const opacity    = isInactive
+      ? (isDark ? 0.30 : 0.40)
+      : (isDark ? 0.55 : 0.65)
+    const width      = isInactive ? 1.0 : 1.2
+
     return (
       <>
         <defs>
           <marker id={markerSId} viewBox="0 0 10 10" refX="2" refY="5"
             markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 8 1 L 1 5 L 8 9 z" fill={stroke} />
+            <path d="M 8 1 L 1 5 L 8 9 z" fill={stroke} fillOpacity={isInactive ? 0.5 : 1} />
           </marker>
         </defs>
         <motion.path
           d={edgePath}
           fill="none"
           stroke={stroke}
-          strokeWidth={1.2}
-          strokeDasharray="4 3"
+          strokeWidth={width}
+          strokeDasharray={dashArray}
           strokeLinecap="round"
-          markerStart={`url(#${markerSId})`}
-          markerEnd={`url(#${markerSId})`}
+          markerStart={isInactive ? undefined : `url(#${markerSId})`}
+          markerEnd={isInactive ? undefined : `url(#${markerSId})`}
           initial={{ opacity: 0 }}
-          animate={{ opacity: isDark ? 0.55 : 0.65 }}
+          animate={{ opacity }}
           transition={{ duration: 0.3, delay: animDelay }}
         />
       </>

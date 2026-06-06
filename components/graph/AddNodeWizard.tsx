@@ -35,7 +35,17 @@ function compressPhoto(file: File): Promise<string> {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Direction = 'above' | 'below' | 'beside'
-type StepId    = 'name' | 'gender' | 'birthdate' | 'photo'
+type StepId    = 'name' | 'gender' | 'birthdate' | 'photo' | 'marriage' | 'relationship' | 'mother' | 'bio-parents'
+
+export type MarriageStatus =
+  | 'married' | 'partner' | 'divorced' | 'widowed' | 'separated' | 'annulled' | 'unknown'
+
+export type AdoptionStatus = 'biological' | 'adopted'
+
+/** Identifies the chosen mother for a new child. Strings are person IDs;
+ *  'unknown' means user picked "I don't know"; null means there's only one
+ *  spouse so we should auto-fill at the caller. */
+export type MotherChoice = string | 'unknown' | null
 
 interface RelConfig {
   label:         string
@@ -45,17 +55,34 @@ interface RelConfig {
 }
 
 export interface WizardExtras {
-  gender?:     string
-  birthYear?:  number
-  birthMonth?: number
-  birthDay?:   number
-  photoUrl?:   string
+  gender?:          string
+  birthYear?:       number
+  birthMonth?:      number
+  birthDay?:        number
+  photoUrl?:        string
+  // Spouse-only — collected on the 'marriage' step.
+  marriageStatus?:  MarriageStatus
+  unionYear?:       number
+  separationYear?:  number
+  // Son/daughter-only — adoption + mother choice + optional bio parents.
+  adoptionStatus?:  AdoptionStatus
+  motherChoice?:    MotherChoice
+  bioMotherName?:   string
+  bioFatherName?:   string
 }
 
 interface AddNodeWizardProps {
   relAction:  RelAction
   anchorName: string
   isDark:     boolean
+  /**
+   * Candidate mothers presented on the 'mother' step.
+   *   - For son/daughter: anchor's spouses.
+   *   - For brother/sister: anchor's multi-spouse parent's spouses,
+   *                         anchor's own mother first.
+   * The step shows only when this list has 2+ entries.
+   */
+  motherOptions?: { id: string; name: string }[]
   onAdd:      (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
   onClose:    () => void
 }
@@ -68,7 +95,7 @@ const REL_CONFIG: Record<RelAction, RelConfig> = {
   daughter: { label: 'Daughter', impliedGender: 'female', direction: 'below',  steps: ['name', 'birthdate', 'photo'] },
   brother:  { label: 'Brother',  impliedGender: 'male',   direction: 'beside', steps: ['name', 'birthdate', 'photo'] },
   sister:   { label: 'Sister',   impliedGender: 'female', direction: 'beside', steps: ['name', 'birthdate', 'photo'] },
-  spouse:   { label: 'Spouse',   impliedGender: null,     direction: 'beside', steps: ['name', 'gender', 'birthdate', 'photo'] },
+  spouse:   { label: 'Spouse',   impliedGender: null,     direction: 'beside', steps: ['name', 'gender', 'birthdate', 'photo', 'marriage'] },
 }
 
 export const RELATION_LABELS: Record<RelAction, string> = {
@@ -465,10 +492,9 @@ function GenderCard({
 }
 
 // ── Main AddNodeWizard ────────────────────────────────────────────────────────
-export default function AddNodeWizard({ relAction, anchorName, isDark, onAdd, onClose }: AddNodeWizardProps) {
+export default function AddNodeWizard({ relAction, anchorName, isDark, motherOptions, onAdd, onClose }: AddNodeWizardProps) {
   const t    = getTheme(isDark)
   const cfg  = REL_CONFIG[relAction]
-  const steps = cfg.steps
 
   const [stepIdx,          setStepIdx]          = useState(0)
   const [dir,              setDir]              = useState(1)
@@ -486,6 +512,40 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, onAdd, on
   const [dragOver,         setDragOver]         = useState(false)
   const [saving,           setSaving]           = useState(false)
   const [saved,            setSaved]            = useState(false)
+
+  // Spouse-only — marriage step state
+  const [marriageStatus,   setMarriageStatus]   = useState<MarriageStatus>('married')
+  const [unionYear,        setUnionYear]        = useState('')
+  const [separationYear,   setSeparationYear]   = useState('')
+  const [marriageError,    setMarriageError]    = useState('')
+
+  // Son/daughter & brother/sister — adoption + mother choice + bio parents
+  const [adoptionStatus,   setAdoptionStatus]   = useState<AdoptionStatus>('biological')
+  // Default to the first option so Continue is immediately enabled.
+  // First option is: spouse[0] (child case) or anchor's own mother (sibling case).
+  const [motherChoice,     setMotherChoice]     = useState<MotherChoice>(
+    () => motherOptions?.[0]?.id ?? null,
+  )
+  const [addBioParents,    setAddBioParents]    = useState(false)
+  const [bioMotherName,    setBioMotherName]    = useState('')
+  const [bioFatherName,    setBioFatherName]    = useState('')
+
+  // Derived: the effective step list. For son/daughter & brother/sister we
+  // extend the base [name, birthdate, photo] list with relationship-specific
+  // questions, conditionally adding 'mother' when there are 2+ candidate
+  // mothers and 'bio-parents' when the user picks 'adopted'.
+  const isChildAdd         = relAction === 'son'     || relAction === 'daughter'
+  const isSiblingAdd       = relAction === 'brother' || relAction === 'sister'
+  const needsParentChoice  = isChildAdd || isSiblingAdd
+  const multiSpouse        = (motherOptions?.length ?? 0) >= 2
+  const steps: StepId[] = needsParentChoice
+    ? (() => {
+        const out: StepId[] = ['name', 'birthdate', 'photo', 'relationship']
+        if (multiSpouse)                     out.push('mother')
+        if (adoptionStatus === 'adopted')    out.push('bio-parents')
+        return out
+      })()
+    : cfg.steps
 
   const nameRef  = useRef<HTMLInputElement>(null)
   const dayRef   = useRef<HTMLInputElement>(null)
@@ -541,18 +601,30 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, onAdd, on
       const yr = birthYear.trim()  ? parseInt(birthYear)  : undefined
       const mo = birthMonth.trim() ? parseInt(birthMonth) : undefined
       const dy = birthDay.trim()   ? parseInt(birthDay)   : undefined
+      const uy = unionYear.trim()      ? parseInt(unionYear)      : undefined
+      const sy = separationYear.trim() ? parseInt(separationYear) : undefined
       await onAdd(relAction, fullName.trim(), {
-        gender:     gender || undefined,
-        birthYear:  yr && !isNaN(yr) ? yr : undefined,
-        birthMonth: mo && !isNaN(mo) ? mo : undefined,
-        birthDay:   dy && !isNaN(dy) ? dy : undefined,
-        photoUrl:   withPhoto ? photoUrl : undefined,
+        gender:         gender || undefined,
+        birthYear:      yr && !isNaN(yr) ? yr : undefined,
+        birthMonth:     mo && !isNaN(mo) ? mo : undefined,
+        birthDay:       dy && !isNaN(dy) ? dy : undefined,
+        photoUrl:       withPhoto ? photoUrl : undefined,
+        marriageStatus: relAction === 'spouse' ? marriageStatus : undefined,
+        unionYear:      relAction === 'spouse' && uy && !isNaN(uy) ? uy : undefined,
+        separationYear: relAction === 'spouse' && sy && !isNaN(sy) ? sy : undefined,
+        adoptionStatus: needsParentChoice ? adoptionStatus : undefined,
+        motherChoice:   needsParentChoice && multiSpouse ? motherChoice : undefined,
+        bioMotherName:  needsParentChoice && adoptionStatus === 'adopted' && addBioParents ? bioMotherName.trim() || undefined : undefined,
+        bioFatherName:  needsParentChoice && adoptionStatus === 'adopted' && addBioParents ? bioFatherName.trim() || undefined : undefined,
       })
       setSaved(true)
     } catch {
       setSaving(false)
     }
-  }, [relAction, fullName, gender, birthYear, birthMonth, birthDay, photoUrl, onAdd])
+  }, [relAction, fullName, gender, birthYear, birthMonth, birthDay, photoUrl, marriageStatus, unionYear, separationYear, needsParentChoice, multiSpouse, adoptionStatus, motherChoice, addBioParents, bioMotherName, bioFatherName, onAdd])
+
+  const isLastStep    = stepIdx === steps.length - 1
+  const STATUS_ENDED  = new Set<MarriageStatus>(['divorced', 'widowed', 'separated'])
 
   const processFile = async (file: File) => {
     setPhotoUploading(true)
@@ -1080,6 +1152,101 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, onAdd, on
                   </button>
                 )}
 
+                <motion.button onClick={() => isLastStep ? handleCreate(true) : goNext()} disabled={saving || saved}
+                  whileHover={!saving && !saved ? { scale: 1.015 } : {}}
+                  whileTap={!saving && !saved ? { scale: 0.98 } : {}}
+                  style={btnPrimary}>
+                  {saving && <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={15} /></motion.div>}
+                  {saved  && <IconCheck size={15} strokeWidth={2.5} />}
+                  {saving ? 'Adding…' : saved ? 'Added!' : isLastStep ? '✓ Add to family tree' : 'Continue →'}
+                </motion.button>
+
+                <button onClick={() => { if (saving || saved) return; if (isLastStep) handleCreate(false); else { setPhotoUrl(undefined); goNext() } }}
+                  style={{ ...btnSkip, opacity: saving || saved ? 0.4 : 1, pointerEvents: saving || saved ? 'none' : 'auto' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = t.text)}
+                  onMouseLeave={e => (e.currentTarget.style.color = t.textMuted)}>
+                  Skip for now
+                </button>
+              </motion.div>
+            )}
+
+            {/* Step: marriage (spouse only) */}
+            {currentStep === 'marriage' && (
+              <motion.div key="marriage" custom={dir} variants={slide} initial="enter" animate="center" exit="exit"
+                transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                style={{ padding: '24px 28px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: t.text, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                    The marriage
+                  </h2>
+                  <p style={{ margin: '5px 0 0', fontSize: 12.5, color: t.textMuted }}>
+                    Year and status. Everything's optional.
+                  </p>
+                </div>
+
+                {/* Status grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {([
+                    ['married',   'Married'],
+                    ['divorced',  'Divorced'],
+                    ['widowed',   'Widowed'],
+                    ['separated', 'Separated'],
+                    ['unknown',   "I don't know"],
+                  ] as const).map(([val, label]) => {
+                    const active = marriageStatus === val
+                    return (
+                      <motion.button key={val} type="button"
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                        onClick={() => { setMarriageStatus(val); setMarriageError('') }}
+                        style={{
+                          padding: '11px 12px', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit',
+                          border: `1.5px solid ${active ? COLORS.saffron : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'}`,
+                          background: active ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
+                          color: active ? COLORS.saffron : t.text,
+                          fontSize: 13, fontWeight: 600, letterSpacing: 0,
+                          textAlign: 'left',
+                        }}>
+                        {label}
+                      </motion.button>
+                    )
+                  })}
+                </div>
+
+                {/* Year(s) */}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', marginBottom: 6, fontSize: 11.5, fontWeight: 600, color: t.textMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      Year of marriage
+                    </label>
+                    <input
+                      value={unionYear}
+                      onChange={e => { setUnionYear(e.target.value.replace(/\D/g, '').slice(0, 4)); setMarriageError('') }}
+                      placeholder="e.g. 1985"
+                      inputMode="numeric"
+                      style={inputStyle}
+                    />
+                  </div>
+                  {STATUS_ENDED.has(marriageStatus) && (
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', marginBottom: 6, fontSize: 11.5, fontWeight: 600, color: t.textMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        {marriageStatus === 'widowed' ? 'Year of passing' : 'Year it ended'}
+                      </label>
+                      <input
+                        value={separationYear}
+                        onChange={e => { setSeparationYear(e.target.value.replace(/\D/g, '').slice(0, 4)); setMarriageError('') }}
+                        placeholder="e.g. 2010"
+                        inputMode="numeric"
+                        style={inputStyle}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {marriageError && (
+                  <p style={{ margin: 0, fontSize: 12, color: COLORS.error, textAlign: 'center' }}>{marriageError}</p>
+                )}
+
                 <motion.button onClick={() => handleCreate(true)} disabled={saving || saved}
                   whileHover={!saving && !saved ? { scale: 1.015 } : {}}
                   whileTap={!saving && !saved ? { scale: 0.98 } : {}}
@@ -1089,12 +1256,193 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, onAdd, on
                   {saving ? 'Adding…' : saved ? 'Added!' : '✓ Add to family tree'}
                 </motion.button>
 
-                <button onClick={() => !saving && !saved && handleCreate(false)}
-                  style={{ ...btnSkip, opacity: saving || saved ? 0.4 : 1, pointerEvents: saving || saved ? 'none' : 'auto' }}
+                <button onClick={() => !saving && !saved && handleCreate(true)} style={btnSkip}
                   onMouseEnter={e => (e.currentTarget.style.color = t.text)}
                   onMouseLeave={e => (e.currentTarget.style.color = t.textMuted)}>
-                  Skip for now
+                  Skip — I'll add details later
                 </button>
+              </motion.div>
+            )}
+
+            {/* ── Step: relationship (son/daughter — biological vs adopted) ─── */}
+            {currentStep === 'relationship' && (
+              <motion.div key="relationship" custom={dir} variants={slide} initial="enter" animate="center" exit="exit"
+                transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                style={{ padding: '24px 28px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: t.text, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                    Is {firstName(fullName) || (isSiblingAdd ? 'this sibling' : 'this child')} biological or adopted?
+                  </h2>
+                  <p style={{ margin: '5px 0 0', fontSize: 12.5, color: t.textMuted }}>
+                    {isSiblingAdd
+                      ? 'Adopted siblings inherit the family but their bio parents are recorded separately.'
+                      : 'Affects how parents are connected in the tree.'}
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {(['biological', 'adopted'] as const).map(val => {
+                    const active = adoptionStatus === val
+                    const label  = val === 'biological' ? 'Biological' : 'Adopted'
+                    return (
+                      <motion.button key={val} type="button"
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                        onClick={() => setAdoptionStatus(val)}
+                        style={{
+                          padding: '16px 12px', borderRadius: 13, cursor: 'pointer', fontFamily: 'inherit',
+                          border: `2px solid ${active ? COLORS.saffron : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'}`,
+                          background: active ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
+                          color: active ? COLORS.saffron : t.text,
+                          fontSize: 14, fontWeight: 700,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                        }}>
+                        {label}
+                      </motion.button>
+                    )
+                  })}
+                </div>
+
+                <motion.button onClick={() => isLastStep ? handleCreate(true) : goNext()} disabled={saving || saved}
+                  whileHover={!saving && !saved ? { scale: 1.015 } : {}}
+                  whileTap={!saving && !saved ? { scale: 0.98 } : {}}
+                  style={btnPrimary}>
+                  {saving && <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={15} /></motion.div>}
+                  {saved  && <IconCheck size={15} strokeWidth={2.5} />}
+                  {saving ? 'Adding…' : saved ? 'Added!' : isLastStep ? '✓ Add to family tree' : 'Continue →'}
+                </motion.button>
+              </motion.div>
+            )}
+
+            {/* ── Step: mother (multi-spouse only) ──────────────────────────── */}
+            {currentStep === 'mother' && (
+              <motion.div key="mother" custom={dir} variants={slide} initial="enter" animate="center" exit="exit"
+                transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                style={{ padding: '24px 28px 26px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: t.text, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                    Who is {firstName(fullName) || (isSiblingAdd ? 'the sibling' : 'the child')}{adoptionStatus === 'adopted' ? "'s adoptive mother" : "'s mother"}?
+                  </h2>
+                  <p style={{ margin: '5px 0 0', fontSize: 12.5, color: t.textMuted }}>
+                    {isSiblingAdd
+                      ? `Pick which wife of ${anchorName}'s father — same mother as ${anchorName} = full sibling; different = half sibling.`
+                      : `${anchorName} has more than one spouse — pick the right one.`}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {(motherOptions ?? []).map(sp => {
+                    const active = motherChoice === sp.id
+                    return (
+                      <button key={sp.id} onClick={() => setMotherChoice(sp.id)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '11px 13px', borderRadius: 11, cursor: 'pointer',
+                          fontFamily: 'inherit', textAlign: 'left',
+                          border: `1.5px solid ${active ? COLORS.saffron : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'}`,
+                          background: active ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
+                          color: active ? COLORS.saffron : t.text,
+                          fontSize: 13.5, fontWeight: 600,
+                        }}>
+                        <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${active ? COLORS.saffron : t.textMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {active && <span style={{ width: 7, height: 7, borderRadius: '50%', background: COLORS.saffron }} />}
+                        </span>
+                        <span>{sp.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <motion.button onClick={() => motherChoice ? (isLastStep ? handleCreate(true) : goNext()) : undefined}
+                  disabled={!motherChoice || saving || saved}
+                  whileHover={motherChoice && !saving && !saved ? { scale: 1.015 } : {}}
+                  whileTap={motherChoice && !saving && !saved ? { scale: 0.98 } : {}}
+                  style={{ ...btnPrimary, opacity: motherChoice ? 1 : 0.5, cursor: motherChoice ? 'pointer' : 'default' }}>
+                  {saving && <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={15} /></motion.div>}
+                  {saved  && <IconCheck size={15} strokeWidth={2.5} />}
+                  {saving ? 'Adding…' : saved ? 'Added!' : isLastStep ? '✓ Add to family tree' : 'Continue →'}
+                </motion.button>
+              </motion.div>
+            )}
+
+            {/* ── Step: bio-parents (adopted only) ──────────────────────────── */}
+            {currentStep === 'bio-parents' && (
+              <motion.div key="bio-parents" custom={dir} variants={slide} initial="enter" animate="center" exit="exit"
+                transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                style={{ padding: '24px 28px 26px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: t.text, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                    Add biological parents?
+                  </h2>
+                  <p style={{ margin: '5px 0 0', fontSize: 12.5, color: t.textMuted }}>
+                    Stored on {firstName(fullName) || 'the child'}&apos;s record. Won&apos;t appear in the visible tree — only the adoptive parents will.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {([
+                    [true,  'Yes, I know them'],
+                    [false, 'Skip for now'],
+                  ] as const).map(([val, label]) => {
+                    const active = addBioParents === val
+                    return (
+                      <button key={String(val)}
+                        onClick={() => setAddBioParents(val)}
+                        style={{
+                          padding: '13px 12px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+                          border: `1.5px solid ${active ? COLORS.saffron : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'}`,
+                          background: active ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
+                          color: active ? COLORS.saffron : t.text,
+                          fontSize: 13, fontWeight: 600,
+                        }}>
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <AnimatePresence>
+                  {addBioParents && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.22 }}
+                      style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}
+                    >
+                      <div>
+                        <label style={{ display: 'block', marginBottom: 6, fontSize: 11.5, fontWeight: 600, color: t.textMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                          Biological mother
+                        </label>
+                        <input
+                          value={bioMotherName}
+                          onChange={e => setBioMotherName(e.target.value)}
+                          placeholder="Name (optional)"
+                          style={inputStyle}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: 6, fontSize: 11.5, fontWeight: 600, color: t.textMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                          Biological father
+                        </label>
+                        <input
+                          value={bioFatherName}
+                          onChange={e => setBioFatherName(e.target.value)}
+                          placeholder="Name (optional)"
+                          style={inputStyle}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <motion.button onClick={() => handleCreate(true)} disabled={saving || saved}
+                  whileHover={!saving && !saved ? { scale: 1.015 } : {}}
+                  whileTap={!saving && !saved ? { scale: 0.98 } : {}}
+                  style={btnPrimary}>
+                  {saving && <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={15} /></motion.div>}
+                  {saved  && <IconCheck size={15} strokeWidth={2.5} />}
+                  {saving ? 'Adding…' : saved ? 'Added!' : '✓ Add to family tree'}
+                </motion.button>
               </motion.div>
             )}
 

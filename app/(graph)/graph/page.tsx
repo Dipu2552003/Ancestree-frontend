@@ -12,7 +12,7 @@ import NodePanel from '@/components/graph/NodePanel'
 import PersonProfileView from '@/components/graph/PersonProfileView'
 import Navbar from '@/components/graph/Navbar'
 import NodeContextMenu from '@/components/graph/NodeContextMenu'
-import PerspectiveBanner from '@/components/graph/PerspectiveBanner'
+import TreeTimeline from '@/components/graph/TreeTimeline'
 import ExplorationBanner from '@/components/graph/ExplorationBanner'
 import MergeSearchModal from '@/components/graph/MergeSearchModal'
 import DuplicateFoundModal from '@/components/graph/DuplicateFoundModal'
@@ -20,6 +20,7 @@ import NotificationPanel from '@/components/graph/NotificationPanel'
 import MergeConflictModal from '@/components/graph/MergeConflictModal'
 import MergeComparisonPanel from '@/components/graph/MergeComparisonPanel'
 import AddNodeWizard from '@/components/graph/AddNodeWizard'
+import SecondSpouseWizard, { deriveActiveSpousesFromEdges, deriveChildrenFromEdges } from '@/components/graph/SecondSpouseWizard'
 import { useGraphStore } from '@/store/graphStore'
 import { useGraphData } from '@/hooks/useGraphData'
 import { useNodeActions } from '@/hooks/useNodeActions'
@@ -32,6 +33,60 @@ import type { WizardExtras } from '@/components/graph/AddNodeWizard'
 
 function asPersonData(data: unknown): PersonData {
   return data as PersonData
+}
+
+/**
+ * Candidate mothers shown in the wizard's 'mother' step.
+ *
+ *   - son/daughter:    anchor's own spouses.
+ *   - brother/sister:  anchor's *multi-spouse* parent's spouses, with anchor's
+ *                      own mother first (so it's the default selection and the
+ *                      common "full sibling" case is one click).
+ *   - anything else:   empty (no mother step shown).
+ *
+ * Returned list is empty in single-spouse cases too — the wizard only shows the
+ * mother step when this list has 2+ entries.
+ */
+type SimpleEdge = { id: string; source: string; target: string; data?: unknown }
+type SimpleNode = { id: string; data?: { fullName?: string } }
+function computeMotherOptions(
+  action: RelAction,
+  anchorId: string | null,
+  edges: SimpleEdge[],
+  nodes: SimpleNode[],
+): { id: string; name: string }[] {
+  if (!anchorId) return []
+  const nameOf = (id: string) => nodes.find(n => n.id === id)?.data?.fullName ?? 'Person'
+  const relTypeOf = (e: SimpleEdge) =>
+    (e.data as { relType?: string } | undefined)?.relType
+
+  const spousesOfPerson = (personId: string): string[] =>
+    edges
+      .filter(e => relTypeOf(e) === 'SPOUSE_OF' && (e.source === personId || e.target === personId))
+      .map(e => e.source === personId ? e.target : e.source)
+
+  if (action === 'son' || action === 'daughter') {
+    return spousesOfPerson(anchorId).map(id => ({ id, name: nameOf(id) }))
+  }
+
+  if (action === 'brother' || action === 'sister') {
+    const anchorParents = edges
+      .filter(e => relTypeOf(e) === 'PARENT_OF' && e.target === anchorId)
+      .map(e => e.source)
+    // Find a parent with 2+ spouses — the "shared father" in a multi-wife case.
+    const multiSpouseParent = anchorParents.find(p => spousesOfPerson(p).length >= 2)
+    if (!multiSpouseParent) return []
+
+    const allWives    = spousesOfPerson(multiSpouseParent)
+    const anchorOwnMom = anchorParents.find(p => p !== multiSpouseParent) ?? null
+    // Put anchor's own mother first so the default selection = full sibling.
+    const ordered = anchorOwnMom
+      ? [anchorOwnMom, ...allWives.filter(w => w !== anchorOwnMom)]
+      : allWives
+    return ordered.map(id => ({ id, name: nameOf(id) }))
+  }
+
+  return []
 }
 
 export default function GraphPage() {
@@ -87,6 +142,7 @@ function GraphInner() {
   const [pendingMatch,    setPendingMatch]    = useState<PendingMatchData | null>(null)
   const [matchPanelOpen,  setMatchPanelOpen]  = useState(false)
   const [mergeSearchNode, setMergeSearchNode] = useState<{ id: string; name: string } | null>(null)
+  const [secondSpouseAnchor, setSecondSpouseAnchor] = useState<{ id: string; name: string } | null>(null)
   const [mergeFromNode, setMergeFromNode] = useState<{
     id:        string
     name:      string
@@ -371,14 +427,6 @@ function GraphInner() {
           isDark={isDark}
         />
       )}
-      {perspectiveId && !isExploration && perspectiveName && (
-        <PerspectiveBanner
-          personName={perspectiveName}
-          onBack={() => router.push('/graph')}
-          isDark={isDark}
-        />
-      )}
-
       {contextMenu && (
         <NodeContextMenu
           nodeId={contextMenu.nodeId}
@@ -552,12 +600,31 @@ function GraphInner() {
 
       <Navbar
         familyName={familyName}
+        timeline={!isExploration
+          ? <TreeTimeline perspectiveId={perspectiveId} perspectiveName={perspectiveName} isDark={isDark} />
+          : null}
         selectedNodeId={selectedNodeId}
         selectedNodeName={selectedNodeName}
         canDeleteSelected={canDeleteSelected}
         panelMode={panelMode}
         onHome={onHome}
-        onStartWizard={action => setWizardAction(action)}
+        onStartWizard={action => {
+          // For "Add spouse", check if this person already has an active spouse.
+          // If yes, route to the 3-phase SecondSpouseWizard instead.
+          if (action === 'spouse' && selectedNodeId) {
+            const hasActiveSpouse = rawEdges.some(e => {
+              const d = e.data as unknown as { relType?: string; isActive?: boolean } | undefined
+              return d?.relType === 'SPOUSE_OF'
+                && (e.source === selectedNodeId || e.target === selectedNodeId)
+                && d?.isActive !== false
+            })
+            if (hasActiveSpouse) {
+              setSecondSpouseAnchor({ id: selectedNodeId, name: selectedNodeName })
+              return
+            }
+          }
+          setWizardAction(action)
+        }}
         onDeleteSelected={() => onDeleteNode(selectedNodeId!)}
         onEdit={() => setPanelMode(m => m === 'edit' ? 'none' : 'edit')}
         onView={() => setPanelMode(m => m === 'view' ? 'none' : 'view')}
@@ -576,8 +643,35 @@ function GraphInner() {
             relAction={wizardAction}
             anchorName={selectedNodeName}
             isDark={isDark}
+            motherOptions={computeMotherOptions(wizardAction, selectedNodeId, rawEdges, rawNodes)}
             onAdd={handleWizardAdd}
             onClose={() => setWizardAction(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Second-spouse wizard — opened when "Add spouse" hits a node that already
+          has an active SPOUSE_OF. Three phases: resolve current marriage,
+          add new spouse, re-mother existing children. */}
+      <AnimatePresence>
+        {secondSpouseAnchor && (
+          <SecondSpouseWizard
+            key="second-spouse-wizard"
+            anchorId={secondSpouseAnchor.id}
+            anchorName={secondSpouseAnchor.name}
+            existingSpouses={deriveActiveSpousesFromEdges(
+              secondSpouseAnchor.id,
+              rawEdges,
+              rawNodes.map(n => ({ id: n.id, data: n.data as { fullName?: string; isAlive?: boolean } })),
+            )}
+            existingChildren={deriveChildrenFromEdges(
+              secondSpouseAnchor.id,
+              rawEdges,
+              rawNodes.map(n => ({ id: n.id, data: n.data as { fullName?: string; photoUrl?: string | null } })),
+            )}
+            isDark={isDark}
+            onComplete={async () => { setSecondSpouseAnchor(null); await fetchGraph() }}
+            onClose={() => setSecondSpouseAnchor(null)}
           />
         )}
       </AnimatePresence>

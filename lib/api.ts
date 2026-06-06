@@ -183,6 +183,8 @@ export const api = {
       education?: string | null
       bio?: string | null
       photo_url?: string | null
+      bio_mother_name?: string | null
+      bio_father_name?: string | null
     }) => req<{ id: string; potential_matches?: PotentialMatch[] }>(`/api/persons/${id}`, {
       method: 'PATCH', body: JSON.stringify(b),
     }),
@@ -193,6 +195,12 @@ export const api = {
 
     generateInvite: (id: string) =>
       req<{ invite_token: string }>(`/api/persons/${id}/invite`, { method: 'POST' }),
+
+    /** Atomic re-mother for Flow E Phase 3. new_mother_id: null = "Unknown". */
+    reparent: (fatherId: string, changes: { child_id: string; new_mother_id: string | null }[]) =>
+      req<{ updated: number; skipped: number }>(`/api/persons/${fatherId}/reparent`, {
+        method: 'POST', body: JSON.stringify({ changes }),
+      }),
   },
 
   invite: {
@@ -216,8 +224,18 @@ export const api = {
       to_person_id: string
       rel_type: 'PARENT_OF' | 'SPOUSE_OF' | 'SIBLING_OF'
       sub_type?: string
+      union_year?: number
+      separation_year?: number
     }) => req<{ id: string }>('/api/relationships', {
       method: 'POST', body: JSON.stringify(b),
+    }),
+    update: (id: string, b: {
+      sub_type?: string
+      union_year?: number | null
+      separation_year?: number | null
+      notes?: string | null
+    }) => req<{ id: string }>(`/api/relationships/${id}`, {
+      method: 'PATCH', body: JSON.stringify(b),
     }),
     delete: (id: string) =>
       req<{ success: boolean }>(`/api/relationships/${id}`, { method: 'DELETE' }),

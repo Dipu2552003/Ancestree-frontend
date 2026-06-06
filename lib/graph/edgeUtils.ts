@@ -95,9 +95,31 @@ export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
   const edgeDelay = (a: string, b: string) =>
     Math.max(delayMap.get(a) ?? 0, delayMap.get(b) ?? 0) + 70
 
+  // ── Adoption rule ───────────────────────────────────────────────────────────
+  // When a child has at least one 'adopted' PARENT_OF edge, the 'biological'
+  // edges to that child are hidden from the layout. The biological data is
+  // still in the DB — useful for the child's own records — but the visible
+  // tree shows only the adoptive parents.
+  const adoptedChildIds = new Set<string>()
+  for (const e of edges) {
+    const d = e.data as unknown as EdgeData | undefined
+    if (d?.relType === 'PARENT_OF' && d?.subType === 'adopted') {
+      adoptedChildIds.add(e.target)
+    }
+  }
+  const isHiddenBioEdge = (e: Edge): boolean => {
+    const d = e.data as unknown as EdgeData | undefined
+    return d?.relType === 'PARENT_OF'
+      && d?.subType === 'biological'
+      && adoptedChildIds.has(e.target)
+  }
+
   for (const e of edges) {
     const rel = (e.data as unknown as EdgeData)?.relType
     if (rel === 'PARENT_OF') {
+      // Skip hidden biological-to-adopted-child edges entirely so they don't
+      // contribute to the couple-bracket or the children-of map.
+      if (isHiddenBioEdge(e)) continue
       if (!parentsOf.has(e.target))  parentsOf.set(e.target, [])
       if (!childrenOf.has(e.source)) childrenOf.set(e.source, [])
       parentsOf.get(e.target)!.push(e.source)
@@ -105,14 +127,46 @@ export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
     }
   }
 
+  // ── Multi-spouse rule ───────────────────────────────────────────────────────
+  // When a parent has 2+ spouses (active or otherwise), kids belong visually to
+  // *their mother*, not to the shared father. We:
+  //   1. Skip building the couple bracket if either side is multi-spouse.
+  //   2. Suppress every PARENT_OF edge whose *source* is multi-spouse, as long
+  //      as the child still has another (non-multi-spouse) parent to draw from.
+  //      If the child has no other parent, we keep the edge so the kid isn't
+  //      visually orphaned.
+  // Lineage stays derivable through dad ↔ wife → child.
+  const spouseCount = new Map<string, number>()
+  for (const e of edges) {
+    if ((e.data as unknown as EdgeData)?.relType !== 'SPOUSE_OF') continue
+    spouseCount.set(e.source, (spouseCount.get(e.source) ?? 0) + 1)
+    spouseCount.set(e.target, (spouseCount.get(e.target) ?? 0) + 1)
+  }
+  const isMultiSpouse = (id: string) => (spouseCount.get(id) ?? 0) >= 2
+
   const coveredParentIds = new Set<string>()
   const coveredSpouseIds = new Set<string>()
   const familyEdges: Edge[] = []
   const processedPairs = new Set<string>()
 
   for (const e of edges) {
-    const rel = (e.data as unknown as EdgeData)?.relType
+    const data = e.data as unknown as EdgeData | undefined
+    const rel  = data?.relType
     if (rel !== 'SPOUSE_OF') continue
+
+    // Only the active (married|partner|widowed) marriage gets a family bracket.
+    // Inactive marriages (divorced/separated/annulled/unknown) fall through to
+    // the per-edge renderer below — a dotted line, plus straight PARENT_OF lines
+    // for each child of that mother.
+    const subType = data?.subType ?? 'married'
+    const renderAsCouple =
+      data?.isActive !== false &&
+      (subType === 'married' || subType === 'partner' || subType === 'widowed')
+    if (!renderAsCouple) continue
+
+    // Multi-spouse parent on either side → drop the bracket. Kids will hang
+    // under their mother via her solo PARENT_OF edge.
+    if (isMultiSpouse(e.source) || isMultiSpouse(e.target)) continue
 
     const pairKey = [e.source, e.target].sort().join('|')
     if (processedPairs.has(pairKey)) continue
@@ -152,6 +206,16 @@ export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
 
     const d = edgeDelay(e.source, e.target)
     if (rel === 'PARENT_OF') {
+      // Hidden biological-to-adopted-child edge → drop (data lives in DB only).
+      if (isHiddenBioEdge(e)) continue
+      // Multi-spouse rule: if the *source* parent has multiple spouses AND the
+      // child has another parent we can draw, suppress this edge so the child
+      // visually hangs under their mother only.
+      if (isMultiSpouse(e.source)) {
+        const otherParents = (parentsOf.get(e.target) ?? []).filter(p => p !== e.source)
+        const hasDrawableOther = otherParents.some(p => !isMultiSpouse(p))
+        if (hasDrawableOther) continue
+      }
       result.push({ ...e, sourceHandle: 'bottom', targetHandle: 'top', data: { ...(e.data as unknown as EdgeData), animDelay: d } })
     } else if (rel === 'SPOUSE_OF') {
       const sp = posMap.get(e.source)

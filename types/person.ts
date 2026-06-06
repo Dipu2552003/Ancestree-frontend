@@ -129,8 +129,15 @@ export interface SavePayload {
   photoUrl?: string | null
 }
 
+export type SpouseSubType =
+  | 'married' | 'partner' | 'divorced' | 'widowed' | 'separated' | 'annulled' | 'unknown'
+
 export interface EdgeData {
   relType: 'PARENT_OF' | 'SPOUSE_OF' | 'SIBLING_OF'
+  /** SPOUSE_OF: status; PARENT_OF: biological/adopted/step; SIBLING_OF: full/half */
+  subType?: string | null
+  /** Derived: a SPOUSE_OF marriage that is current (married/partner). */
+  isActive?: boolean
   animDelay?: number
   sharedChildren?: string[]
 }
