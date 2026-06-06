@@ -4,13 +4,15 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  IconHome2, IconPlus, IconX, IconArrowBack,
+  IconHome2, IconPlus, IconX,
   IconArrowUp, IconArrowDown, IconHeart, IconTrash, IconLoader2,
   IconLogout, IconPencil, IconEye, IconUsers,
 } from '@tabler/icons-react'
 import type { WomanView } from '@/lib/layouts/familySideFilter'
 import { getTheme } from '@/lib/theme'
+import { Z } from '@/lib/zIndex'
 import { clearToken } from '@/lib/api'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 export type RelAction = 'father' | 'mother' | 'son' | 'daughter' | 'brother' | 'sister' | 'spouse'
 
@@ -21,7 +23,7 @@ interface NavbarProps {
   canDeleteSelected: boolean
   panelMode: 'none' | 'edit' | 'view'
   onHome: () => void
-  onAddRelation: (action: RelAction, name: string) => Promise<void>
+  onStartWizard: (action: RelAction) => void
   onDeleteSelected: () => Promise<void>
   onEdit: () => void
   onView: () => void
@@ -29,6 +31,7 @@ interface NavbarProps {
   womanView: WomanView
   onWomanViewChange: (v: WomanView) => void
   isDark: boolean
+  forceAddOpen?: number
 }
 
 const RELATIONS: {
@@ -51,28 +54,19 @@ type DeleteState = 'idle' | 'confirm' | 'deleting'
 export default function Navbar({
   familyName, selectedNodeId, selectedNodeName,
   canDeleteSelected, panelMode,
-  onHome, onAddRelation, onDeleteSelected,
+  onHome, onStartWizard, onDeleteSelected,
   onEdit, onView,
   isMarriedWoman, womanView, onWomanViewChange, isDark,
+  forceAddOpen,
 }: NavbarProps) {
   const router = useRouter()
-  const [addOpen, setAddOpen]             = useState(false)
-  const [pendingAction, setPendingAction] = useState<RelAction | null>(null)
-  const [nameInput, setNameInput]         = useState('')
-  const [nameError, setNameError]         = useState('')
-  const [saving, setSaving]               = useState(false)
-  const [deleteState, setDeleteState]     = useState<DeleteState>('idle')
-  const [deleteError, setDeleteError]     = useState('')
-  const menuRef  = useRef<HTMLDivElement>(null)
-  const nameRef  = useRef<HTMLInputElement>(null)
+  const isMobile = useIsMobile()
+  const [addOpen,      setAddOpen]      = useState(false)
+  const [deleteState,  setDeleteState]  = useState<DeleteState>('idle')
+  const [deleteError,  setDeleteError]  = useState('')
+  const menuRef = useRef<HTMLDivElement>(null)
 
-  const closeAdd = () => {
-    setAddOpen(false)
-    setPendingAction(null)
-    setNameInput('')
-    setNameError('')
-    setSaving(false)
-  }
+  const closeAdd = () => setAddOpen(false)
 
   const handleLogout = () => {
     clearToken()
@@ -81,24 +75,8 @@ export default function Navbar({
   }
 
   const handleRelationSelect = (action: RelAction) => {
-    setPendingAction(action)
-    setNameInput('')
-    setNameError('')
-    setTimeout(() => nameRef.current?.focus(), 50)
-  }
-
-  const handleAddSave = async () => {
-    if (!nameInput.trim()) { setNameError('Name is required'); nameRef.current?.focus(); return }
-    if (!pendingAction) return
-    setSaving(true)
-    setNameError('')
-    try {
-      await onAddRelation(pendingAction, nameInput.trim())
-      closeAdd()
-    } catch (err: unknown) {
-      setNameError(err instanceof Error ? err.message : 'Failed to create')
-      setSaving(false)
-    }
+    closeAdd()
+    onStartWizard(action)
   }
 
   useEffect(() => {
@@ -121,6 +99,10 @@ export default function Navbar({
       setDeleteError('')
     }
   }, [selectedNodeId])
+
+  useEffect(() => {
+    if (forceAddOpen && addEnabled) setAddOpen(true)
+  }, [forceAddOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const t = getTheme(isDark)
 
@@ -158,9 +140,12 @@ export default function Navbar({
     <div
       ref={menuRef}
       style={{
-        position: 'fixed', bottom: '24px', left: '50%',
-        transform: 'translateX(-50%)', zIndex: 200,
+        position: 'fixed',
+        bottom: isMobile ? 'max(16px, calc(env(safe-area-inset-bottom) + 8px))' : '24px',
+        left: '50%',
+        transform: 'translateX(-50%)', zIndex: Z.navbar,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+        maxWidth: 'calc(100vw - 24px)',
       }}
     >
       {/* ── Add relation menu ── */}
@@ -178,122 +163,48 @@ export default function Navbar({
               padding: '16px',
               boxShadow: t.shadow,
               width: '260px',
+              maxWidth: 'calc(100vw - 32px)',
             }}
           >
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {pendingAction && (
-                  <button
-                    onClick={() => { setPendingAction(null); setNameInput(''); setNameError('') }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '2px', display: 'flex' }}
-                  >
-                    <IconArrowBack size={14} />
-                  </button>
-                )}
-                <div>
-                  <p style={{ margin: 0, fontSize: '11px', color: t.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                    {pendingAction ? `Adding ${RELATIONS.find(r => r.action === pendingAction)?.label}` : 'Add relation'}
-                  </p>
-                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: t.text, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {selectedNodeName || 'Selected person'}
-                  </p>
-                </div>
+              <div>
+                <p style={{ margin: 0, fontSize: '11px', color: t.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Add relation
+                </p>
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: t.text, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {selectedNodeName || 'Selected person'}
+                </p>
               </div>
               <button onClick={closeAdd} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: '2px', display: 'flex' }}>
                 <IconX size={15} />
               </button>
             </div>
 
-            {/* Step 1 — relation type grid */}
-            {!pendingAction && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                {RELATIONS.map(r => (
-                  <button
-                    key={r.action}
-                    onClick={() => handleRelationSelect(r.action)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                      padding: '9px 12px', borderRadius: '10px',
-                      border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                      background: 'transparent', color: t.text,
-                      fontSize: '12.5px', fontWeight: 500,
-                      transition: 'background 0.12s',
-                      gridColumn: r.action === 'spouse' ? '1 / -1' : 'auto',
-                      justifyContent: r.action === 'spouse' ? 'center' : 'flex-start',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = t.itemHoverBg)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <span style={{ color: r.color, display: 'flex' }}>{r.icon}</span>
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Step 2 — name form */}
-            {pendingAction && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: t.textMuted, display: 'block', marginBottom: '6px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                    Full name <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <input
-                    ref={nameRef}
-                    value={nameInput}
-                    onChange={e => { setNameInput(e.target.value); setNameError('') }}
-                    onKeyDown={e => { if (e.key === 'Enter') handleAddSave() }}
-                    placeholder={`e.g. Ramesh Khandelwal`}
-                    style={{
-                      width: '100%', height: '38px', padding: '0 12px',
-                      border: `1.5px solid ${nameError ? '#EF4444' : '#EA580C44'}`,
-                      borderRadius: '10px', fontSize: '13px',
-                      color: t.text, background: t.inputBg ?? t.panelBg,
-                      outline: 'none', fontFamily: 'inherit',
-                      boxSizing: 'border-box',
-                    }}
-                    onFocus={e => { if (!nameError) e.currentTarget.style.borderColor = '#EA580C' }}
-                    onBlur={e  => { if (!nameError) e.currentTarget.style.borderColor = '#EA580C44' }}
-                  />
-                  {nameError && (
-                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#EF4444' }}>{nameError}</p>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => { setPendingAction(null); setNameInput(''); setNameError('') }}
-                    disabled={saving}
-                    style={{
-                      flex: 1, height: '36px', borderRadius: '10px',
-                      border: `1px solid ${t.borderNeutral}`,
-                      background: 'transparent', cursor: 'pointer',
-                      fontSize: '13px', fontFamily: 'inherit', color: t.textMuted,
-                    }}
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleAddSave}
-                    disabled={saving}
-                    style={{
-                      flex: 2, height: '36px', borderRadius: '10px', border: 'none',
-                      background: saving ? '#F0A070' : '#EA580C',
-                      color: '#fff', fontSize: '13px', fontWeight: 600,
-                      fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                      transition: 'background 0.15s',
-                    }}
-                  >
-                    {saving
-                      ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={14} /></motion.div>Creating…</>
-                      : `Add ${RELATIONS.find(r => r.action === pendingAction)?.label}`
-                    }
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Relation type grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              {RELATIONS.map(r => (
+                <button
+                  key={r.action}
+                  onClick={() => handleRelationSelect(r.action)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '9px 12px', borderRadius: '10px',
+                    border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    background: 'transparent', color: t.text,
+                    fontSize: '12.5px', fontWeight: 500,
+                    transition: 'background 0.12s',
+                    gridColumn: r.action === 'spouse' ? '1 / -1' : 'auto',
+                    justifyContent: r.action === 'spouse' ? 'center' : 'flex-start',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = t.itemHoverBg)}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span style={{ color: r.color, display: 'flex' }}>{r.icon}</span>
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -313,6 +224,7 @@ export default function Navbar({
               padding: '16px',
               boxShadow: t.shadow,
               width: '260px',
+              maxWidth: 'calc(100vw - 32px)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -405,25 +317,30 @@ export default function Navbar({
               <button
                 key={v}
                 onClick={() => onWomanViewChange(v)}
+                title={v === 'piyar' ? 'Piyar — husband\'s family side' : 'Mayka — birth / parents\' side'}
                 style={{
-                  padding: '6px 18px',
+                  padding: '5px 16px',
                   borderRadius: '10px',
                   border: 'none',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
-                  fontSize: '12px',
-                  fontWeight: active ? 700 : 500,
                   letterSpacing: '0.03em',
                   background: active
                     ? (isDark ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.10)')
                     : 'transparent',
                   color: active ? '#EA580C' : t.textMuted,
                   transition: 'background 0.15s, color 0.15s',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
                 }}
                 onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.itemHoverBg }}
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
-                {v === 'piyar' ? 'Piyar' : 'Mayka'}
+                <span style={{ fontSize: '12px', fontWeight: active ? 700 : 500 }}>
+                  {v === 'piyar' ? 'Piyar' : 'Mayka'}
+                </span>
+                <span style={{ fontSize: '8.5px', letterSpacing: '0.04em', opacity: 0.65, fontWeight: 500 }}>
+                  {v === 'piyar' ? "husband's side" : 'birth side'}
+                </span>
               </button>
             )
           })}
@@ -455,19 +372,21 @@ export default function Navbar({
             whileHover={addEnabled ? { scale: 1.04 } : {}}
             whileTap={addEnabled ? { scale: 0.96 } : {}}
             style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              padding: '8px 14px', borderRadius: '14px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: isMobile ? 0 : '5px',
+              padding: isMobile ? '8px 10px' : '8px 14px', borderRadius: '14px',
               background: addBg, border: 'none',
               color: addColor, fontFamily: 'inherit',
               fontSize: '13px', fontWeight: 600,
               cursor: addEnabled ? 'pointer' : 'default',
               transition: 'background 0.2s, color 0.2s',
               letterSpacing: '0.01em',
+              minWidth: isMobile ? '40px' : undefined,
             }}
             title={addEnabled ? `Add relation to ${selectedNodeName}` : 'Select a person first'}
           >
             <IconPlus size={15} strokeWidth={2.5} />
-            Add
+            {!isMobile && 'Add'}
           </motion.button>
         </div>
 
@@ -478,19 +397,21 @@ export default function Navbar({
             whileHover={actionEnabled ? { scale: 1.04 } : {}}
             whileTap={actionEnabled ? { scale: 0.96 } : {}}
             style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              padding: '8px 14px', borderRadius: '14px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: isMobile ? 0 : '5px',
+              padding: isMobile ? '8px 10px' : '8px 14px', borderRadius: '14px',
               background: actionBg(editActive), border: 'none',
               color: actionColor(editActive), fontFamily: 'inherit',
               fontSize: '13px', fontWeight: editActive ? 700 : 500,
               cursor: actionEnabled ? 'pointer' : 'default',
               transition: 'background 0.2s, color 0.2s',
               letterSpacing: '0.01em',
+              minWidth: isMobile ? '40px' : undefined,
             }}
             title={actionEnabled ? `Edit ${selectedNodeName}` : 'Select a person first'}
           >
             <IconPencil size={15} strokeWidth={2} />
-            Edit
+            {!isMobile && 'Edit'}
           </motion.button>
         </div>
 
@@ -501,19 +422,21 @@ export default function Navbar({
             whileHover={actionEnabled ? { scale: 1.04 } : {}}
             whileTap={actionEnabled ? { scale: 0.96 } : {}}
             style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              padding: '8px 14px', borderRadius: '14px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: isMobile ? 0 : '5px',
+              padding: isMobile ? '8px 10px' : '8px 14px', borderRadius: '14px',
               background: actionBg(viewActive), border: 'none',
               color: actionColor(viewActive), fontFamily: 'inherit',
               fontSize: '13px', fontWeight: viewActive ? 700 : 500,
               cursor: actionEnabled ? 'pointer' : 'default',
               transition: 'background 0.2s, color 0.2s',
               letterSpacing: '0.01em',
+              minWidth: isMobile ? '40px' : undefined,
             }}
             title={actionEnabled ? `View ${selectedNodeName}` : 'Select a person first'}
           >
             <IconEye size={15} strokeWidth={2} />
-            View
+            {!isMobile && 'View'}
           </motion.button>
         </div>
 

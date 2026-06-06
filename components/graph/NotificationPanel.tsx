@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   IconX, IconBell, IconGitMerge, IconCheck, IconLoader2,
-  IconInbox, IconSend, IconClock, IconArrowRight,
+  IconInbox, IconSend, IconClock, IconArrowRight, IconEye,
 } from '@tabler/icons-react'
 import { api, type AppNotification, type MergeConflict, type SentMergeRequest, type PossibleMatchNotificationDetails } from '@/lib/api'
 import type { PendingMatchData } from '@/types'
@@ -250,9 +250,15 @@ function ClaimSuggestionCard({
   onRequested:  () => void
 }) {
   const t = getTheme(isDark)
+  const router = useRouter()
   const { markNotificationRead } = useGraphStore()
   const [state, setState] = useState<'idle' | 'loading' | 'done'>('idle')
   const [err, setErr] = useState('')
+
+  async function handleViewTree() {
+    if (!notification.related_person_id) return
+    router.push(`/graph?perspective=${notification.related_person_id}`)
+  }
 
   async function handleRequest() {
     const selfPersonId = getSelfPersonId()
@@ -281,6 +287,22 @@ function ClaimSuggestionCard({
 
   return (
     <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {/* View their tree first — lets the user confirm it's really them */}
+      <button
+        onClick={handleViewTree}
+        disabled={!notification.related_person_id}
+        style={{
+          height: '32px', borderRadius: '8px',
+          border: `1px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
+          background: isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)',
+          color: '#EA580C', fontSize: '11.5px', fontWeight: 600,
+          fontFamily: 'inherit', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+        }}
+      >
+        <IconEye size={12} /> View their tree
+      </button>
+
       {err && <p style={{ margin: 0, fontSize: '11px', color: '#EF4444' }}>{err}</p>}
       <button
         onClick={handleRequest}

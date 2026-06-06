@@ -1,6 +1,7 @@
 'use client'
 
 import { type MouseEvent, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import {
   ReactFlow,
   type Node,
@@ -14,6 +15,7 @@ import { nodeTypes } from './PersonNode'
 import { collapsedCoupleNodeType } from './CollapsedCoupleNode'
 import { edgeTypes } from './SketchEdge'
 import { familyEdgeType } from './FamilyEdge'
+import { useTiltEffect } from '@/hooks/useTiltEffect'
 
 const allNodeTypes = { ...nodeTypes, ...collapsedCoupleNodeType }
 const allEdgeTypes = { ...edgeTypes, ...familyEdgeType }
@@ -26,10 +28,12 @@ interface GraphCanvasProps {
   onEdgesChange: (changes: EdgeChange[]) => void
   onNodeClick: (nodeId: string) => void
   onNodeContextMenu?: (event: MouseEvent, nodeId: string) => void
+  onPaneClick?: () => void
 }
 
-export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick, onNodeContextMenu }: GraphCanvasProps) {
+export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick, onNodeContextMenu, onPaneClick }: GraphCanvasProps) {
   const { currentZoom } = useGraphStore()
+  const { rotateX, rotateY, handleMouseMove, handleMouseLeave } = useTiltEffect()
 
   const handleNodeClick: NodeMouseHandler = (_event, node) => onNodeClick(node.id)
 
@@ -47,23 +51,40 @@ export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange
   }, [onNodesChange])
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={handleNodesChange}
-      onEdgesChange={onEdgesChange}
-      nodeTypes={allNodeTypes}
-      edgeTypes={allEdgeTypes}
-      onNodeClick={handleNodeClick}
-      onNodeContextMenu={handleNodeContextMenu}
-      defaultViewport={{ x: 0, y: 0, zoom: currentZoom }}
-      minZoom={0.15}
-      maxZoom={3}
-      panOnScroll={false}
-      zoomOnScroll
-      nodesDraggable={false}
-      nodesConnectable={false}
-      style={{ width: '100%', height: '100%', background: 'transparent' }}
-    />
+    <motion.div
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        width: '100%',
+        height: '100%',
+        rotateX,
+        rotateY,
+        transformPerspective: 1400,
+        transformOrigin: 'center center',
+        willChange: 'transform',
+      }}
+    >
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={onEdgesChange}
+        nodeTypes={allNodeTypes}
+        edgeTypes={allEdgeTypes}
+        onNodeClick={handleNodeClick}
+        onNodeContextMenu={handleNodeContextMenu}
+        onPaneClick={onPaneClick}
+        defaultViewport={{ x: 0, y: 0, zoom: currentZoom }}
+        minZoom={0.15}
+        maxZoom={3}
+        panOnScroll={false}
+        zoomOnScroll
+        zoomOnPinch
+        panOnDrag
+        nodesDraggable={false}
+        nodesConnectable={false}
+        style={{ width: '100%', height: '100%', background: 'transparent' }}
+      />
+    </motion.div>
   )
 }

@@ -3,9 +3,10 @@
 import { useRef, useState, useEffect, useCallback, Fragment, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGraphStore } from '@/store/graphStore'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import {
-  IconX, IconCamera, IconArrowUp, IconArrowDown,
-  IconHeart, IconCheck, IconLoader2, IconTrash, IconEye, IconScissors,
+  IconX, IconCamera,
+  IconCheck, IconLoader2, IconTrash, IconEye, IconScissors, IconPlus, IconChevronDown,
 } from '@tabler/icons-react'
 import type { Node, Edge } from '@xyflow/react'
 import type { PersonData, SavePayload, EdgeData } from '@/types'
@@ -15,16 +16,13 @@ import { api } from '@/lib/api'
 interface NodePanelProps {
   node: Node
   onClose: () => void
-  onViewProfile?: () => void
   onUpdate: (id: string, data: Partial<PersonData>) => void
-  onAddParent: (name: string) => Promise<void>
-  onAddChild: (name: string) => Promise<void>
-  onAddSpouse: (name: string) => Promise<void>
   onSave?: (id: string, data: SavePayload) => Promise<void>
   rawEdges?: Edge[]
   rawNodes?: Node[]
   onViewNode?: (id: string) => void
   onRemoveConnection?: (edgeId: string) => Promise<void>
+  onRequestAddRelation?: () => void
 }
 
 function compressPhoto(file: File): Promise<string> {
@@ -105,8 +103,9 @@ function initDraft(d: PersonData) {
 
 type Draft = ReturnType<typeof initDraft>
 
-export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAddParent, onAddChild, onAddSpouse, onSave, rawEdges, rawNodes, onViewNode, onRemoveConnection }: NodePanelProps) {
+export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, rawNodes, onViewNode, onRemoveConnection, onRequestAddRelation }: NodePanelProps) {
   const { isDark } = useGraphStore()
+  const isMobile = useIsMobile()
   const d = node.data as unknown as PersonData
   const canEditProfile = d.isSelf || (d.canEditProfile ?? false)
 
@@ -120,12 +119,21 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
   const [photoHovered, setPhotoHovered] = useState(false)
   const [photoUploading, setPhotoUploading] = useState(false)
 
-  const [pendingAdd, setPendingAdd]         = useState<'parent' | 'child' | 'spouse' | null>(null)
-  const [pendingName, setPendingName]       = useState('')
-  const [pendingNameErr, setPendingNameErr] = useState('')
-  const [pendingAdding, setPendingAdding]   = useState(false)
-
   const [removingEdgeId, setRemovingEdgeId] = useState<string | null>(null)
+
+  type SectionKey = 'contact' | 'currentLocation' | 'nativeOrigin' | 'workEducation'
+  const initSections = useCallback(() => {
+    const anyOf = (keys: string[]) => keys.some(k => Boolean((d as unknown as Record<string, unknown>)[k]))
+    return {
+      contact:         anyOf(['phone', 'whatsapp', 'email']),
+      currentLocation: anyOf(['currentAddress', 'currentCity', 'currentState', 'currentCountry', 'currentPincode']),
+      nativeOrigin:    anyOf(['nativeVillage', 'nativeTehsil', 'nativeDistrict', 'nativeState', 'nativeCountry']),
+      workEducation:   anyOf(['occupation', 'occupationDetail', 'education', 'bio']),
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id])
+  const [sectionsOpen, setSectionsOpen] = useState<Record<SectionKey, boolean>>(initSections)
+  useEffect(() => { setSectionsOpen(initSections()) }, [initSections])
 
   const connections = useMemo(() => {
     if (!rawEdges || !rawNodes) return []
@@ -150,7 +158,6 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
 
   const fileInputRef    = useRef<HTMLInputElement>(null)
   const nameInputRef    = useRef<HTMLInputElement>(null)
-  const pendingNameRef  = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (d.fullName !== 'Unknown') return
@@ -299,17 +306,10 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
     setInviteCopied(true)
   }, [inviteCode])
 
-  const withAutoSave = (action: () => void) => {
-    if (isDirty && draft.fullName.trim()) commitDraft()
-    action()
-  }
-
   // ── theme ──────────────────────────────────────────────────────────
   const t        = getTheme(isDark)
   const labelCol = isDark ? '#7A6A52' : '#9A3412'
   const btn1Bg   = isDark ? '#2A1A12' : '#FFF3E8'
-  const btn2Bg   = isDark ? '#251510' : '#FFF3E8'
-  const btn3Bg   = isDark ? '#221C10' : '#FFF8F0'
 
   const saveBg = saveState === 'saved'
     ? (isDark ? '#14401A' : '#DCFCE7')
@@ -352,18 +352,65 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
     </div>
   )
 
-  const sectionHeader = (title: string) => (
-    <div style={{
-      fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.10em',
-      textTransform: 'uppercase', color: t.textMuted,
-      padding: '10px 16px 6px',
-      borderTop: `1px solid ${t.border}`,
-      background: t.sectionBg,
-      marginTop: '4px',
-    }}>
-      {title}
-    </div>
-  )
+  const countFilled = (keys: (keyof Draft)[]) =>
+    keys.filter(k => Boolean(draft[k])).length
+
+  const sectionHeader = (title: string, opts?: { sectionKey?: SectionKey; fields?: (keyof Draft)[] }) => {
+    const sk = opts?.sectionKey
+    const isOpen = sk ? sectionsOpen[sk] : true
+    const filled = (opts?.fields && sk && !isOpen) ? countFilled(opts.fields) : 0
+    const Tag = sk ? 'button' : 'div'
+    return (
+      <Tag
+        {...(sk ? {
+          type: 'button' as const,
+          onClick: () => setSectionsOpen(p => ({ ...p, [sk]: !p[sk] })),
+          'aria-expanded': isOpen,
+        } : {})}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          padding: '10px 16px 8px', width: sk ? '100%' : undefined,
+          borderTop: `1px solid ${t.border}`,
+          background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+          marginTop: '4px',
+          cursor: sk ? 'pointer' : 'default',
+          userSelect: 'none' as const,
+          border: 'none', fontFamily: 'inherit',
+          textAlign: 'left' as const,
+        }}
+      >
+        <div style={{
+          width: '2px', height: '12px', borderRadius: '1px', flexShrink: 0,
+          background: isDark ? 'rgba(234,88,12,0.45)' : 'rgba(234,88,12,0.35)',
+        }} />
+        <span style={{
+          flex: 1, fontSize: '10px', fontWeight: 700,
+          letterSpacing: '0.10em', textTransform: 'uppercase' as const,
+          color: isDark ? 'rgba(237,232,227,0.60)' : 'rgba(26,10,0,0.50)',
+        }}>
+          {title}
+        </span>
+        {sk && !isOpen && filled > 0 && (
+          <span style={{
+            fontSize: '9px', fontWeight: 700, color: '#EA580C',
+            background: isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.10)',
+            padding: '1px 7px', borderRadius: '10px',
+          }}>
+            {filled}
+          </span>
+        )}
+        {sk && (
+          <motion.span
+            animate={{ rotate: isOpen ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ display: 'flex', color: isDark ? '#4A3F35' : '#C4A882', lineHeight: 0 }}
+          >
+            <IconChevronDown size={13} strokeWidth={2} />
+          </motion.span>
+        )}
+      </Tag>
+    )
+  }
 
   const row = (...children: React.ReactNode[]) => (
     <div style={{ display: 'flex', gap: '10px' }}>
@@ -371,13 +418,34 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
     </div>
   )
 
+  const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    const yr = parseInt(val.slice(0, 4))
+    const autoYear = val.length >= 4 && !isNaN(yr) && yr >= 1800 && yr <= 2099 ? String(yr) : undefined
+    setDraft(p => ({ ...p, birthDate: val, ...(autoYear !== undefined ? { birthYear: autoYear } : {}) }))
+  }
+
+  const handleDeathDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    const yr = parseInt(val.slice(0, 4))
+    const autoYear = val.length >= 4 && !isNaN(yr) && yr >= 1800 && yr <= 2099 ? String(yr) : undefined
+    setDraft(p => ({ ...p, deathDate: val, ...(autoYear !== undefined ? { deathYear: autoYear } : {}) }))
+  }
+
   return (
     <motion.div
-      initial={{ x: 320 }}
-      animate={{ x: 0 }}
-      exit={{ x: 320 }}
+      initial={isMobile ? { y: '100%' } : { x: 320 }}
+      animate={isMobile ? { y: 0 } : { x: 0 }}
+      exit={isMobile ? { y: '100%' } : { x: 320 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      style={{
+      style={isMobile ? {
+        position: 'fixed', bottom: 0, left: 0, right: 0, height: '85vh',
+        background: t.panelBg, zIndex: 111,
+        display: 'flex', flexDirection: 'column',
+        borderTop: `1.5px solid ${t.border}`,
+        borderRadius: '16px 16px 0 0',
+        overflowY: 'auto',
+      } : {
         position: 'fixed', top: 0, right: 0, height: '100vh', width: '320px',
         background: t.panelBg, zIndex: 100,
         display: 'flex', flexDirection: 'column',
@@ -385,44 +453,33 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
         overflowY: 'auto',
       }}
     >
+      {/* Drag handle — mobile only */}
+      {isMobile && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px', flexShrink: 0, pointerEvents: 'none' }}>
+          <div style={{ width: '40px', height: '4px', borderRadius: '2px', background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
+        </div>
+      )}
+      {/* Screen-reader live region for save feedback */}
+      <span
+        aria-live="polite"
+        aria-atomic="true"
+        style={{
+          position: 'absolute', width: 1, height: 1,
+          padding: 0, margin: '-1px', overflow: 'hidden',
+          clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
+        }}
+      >
+        {saveState === 'saving' ? 'Saving changes' : saveState === 'saved' ? 'Changes saved successfully' : ''}
+      </span>
+
       {/* ── Header ── */}
       <div style={{
         height: '52px', background: t.cardBg,
         borderBottom: `1.5px solid ${t.border}`,
         display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', padding: '0 12px', flexShrink: 0,
+        justifyContent: 'flex-end', padding: '0 12px', flexShrink: 0,
         position: 'sticky', top: 0, zIndex: 10,
       }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '2px',
-          background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-          borderRadius: '8px', padding: '3px',
-        }}>
-          <button
-            onClick={onViewProfile}
-            style={{
-              height: '28px', padding: '0 12px', borderRadius: '6px', border: 'none',
-              fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-              background: 'transparent', color: isDark ? '#7A6A52' : '#9A6C3C',
-              transition: 'background 0.15s, color 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-          >
-            View
-          </button>
-          <div style={{
-            height: '28px', padding: '0 12px', borderRadius: '6px',
-            fontSize: '12px', fontWeight: 600,
-            background: isDark ? '#2A2018' : '#FFFFFF',
-            color: isDark ? '#EDE8E3' : '#431407',
-            display: 'flex', alignItems: 'center',
-            boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 4px rgba(0,0,0,0.10)',
-          }}>
-            Edit
-          </div>
-        </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <AnimatePresence>
             {isDirty && saveState === 'idle' && (
@@ -433,7 +490,7 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
               />
             )}
           </AnimatePresence>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: labelCol }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: isMobile ? '10px' : '4px', display: 'flex', alignItems: 'center', color: labelCol }}>
             <IconX size={18} />
           </button>
         </div>
@@ -453,27 +510,115 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
         </div>
       )}
 
+      {/* ── Invite to claim (proxy nodes — shown near the top as primary CTA) ── */}
+      {d.canInvite && (
+        <div style={{
+          margin: '12px 16px 0', padding: '14px 16px', borderRadius: '10px',
+          background: isDark ? '#0D1F0D' : '#F0FDF4',
+          border: `1px solid ${isDark ? '#14532D' : '#BBF7D0'}`,
+          display: 'flex', flexDirection: 'column', gap: '10px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '14px', lineHeight: 1 }}>⚡</span>
+            <div>
+              <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: isDark ? '#4ADE80' : '#15803D' }}>
+                Invite to join
+              </p>
+              <p style={{ margin: '2px 0 0', fontSize: '11px', lineHeight: 1.4, color: isDark ? 'rgba(74,222,128,0.70)' : 'rgba(22,163,74,0.75)' }}>
+                {d.fullName?.split(' ')[0] ?? 'This person'} hasn't joined yet
+              </p>
+            </div>
+          </div>
+          {!inviteCode ? (
+            <motion.button
+              onClick={handleGenerateInvite}
+              disabled={inviteGenerating}
+              whileHover={!inviteGenerating ? { scale: 1.015 } : {}}
+              whileTap={!inviteGenerating ? { scale: 0.975 } : {}}
+              style={{
+                width: '100%', height: '34px', borderRadius: '8px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                cursor: inviteGenerating ? 'default' : 'pointer',
+                fontSize: '12px', fontWeight: 600, fontFamily: 'inherit',
+                background: isDark ? '#14532D' : '#16A34A', color: '#fff', border: 'none',
+                opacity: inviteGenerating ? 0.6 : 1, transition: 'opacity 0.15s',
+              }}
+            >
+              {inviteGenerating
+                ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={13} /></motion.div> Generating…</>
+                : 'Generate invite code'
+              }
+            </motion.button>
+          ) : (
+            <>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                background: isDark ? '#1A2A1A' : '#DCFCE7',
+                border: `1.5px solid ${isDark ? '#14532D' : '#86EFAC'}`,
+                borderRadius: '8px', padding: '0 12px', height: '40px',
+              }}>
+                <span style={{
+                  flex: 1, fontFamily: 'monospace', fontSize: '14px',
+                  fontWeight: 700, letterSpacing: '0.12em',
+                  color: isDark ? '#4ADE80' : '#15803D',
+                }}>
+                  {inviteCode}
+                </span>
+                <button
+                  onClick={handleCopyInvite}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
+                    color: isDark ? '#4ADE80' : '#16A34A', fontSize: '11px', fontFamily: 'inherit',
+                    fontWeight: 600, flexShrink: 0,
+                  }}
+                >
+                  {inviteCopied ? <IconCheck size={14} strokeWidth={2.5} /> : 'Copy'}
+                </button>
+              </div>
+              <p style={{ fontSize: '11px', margin: 0, lineHeight: 1.5, color: isDark ? 'rgba(74,222,128,0.70)' : 'rgba(21,128,61,0.70)' }}>
+                Share with {d.fullName?.split(' ')[0] ?? 'them'} — enter at{' '}
+                <span style={{ color: '#EA580C' }}>/invite</span> to join.
+              </p>
+              <button
+                onClick={handleGenerateInvite}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  fontSize: '10.5px', color: t.textMuted, textAlign: 'left' as const,
+                  fontFamily: 'inherit', textDecoration: 'underline',
+                }}
+              >
+                Regenerate code
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {canEditProfile && (<>
 
         {/* ── Photo ── */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px 0' }}>
-          <div
+          <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             onMouseEnter={() => setPhotoHovered(true)}
             onMouseLeave={() => setPhotoHovered(false)}
+            aria-label={draft.photoUrl ? 'Change photo' : 'Add photo'}
+            aria-busy={photoUploading}
             style={{
               width: '80px', height: '80px', borderRadius: '6px',
               background: btn1Bg, border: `2px dashed ${photoHovered ? '#FB923C' : t.border}`,
               overflow: 'hidden', cursor: 'pointer', position: 'relative',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               transition: 'border-color 0.15s ease',
+              padding: 0, fontFamily: 'inherit',
             }}
           >
             {photoUploading ? (
               <IconLoader2 size={20} color="#EA580C" style={{ animation: 'spin 0.8s linear infinite' }} />
             ) : draft.photoUrl ? (
               <>
-                <img src={draft.photoUrl} alt="photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={draft.photoUrl} alt={`Photo of ${d.fullName}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 <div style={{
                   position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.42)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -488,7 +633,7 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
                 <span style={{ fontSize: '9px', color: photoHovered ? '#FB923C' : '#D97706', marginTop: '3px', transition: 'color 0.15s' }}>Add photo</span>
               </>
             )}
-          </div>
+          </button>
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
             onChange={async e => {
               const file = e.target.files?.[0]
@@ -579,20 +724,35 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
         <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
           {row(
-            field('Birth date', 'birthDate', 'YYYY-MM-DD', { half: true }),
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label style={labelStyle}>Birth date</label>
+              <input
+                type="text"
+                value={draft.birthDate}
+                onChange={handleBirthDateChange}
+                onFocus={() => setFocused('birthDate')} onBlur={() => setFocused(null)}
+                placeholder="YYYY-MM-DD"
+                style={inputStyle('birthDate')}
+              />
+            </div>,
             field('Birth year', 'birthYear', 'YYYY', { type: 'number', half: true }),
           )}
           {field('Birth place', 'birthPlace', 'City or village')}
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            {/* span is non-interactive; the button below has aria-label for AT */}
             <span style={labelStyle}>Deceased</span>
-            <div
+            <button
+              type="button"
+              role="switch"
+              aria-checked={draft.isDeceased}
+              aria-label="Deceased"
               onClick={() => setDraft(p => ({ ...p, isDeceased: !p.isDeceased, deathDate: '', deathYear: '', deathPlace: '' }))}
               style={{
                 width: '36px', height: '20px', borderRadius: '10px',
                 background: draft.isDeceased ? '#EA580C' : (isDark ? '#2A2520' : '#E5E7EB'),
                 position: 'relative', cursor: 'pointer', transition: 'background 0.2s ease',
-                flexShrink: 0,
+                flexShrink: 0, border: 'none', padding: 0,
               }}
             >
               <div style={{
@@ -600,7 +760,7 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
                 width: '16px', height: '16px', borderRadius: '50%', background: 'white',
                 transition: 'left 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
               }} />
-            </div>
+            </button>
           </div>
 
           <AnimatePresence>
@@ -610,7 +770,17 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
                 exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px' }}
               >
                 {row(
-                  field('Death date', 'deathDate', 'YYYY-MM-DD', { half: true }),
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <label style={labelStyle}>Death date</label>
+                    <input
+                      type="text"
+                      value={draft.deathDate}
+                      onChange={handleDeathDateChange}
+                      onFocus={() => setFocused('deathDate')} onBlur={() => setFocused(null)}
+                      placeholder="YYYY-MM-DD"
+                      style={inputStyle('deathDate')}
+                    />
+                  </div>,
                   field('Death year', 'deathYear', 'YYYY', { type: 'number', half: true }),
                 )}
                 {field('Death place', 'deathPlace', 'City or village')}
@@ -620,62 +790,110 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
         </div>
 
         {/* ── CONTACT ── */}
-        {sectionHeader('Contact')}
-        <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {field('Phone', 'phone', '+91 98765 43210', { type: 'tel' })}
-          {field('WhatsApp', 'whatsapp', '+91 98765 43210', { type: 'tel' })}
-          {field('Email', 'email', 'name@example.com', { type: 'email' })}
-        </div>
+        {sectionHeader('Contact', { sectionKey: 'contact', fields: ['phone', 'whatsapp', 'email'] })}
+        <AnimatePresence initial={false}>
+          {sectionsOpen.contact && (
+            <motion.div
+              key="contact-body"
+              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {field('Phone', 'phone', '+91 98765 43210', { type: 'tel' })}
+                {field('WhatsApp', 'whatsapp', '+91 98765 43210', { type: 'tel' })}
+                {field('Email', 'email', 'name@example.com', { type: 'email' })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── CURRENT LOCATION ── */}
-        {sectionHeader('Current Location')}
-        <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {field('Address', 'currentAddress', 'Street / apartment')}
-          {row(
-            field('City', 'currentCity', 'City', { half: true }),
-            field('State', 'currentState', 'State', { half: true }),
+        {sectionHeader('Current Location', { sectionKey: 'currentLocation', fields: ['currentAddress', 'currentCity', 'currentState', 'currentCountry', 'currentPincode'] })}
+        <AnimatePresence initial={false}>
+          {sectionsOpen.currentLocation && (
+            <motion.div
+              key="location-body"
+              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {field('Address', 'currentAddress', 'Street / apartment')}
+                {row(
+                  field('City', 'currentCity', 'City', { half: true }),
+                  field('State', 'currentState', 'State', { half: true }),
+                )}
+                {row(
+                  field('Country', 'currentCountry', 'India', { half: true }),
+                  field('Pincode', 'currentPincode', '000000', { half: true }),
+                )}
+              </div>
+            </motion.div>
           )}
-          {row(
-            field('Country', 'currentCountry', 'India', { half: true }),
-            field('Pincode', 'currentPincode', '000000', { half: true }),
-          )}
-        </div>
+        </AnimatePresence>
 
         {/* ── NATIVE / ORIGIN ── */}
-        {sectionHeader('Native / Origin')}
-        <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {row(
-            field('Village', 'nativeVillage', 'Ancestral village', { half: true }),
-            field('Tehsil', 'nativeTehsil', 'Tehsil', { half: true }),
+        {sectionHeader('Native / Origin', { sectionKey: 'nativeOrigin', fields: ['nativeVillage', 'nativeTehsil', 'nativeDistrict', 'nativeState', 'nativeCountry'] })}
+        <AnimatePresence initial={false}>
+          {sectionsOpen.nativeOrigin && (
+            <motion.div
+              key="native-body"
+              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {row(
+                  field('Village', 'nativeVillage', 'Ancestral village', { half: true }),
+                  field('Tehsil', 'nativeTehsil', 'Tehsil', { half: true }),
+                )}
+                {row(
+                  field('District', 'nativeDistrict', 'District', { half: true }),
+                  field('State', 'nativeState', 'State', { half: true }),
+                )}
+                {field('Country', 'nativeCountry', 'India')}
+              </div>
+            </motion.div>
           )}
-          {row(
-            field('District', 'nativeDistrict', 'District', { half: true }),
-            field('State', 'nativeState', 'State', { half: true }),
-          )}
-          {field('Country', 'nativeCountry', 'India')}
-        </div>
+        </AnimatePresence>
 
         {/* ── WORK & EDUCATION ── */}
-        {sectionHeader('Work & Education')}
-        <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {field('Occupation', 'occupation', 'e.g. Engineer, Farmer')}
-          {field('Occupation detail', 'occupationDetail', 'Company / more detail')}
-          {field('Education', 'education', 'Highest qualification')}
-          <div>
-            <label style={labelStyle}>Bio</label>
-            <textarea
-              value={draft.bio}
-              onChange={set('bio')}
-              onFocus={() => setFocused('bio')} onBlur={() => setFocused(null)}
-              placeholder="A short note about this person…"
-              rows={3}
-              style={{
-                ...inputStyle('bio'), height: 'auto', padding: '8px 10px',
-                resize: 'vertical', lineHeight: '1.5',
-              }}
-            />
-          </div>
-        </div>
+        {sectionHeader('Work & Education', { sectionKey: 'workEducation', fields: ['occupation', 'occupationDetail', 'education', 'bio'] })}
+        <AnimatePresence initial={false}>
+          {sectionsOpen.workEducation && (
+            <motion.div
+              key="work-body"
+              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {field('Occupation', 'occupation', 'e.g. Engineer, Farmer')}
+                {field('Occupation detail', 'occupationDetail', 'Company / more detail')}
+                {field('Education', 'education', 'Highest qualification')}
+                <div>
+                  <label style={labelStyle}>Bio</label>
+                  <textarea
+                    value={draft.bio}
+                    onChange={set('bio')}
+                    onFocus={() => setFocused('bio')} onBlur={() => setFocused(null)}
+                    placeholder="A short note about this person…"
+                    rows={3}
+                    style={{
+                      ...inputStyle('bio'), height: 'auto', padding: '8px 10px',
+                      resize: 'vertical', lineHeight: '1.5',
+                    }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Save ── */}
         <div style={{ padding: '16px 16px 8px' }}>
@@ -804,188 +1022,31 @@ export default function NodePanel({ node, onClose, onViewProfile, onUpdate, onAd
         </div>
       </>)}
 
-      {/* ── Connect family ── */}
-      {sectionHeader('Connect family')}
-      <div style={{ padding: '12px 16px 28px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-
-        {/* Relation type buttons — hidden when a form is open */}
-        {!pendingAdd && (<>
+      {/* ── Add relation ── */}
+      {onRequestAddRelation && (
+        <div style={{ padding: '12px 16px 28px' }}>
           <button
-            onClick={() => { withAutoSave(() => {}); setPendingAdd('parent'); setPendingName(''); setPendingNameErr(''); setTimeout(() => pendingNameRef.current?.focus(), 50) }}
-            style={{ width: '100%', height: '38px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 500, border: '1px solid transparent', fontFamily: 'inherit', background: btn1Bg, color: '#C2410C', padding: '0 14px', transition: 'border-color 0.15s' }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = '#EA580C44')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
+            onClick={() => {
+              if (isDirty && draft.fullName.trim()) commitDraft()
+              onRequestAddRelation()
+            }}
+            style={{
+              width: '100%', height: '38px', borderRadius: '8px', border: '1px solid rgba(234,88,12,0.30)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              cursor: 'pointer', fontSize: '13px', fontWeight: 500, fontFamily: 'inherit',
+              background: isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)',
+              color: '#EA580C',
+              transition: 'background 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(234,88,12,0.20)' : 'rgba(234,88,12,0.12)'; e.currentTarget.style.borderColor = 'rgba(234,88,12,0.55)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)'; e.currentTarget.style.borderColor = 'rgba(234,88,12,0.30)' }}
           >
-            <IconArrowUp size={15} /> Add parent
+            <IconPlus size={15} strokeWidth={2.5} />
+            Add relation
           </button>
-          <button
-            onClick={() => { withAutoSave(() => {}); setPendingAdd('child'); setPendingName(''); setPendingNameErr(''); setTimeout(() => pendingNameRef.current?.focus(), 50) }}
-            style={{ width: '100%', height: '38px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 500, border: '1px solid transparent', fontFamily: 'inherit', background: btn2Bg, color: '#9A3412', padding: '0 14px', transition: 'border-color 0.15s' }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = '#C2410C44')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
-          >
-            <IconArrowDown size={15} /> Add child
-          </button>
-          <button
-            onClick={() => { withAutoSave(() => {}); setPendingAdd('spouse'); setPendingName(''); setPendingNameErr(''); setTimeout(() => pendingNameRef.current?.focus(), 50) }}
-            style={{ width: '100%', height: '38px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 500, border: '1px solid transparent', fontFamily: 'inherit', background: btn3Bg, color: '#D97706', padding: '0 14px', transition: 'border-color 0.15s' }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = '#D9770644')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
-          >
-            <IconHeart size={15} /> Add spouse / partner
-          </button>
-        </>)}
-
-        {/* Inline name form — shown when a relation type is selected */}
-        {pendingAdd && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '6px 0' }}>
-            <p style={{ margin: 0, fontSize: '11px', color: labelCol, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600 }}>
-              {pendingAdd === 'parent' ? 'Adding parent' : pendingAdd === 'child' ? 'Adding child' : 'Adding spouse'}
-            </p>
-
-            <div>
-              <label style={labelStyle}>Full name <span style={{ color: '#EF4444' }}>*</span></label>
-              <input
-                ref={pendingNameRef}
-                value={pendingName}
-                onChange={e => { setPendingName(e.target.value); setPendingNameErr('') }}
-                onKeyDown={async e => {
-                  if (e.key === 'Enter') {
-                    if (!pendingName.trim()) { setPendingNameErr('Name is required'); return }
-                    setPendingAdding(true)
-                    try {
-                      if (pendingAdd === 'parent')  await onAddParent(pendingName.trim())
-                      else if (pendingAdd === 'child')   await onAddChild(pendingName.trim())
-                      else if (pendingAdd === 'spouse') { await onAddSpouse(pendingName.trim()); onClose() }
-                      setPendingAdd(null)
-                    } catch (err: unknown) {
-                      setPendingNameErr(err instanceof Error ? err.message : 'Failed')
-                      setPendingAdding(false)
-                    }
-                  }
-                  if (e.key === 'Escape') setPendingAdd(null)
-                }}
-                placeholder="Enter full name"
-                style={inputStyle('pendingName')}
-              />
-              {pendingNameErr && (
-                <span style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px', display: 'block' }}>{pendingNameErr}</span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => setPendingAdd(null)}
-                disabled={pendingAdding}
-                style={{ flex: 1, height: '34px', borderRadius: '8px', border: `1px solid ${t.border}`, background: 'transparent', cursor: 'pointer', fontSize: '12px', fontFamily: 'inherit', color: t.textMuted }}
-              >
-                Cancel
-              </button>
-              <button
-                disabled={pendingAdding}
-                onClick={async () => {
-                  if (!pendingName.trim()) { setPendingNameErr('Name is required'); pendingNameRef.current?.focus(); return }
-                  setPendingAdding(true)
-                  setPendingNameErr('')
-                  try {
-                    if (pendingAdd === 'parent')       await onAddParent(pendingName.trim())
-                    else if (pendingAdd === 'child')   await onAddChild(pendingName.trim())
-                    else if (pendingAdd === 'spouse') { await onAddSpouse(pendingName.trim()); onClose() }
-                    setPendingAdd(null)
-                  } catch (err: unknown) {
-                    setPendingNameErr(err instanceof Error ? err.message : 'Failed')
-                    setPendingAdding(false)
-                  }
-                }}
-                style={{
-                  flex: 2, height: '34px', borderRadius: '8px', border: 'none',
-                  background: pendingAdding ? '#F0A070' : '#EA580C',
-                  color: '#fff', fontSize: '12px', fontWeight: 600,
-                  fontFamily: 'inherit', cursor: pendingAdding ? 'default' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                }}
-              >
-                {pendingAdding
-                  ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={13} /></motion.div> Creating…</>
-                  : `Create ${pendingAdd}`
-                }
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Invite to claim ── */}
-      {d.canInvite && (
-        <>
-          {sectionHeader('Invite to claim')}
-          <div style={{ padding: '12px 16px 28px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {!inviteCode ? (
-              <motion.button
-                onClick={handleGenerateInvite}
-                disabled={inviteGenerating}
-                whileHover={!inviteGenerating ? { scale: 1.015 } : {}}
-                whileTap={!inviteGenerating ? { scale: 0.975 } : {}}
-                style={{
-                  width: '100%', height: '38px', borderRadius: '8px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  cursor: inviteGenerating ? 'default' : 'pointer',
-                  fontSize: '12.5px', fontWeight: 500, border: 'none', fontFamily: 'inherit',
-                  background: isDark ? '#1A2A1A' : '#F0FDF4',
-                  color: isDark ? '#4ADE80' : '#16A34A',
-                  opacity: inviteGenerating ? 0.6 : 1,
-                }}
-              >
-                {inviteGenerating
-                  ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={14} /></motion.div> Generating…</>
-                  : '⚡ Generate invite code'
-                }
-              </motion.button>
-            ) : (
-              <>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  background: isDark ? '#1A2A1A' : '#F0FDF4',
-                  border: `1.5px solid ${isDark ? '#14532D' : '#BBF7D0'}`,
-                  borderRadius: '8px', padding: '0 12px', height: '42px',
-                }}>
-                  <span style={{
-                    flex: 1, fontFamily: 'monospace', fontSize: '15px',
-                    fontWeight: 700, letterSpacing: '0.12em',
-                    color: isDark ? '#4ADE80' : '#15803D',
-                  }}>
-                    {inviteCode}
-                  </span>
-                  <button
-                    onClick={handleCopyInvite}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
-                      color: isDark ? '#4ADE80' : '#16A34A', fontSize: '11px', fontFamily: 'inherit',
-                      fontWeight: 600, flexShrink: 0,
-                    }}
-                  >
-                    {inviteCopied ? <IconCheck size={15} strokeWidth={2.5} /> : '📋 Copy'}
-                  </button>
-                </div>
-                <p style={{ fontSize: '11px', color: t.textMuted, margin: 0, lineHeight: 1.5 }}>
-                  Share this code with {d.fullName?.split(' ')[0] ?? 'them'}. They can enter it on the{' '}
-                  <span style={{ color: '#EA580C' }}>/invite</span> page to join the family tree.
-                </p>
-                <button
-                  onClick={handleGenerateInvite}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                    fontSize: '11px', color: t.textMuted, textAlign: 'left', fontFamily: 'inherit',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  Regenerate code
-                </button>
-              </>
-            )}
-          </div>
-        </>
+        </div>
       )}
+
     </motion.div>
   )
 }

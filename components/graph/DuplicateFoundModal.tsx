@@ -6,6 +6,12 @@ import { IconX, IconSearch, IconArrowRight } from '@tabler/icons-react'
 import type { PotentialMatch } from '@/lib/api'
 import type { MyPersonInfo, PendingMatchData } from '@/types'
 import { getTheme } from '@/lib/theme'
+import { NodeCard, CARD_W, CARD_H } from './NodeCard'
+
+interface SourceNode {
+  photoUrl:  string | null
+  nodeState: string
+}
 
 interface DuplicateFoundModalProps {
   newPersonId:  string
@@ -13,6 +19,8 @@ interface DuplicateFoundModalProps {
   matches:      PotentialMatch[]
   isDark:       boolean
   onDismiss:    () => void
+  /** Present when opened from right-click → Merge (not from add-node flow) */
+  sourceNode?:  SourceNode
 }
 
 function confidence(score: number) {
@@ -22,10 +30,12 @@ function confidence(score: number) {
 }
 
 export default function DuplicateFoundModal({
-  newPersonId, myInfo, matches, isDark, onDismiss,
+  newPersonId, myInfo, matches, isDark, onDismiss, sourceNode,
 }: DuplicateFoundModalProps) {
   const t = getTheme(isDark)
   const router = useRouter()
+
+  const hasSourceCard = !!sourceNode
 
   function viewInTheirTree(match: PotentialMatch) {
     const data: PendingMatchData = {
@@ -75,8 +85,10 @@ export default function DuplicateFoundModal({
             borderRadius: '20px',
             boxShadow:    t.shadow,
             width:        '100%',
-            maxWidth:     '420px',
+            maxWidth:     hasSourceCard ? '620px' : '420px',
             overflow:     'hidden',
+            display:      'flex',
+            flexDirection: 'column',
           }}
         >
           {/* Header */}
@@ -110,54 +122,92 @@ export default function DuplicateFoundModal({
             </button>
           </div>
 
-          {/* Match list */}
-          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {matches.map(match => {
-              const conf = confidence(match.match_score)
-              return (
-                <div
-                  key={match.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    gap: '12px', padding: '12px 14px', borderRadius: '13px',
-                    background: isDark ? 'rgba(255,255,255,0.035)' : '#FFFBF7',
-                    border: `1.5px solid ${t.borderNeutral}`,
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '3px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: t.text }}>{match.full_name}</span>
-                      <span style={{ fontSize: '10px', fontWeight: 600, color: conf.color, padding: '1px 7px', borderRadius: '999px', background: `${conf.color}15`, border: `1px solid ${conf.color}25` }}>
-                        {conf.label}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '11.5px', color: '#EA580C', fontWeight: 600, marginBottom: '2px' }}>
-                      {match.family_name}
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {match.matched_fields.slice(0, 3).map(f => (
-                        <span key={f} style={{ fontSize: '10px', color: t.textMuted, background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', padding: '1px 6px', borderRadius: '5px' }}>
-                          {f}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+          {/* Body — two columns when sourceNode is present */}
+          <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 
-                  <button
-                    onClick={() => viewInTheirTree(match)}
+            {/* Left: match list */}
+            <div style={{ flex: 1, minWidth: 0, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {matches.map(match => {
+                const conf = confidence(match.match_score)
+                return (
+                  <div
+                    key={match.id}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: '5px',
-                      padding: '8px 13px', borderRadius: '10px', border: 'none',
-                      background: '#EA580C', color: '#fff',
-                      fontSize: '12px', fontWeight: 600, fontFamily: 'inherit',
-                      cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      gap: '12px', padding: '12px 14px', borderRadius: '13px',
+                      background: isDark ? 'rgba(255,255,255,0.035)' : '#FFFBF7',
+                      border: `1.5px solid ${t.borderNeutral}`,
                     }}
                   >
-                    View tree <IconArrowRight size={12} />
-                  </button>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '3px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: t.text }}>{match.full_name}</span>
+                        <span style={{ fontSize: '10px', fontWeight: 600, color: conf.color, padding: '1px 7px', borderRadius: '999px', background: `${conf.color}15`, border: `1px solid ${conf.color}25` }}>
+                          {conf.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#EA580C', fontWeight: 600, marginBottom: '2px' }}>
+                        {match.family_name}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {match.matched_fields.slice(0, 3).map(f => (
+                          <span key={f} style={{ fontSize: '10px', color: t.textMuted, background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', padding: '1px 6px', borderRadius: '5px' }}>
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => viewInTheirTree(match)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                        padding: '8px 13px', borderRadius: '10px', border: 'none',
+                        background: '#EA580C', color: '#fff',
+                        fontSize: '12px', fontWeight: 600, fontFamily: 'inherit',
+                        cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                      }}
+                    >
+                      View tree <IconArrowRight size={12} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Right: source NodeCard — only when opened from right-click merge */}
+            {hasSourceCard && (
+              <div style={{
+                width: CARD_W + 32,
+                flexShrink: 0,
+                borderLeft: `1px solid ${t.borderNeutral}`,
+                background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(234,88,12,0.025)',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: 10,
+                padding: '20px 16px',
+              }}>
+                <NodeCard
+                  fullName={myInfo.fullName}
+                  photoUrl={sourceNode!.photoUrl}
+                  nodeState={sourceNode!.nodeState as 'proxy' | 'invited' | 'claimed'}
+                  isDark={isDark}
+                />
+                <div style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+                  textTransform: 'uppercase', color: '#EA580C',
+                  textAlign: 'center',
+                }}>
+                  Your node
                 </div>
-              )
-            })}
+                <div style={{
+                  fontSize: 10, color: t.textMuted, textAlign: 'center', lineHeight: 1.4,
+                  maxWidth: CARD_W,
+                }}>
+                  You're proposing this person is the same as one of the matches
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer */}

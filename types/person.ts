@@ -53,6 +53,7 @@ export interface PersonData {
   animDelay?: number
   nodeRole?: 'self' | 'spouse' | 'family'
   isMatchHighlight?: boolean
+  isSelected?: boolean
 }
 
 /** Minimal data about "my" node stored before navigating to exploration mode */

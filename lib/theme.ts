@@ -1,3 +1,25 @@
+/** Fixed design tokens — independent of dark/light mode */
+export const COLORS = {
+  /** Primary accent — self node, CTAs, active states, focus rings */
+  saffron:     '#EA580C',
+  /** Darker variant — claimed nodes, pressed states */
+  terracotta:  '#C2410C',
+  /** Secondary warm accent — proxy nodes, amber states */
+  marigold:    '#D97706',
+  /** Lightest accent tint — subtle borders and backgrounds */
+  goldLight:   '#FDE8CC',
+  /** Page background in light mode */
+  cream:       '#f8f8f6',
+  /** Destructive / error */
+  error:       '#EF4444',
+  /** Success / invite / claimed badge */
+  success:     '#16A34A',
+  /** Deceased node avatar */
+  slate:       '#94A3B8',
+} as const
+
+export type ColorToken = keyof typeof COLORS
+
 export interface Theme {
   pageBg: string
   cardBg: string
@@ -42,7 +64,7 @@ export function getTheme(isDark: boolean): Theme {
     toggleBorder:  'rgba(255,255,255,0.10)',
     itemHoverBg:   'rgba(255,255,255,0.05)',
   } : {
-    pageBg:        '#FFF7ED',
+    pageBg:        COLORS.cream,
     cardBg:        '#FFFBF4',
     panelBg:       '#FFFFFF',
     inputBg:       '#FFFBF4',
@@ -50,15 +72,15 @@ export function getTheme(isDark: boolean): Theme {
     photoBg:       '#F0E6D8',
     controlBg:     'white',
     mapBg:         '#FFFBF4',
-    border:        '#FDE8CC',
+    border:        COLORS.goldLight,
     borderNeutral: 'rgba(0,0,0,0.08)',
     text:          '#1A0A00',
     textMuted:     '#9A6C3C',
     stroke:        '#B5956A',
-    controlBorder: '#FDE8CC',
+    controlBorder: COLORS.goldLight,
     shadow:        '0 -2px 24px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.10)',
     toggleBg:      '#1A0A00',
-    toggleColor:   '#FFF7ED',
+    toggleColor:   COLORS.cream,
     toggleBorder:  'rgba(0,0,0,0.15)',
     itemHoverBg:   'rgba(0,0,0,0.03)',
   }

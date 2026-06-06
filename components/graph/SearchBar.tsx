@@ -9,6 +9,7 @@ import { getTheme } from '@/lib/theme'
 
 interface SearchBarProps {
   isDark: boolean
+  onSelectPerson?: (personId: string) => boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -27,7 +28,7 @@ function nodeStateColor(state: string): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function SearchBar({ isDark }: SearchBarProps) {
+export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
   const router = useRouter()
   const t = getTheme(isDark)
 
@@ -94,6 +95,7 @@ export default function SearchBar({ isDark }: SearchBarProps) {
     setQuery('')
     setOpen(false)
     setResults([])
+    if (onSelectPerson && onSelectPerson(person.id)) return
     router.push(`/graph?perspective=${person.id}`)
   }
 

@@ -1,245 +1,808 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { IconBrandGoogle, IconEye, IconEyeOff } from '@tabler/icons-react'
+import { useState, useRef, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { IconArrowRight, IconLoader2, IconArrowLeft, IconEye, IconEyeOff, IconCamera, IconX } from '@tabler/icons-react'
+import { useGraphStore } from '@/store/graphStore'
+import { getTheme } from '@/lib/theme'
+import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, setToken } from '@/lib/api'
+import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
 
-export default function SignupPage() {
-  const [name, setName]         = useState('')
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [showPw, setShowPw]     = useState(false)
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
+// Compress an uploaded image into a JPEG data URL (max 480px). Same flow used
+// in NodePanel — keeps payload small enough to persist directly.
+function compressPhoto(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) return Promise.reject(new Error('Not an image'))
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const blobUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(blobUrl)
+      const MAX = 480
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+      const canvas = document.createElement('canvas')
+      canvas.width  = Math.round(img.width  * scale)
+      canvas.height = Math.round(img.height * scale)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { resolve(canvas.toDataURL()); return }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve(canvas.toDataURL('image/jpeg', 0.78))
+    }
+    img.onerror = reject
+    img.src = blobUrl
+  })
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    if (!name.trim())         { setError('Please enter your name.'); return }
-    if (!email)               { setError('Please enter your email.'); return }
-    if (password.length < 8)  { setError('Password must be at least 8 characters.'); return }
-    setLoading(true)
+// ── Bilingual copy ────────────────────────────────────────────────────────────
+const COPY = {
+  en: {
+    lines:        ['Join', 'Ancestree.'],
+    accentLine:   1,
+    sub:          'Create your account in 30 seconds.',
+
+    emailLabel:   'Email address',
+    emailPh:      'you@example.com',
+    continue:     'Continue',
+
+    pwTitle:      'Set a password',
+    pwSub:        'Use 8 or more characters.',
+    pwLabel:      'Password',
+    pwPh:         'At least 8 characters',
+    pwConfirmLbl: 'Confirm password',
+    pwConfirmPh:  'Re-enter password',
+    next:         'Next',
+
+    detailsTitle: 'A bit about you',
+    detailsSub:   'This becomes your node in the tree.',
+    photoAdd:     'Add photo',
+    photoChange:  'Change',
+    photoRemove:  'Remove',
+    nameLabel:    'Full name',
+    namePh:       'e.g. Rahul Khandelwal',
+    genderLabel:  'Gender',
+    genderM:      'Male',
+    genderF:      'Female',
+    genderO:      'Other',
+    yearLabel:    'Birth year',
+    yearPh:       'e.g. 1998',
+    villageLabel: 'Native village (optional)',
+    villagePh:    'e.g. Bikaner',
+    create:       'Create account',
+
+    haveAcct:     'Already have an account?',
+    signin:       'Sign in',
+    back:         'Back',
+
+    errEmail:     'Enter a valid email address',
+    errExists:    'An account with this email already exists.',
+    errPwLen:     'Password must be at least 8 characters',
+    errPwMatch:   'Passwords do not match',
+    errName:      'Please enter your full name',
+    errYear:      'Enter a valid year between 1900 and today',
+    errNetwork:   'Could not reach the server. Please try again.',
+    signinCta:    'Sign in instead',
+    yourNode:     'Your node',
+    you:          'You',
+    errPhoto:     'Could not read that image',
+  },
+  hi: {
+    lines:        ['Ancestree', 'से जुड़ें।'],
+    accentLine:   0,
+    sub:          '30 सेकंड में खाता बनाएँ।',
+
+    emailLabel:   'ईमेल पता',
+    emailPh:      'aap@example.com',
+    continue:     'आगे बढ़ें',
+
+    pwTitle:      'पासवर्ड सेट करें',
+    pwSub:        'कम से कम 8 अक्षर रखें।',
+    pwLabel:      'पासवर्ड',
+    pwPh:         'कम से कम 8 अक्षर',
+    pwConfirmLbl: 'पासवर्ड दोहराएँ',
+    pwConfirmPh:  'फिर से दर्ज करें',
+    next:         'आगे',
+
+    detailsTitle: 'अपने बारे में बताएँ',
+    detailsSub:   'यह पेड़ में आपका नोड बनेगा।',
+    photoAdd:     'फ़ोटो जोड़ें',
+    photoChange:  'बदलें',
+    photoRemove:  'हटाएँ',
+    nameLabel:    'पूरा नाम',
+    namePh:       'जैसे राहुल खंडेलवाल',
+    genderLabel:  'लिंग',
+    genderM:      'पुरुष',
+    genderF:      'महिला',
+    genderO:      'अन्य',
+    yearLabel:    'जन्म वर्ष',
+    yearPh:       'जैसे 1998',
+    villageLabel: 'मूल गाँव (वैकल्पिक)',
+    villagePh:    'जैसे बीकानेर',
+    create:       'खाता बनाएँ',
+
+    haveAcct:     'पहले से खाता है?',
+    signin:       'साइन इन',
+    back:         'वापस',
+
+    errEmail:     'एक वैध ईमेल दर्ज करें',
+    errExists:    'इस ईमेल से पहले से एक खाता है।',
+    errPwLen:     'पासवर्ड कम से कम 8 अक्षर का होना चाहिए',
+    errPwMatch:   'पासवर्ड मेल नहीं खाते',
+    errName:      'कृपया अपना पूरा नाम दर्ज करें',
+    errYear:      '1900 और आज के बीच एक वैध वर्ष दर्ज करें',
+    errNetwork:   'सर्वर तक नहीं पहुँच सका। पुनः प्रयास करें।',
+    signinCta:    'साइन इन करें',
+    yourNode:     'आपका नोड',
+    you:          'आप',
+    errPhoto:     'यह छवि पढ़ नहीं सके',
+  },
+} as const
+
+type Step = 'email' | 'password' | 'details'
+const EASE = [0.22, 1, 0.36, 1] as const
+
+const stepVariants = {
+  enter:  (d: number) => ({ x: d * 28, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit:   (d: number) => ({ x: d * -28, opacity: 0 }),
+}
+
+function SignupInner() {
+  const router = useRouter()
+  const search = useSearchParams()
+  const { isDark } = useGraphStore()
+
+  const [lang,        setLang]        = useState<AuthLang>('en')
+  const [[step, dir], setStepDir]     = useState<[Step, number]>(['email', 1])
+
+  // Step 1 — email
+  const [email,       setEmail]       = useState(search.get('email') ?? '')
+  const [emailErr,    setEmailErr]    = useState('')
+  const [emailExists, setEmailExists] = useState(false)
+  const [emailFocus,  setEmailFocus]  = useState(false)
+
+  // Step 2 — password
+  const [password,    setPassword]    = useState('')
+  const [confirm,     setConfirm]     = useState('')
+  const [pwErr,       setPwErr]       = useState('')
+  const [pwFocus,     setPwFocus]     = useState(false)
+  const [pw2Focus,    setPw2Focus]    = useState(false)
+  const [showPw,      setShowPw]      = useState(false)
+
+  // Step 3 — details
+  const [fullName,    setFullName]    = useState('')
+  const [gender,      setGender]      = useState<'male' | 'female' | 'other' | ''>('')
+  const [birthYear,   setBirthYear]   = useState('')
+  const [village,     setVillage]     = useState('')
+  const [photoUrl,    setPhotoUrl]    = useState<string | null>(null)
+  const [photoErr,    setPhotoErr]    = useState('')
+  const [nameErr,     setNameErr]     = useState('')
+  const [yearErr,     setYearErr]     = useState('')
+  const [nameFocus,   setNameFocus]   = useState(false)
+  const [yearFocus,   setYearFocus]   = useState(false)
+  const [villFocus,   setVillFocus]   = useState(false)
+  const fileRef       = useRef<HTMLInputElement>(null)
+
+  const [loading,     setLoading]     = useState(false)
+  const [topErr,      setTopErr]      = useState('')
+
+  const t = getTheme(isDark)
+  const c = COPY[lang]
+
+  const lv = {
+    cardBg:     isDark ? '#1C1A12' : '#FFFFFF',
+    cardBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(234,88,12,0.11)',
+    cardShadow: isDark
+      ? '0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 4px rgba(0,0,0,0.30), 0 8px 28px rgba(0,0,0,0.45)'
+      : '0 1px 0 rgba(255,255,255,0.85) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.08), 0 28px 64px rgba(234,88,12,0.06)',
+    inputBg:      isDark ? '#141210' : '#FDFAF6',
+    inputBgFocus: isDark ? '#1C1A12' : '#FFFFFF',
+    inputBorder:  isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)',
+  }
+
+  const inputStyle = (focused: boolean, err: boolean): React.CSSProperties => ({
+    width: '100%', height: 50, padding: '0 16px',
+    fontSize: 15, fontFamily: 'inherit',
+    border: `1.5px solid ${err ? '#EF4444' : focused ? '#EA580C' : lv.inputBorder}`,
+    borderRadius: 12,
+    background: focused ? lv.inputBgFocus : lv.inputBg,
+    color: t.text, outline: 'none',
+    boxSizing: 'border-box',
+    boxShadow: focused ? '0 0 0 3.5px rgba(234,88,12,0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
+    transition: 'border-color 0.15s, box-shadow 0.15s, background 0.35s ease',
+  })
+
+  const ctaStyle = (dis: boolean): React.CSSProperties => ({
+    width: '100%', height: 50, borderRadius: 12, border: 'none',
+    background: dis ? 'rgba(234,88,12,0.48)' : 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)',
+    color: '#fff', fontSize: 15, fontWeight: 700,
+    fontFamily: 'inherit', cursor: dis ? 'default' : 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+    boxShadow: dis ? 'none' : '0 3px 14px rgba(234,88,12,0.40)',
+    letterSpacing: '0.01em',
+    transition: 'background 0.2s',
+  })
+
+  // ── Step 1: email ───────────────────────────────────────────────────────────
+  const handleEmailContinue = async () => {
+    const trimmed = email.trim()
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailErr(c.errEmail); return
+    }
+    setEmailErr(''); setEmailExists(false); setLoading(true)
     try {
-      const { token, user } = await api.auth.signup({ email, password, display_name: name.trim() })
-      setToken(token)
-      localStorage.setItem('user', JSON.stringify(user))
-      window.location.href = '/graph'
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Could not create account. Please try again.'
-      setError(msg)
+      const { exists } = await api.auth.checkEmail(trimmed)
+      if (exists) {
+        setEmailExists(true)
+        setEmailErr(c.errExists)
+        setLoading(false)
+        return
+      }
       setLoading(false)
+      setStepDir(['password', 1])
+    } catch (err) {
+      setLoading(false)
+      setEmailErr((err as Error).message || c.errNetwork)
     }
   }
 
-  const handleGoogle = () => {
-    // Google OAuth not yet supported
+  // ── Step 2: password ────────────────────────────────────────────────────────
+  const handlePasswordNext = () => {
+    if (password.length < 8) { setPwErr(c.errPwLen); return }
+    if (password !== confirm) { setPwErr(c.errPwMatch); return }
+    setPwErr('')
+    setStepDir(['details', 1])
   }
 
+  // ── Step 3: details + final submit ──────────────────────────────────────────
+  const handleCreate = async () => {
+    const name = fullName.trim()
+    if (!name) { setNameErr(c.errName); return }
+    setNameErr('')
+
+    let yearNum: number | undefined
+    if (birthYear.trim()) {
+      const n = Number(birthYear)
+      const currentYear = new Date().getFullYear()
+      if (!Number.isInteger(n) || n < 1900 || n > currentYear) {
+        setYearErr(c.errYear); return
+      }
+      yearNum = n
+    }
+    setYearErr('')
+
+    setLoading(true); setTopErr('')
+    try {
+      const { token, user } = await api.auth.signup({
+        email: email.trim(),
+        password,
+        display_name: name,
+      })
+      setToken(token)
+
+      // Patch extras onto the auto-created self-person node if user filled them.
+      const extras: Record<string, unknown> = {}
+      if (gender)          extras.gender          = gender
+      if (yearNum != null) extras.birth_year      = yearNum
+      if (village.trim())  extras.native_village  = village.trim()
+      if (photoUrl)        extras.photo_url       = photoUrl
+
+      if (Object.keys(extras).length > 0 && user.person_id) {
+        try { await api.persons.update(user.person_id, extras) } catch { /* non-fatal */ }
+      }
+
+      router.push('/graph')
+    } catch (err) {
+      setLoading(false)
+      setTopErr((err as Error).message || c.errNetwork)
+    }
+  }
+
+  const goBack = () => {
+    setTopErr('')
+    if (step === 'password') setStepDir(['email',    -1])
+    if (step === 'details')  setStepDir(['password', -1])
+  }
+
+  const handlePhotoSelect = async (file: File | undefined) => {
+    if (!file) return
+    setPhotoErr('')
+    try {
+      const dataUrl = await compressPhoto(file)
+      setPhotoUrl(dataUrl)
+    } catch {
+      setPhotoErr(c.errPhoto)
+    }
+  }
+
+  // ── Right-panel preview ────────────────────────────────────────────────────
+  const preview: AuthPolaroidData | null =
+    step === 'password' ? {
+      fullName: '', isSelf: true, subtitle: c.yourNode,
+    } :
+    step === 'details' ? {
+      fullName,
+      gender:    gender || undefined,
+      birthYear: birthYear ? Number(birthYear) : undefined,
+      photoUrl:  photoUrl,
+      isSelf:    true,
+      subtitle:  c.you,
+    } :
+    null
+
   return (
-    <div style={{
-      minHeight: '100vh', background: '#FFF7ED',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
-    }}>
-      <div style={{ width: '100%', maxWidth: '400px' }}>
+    <AuthLayout lang={lang} onLangChange={setLang} preview={preview}>
 
-        {/* Wordmark */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <div style={{
-              width: '36px', height: '36px', borderRadius: '8px',
-              background: 'linear-gradient(135deg, #EA580C, #C2410C)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <circle cx="10" cy="5"  r="2.4" fill="white" />
-                <circle cx="4"  cy="15" r="2"   fill="white" opacity="0.85" />
-                <circle cx="16" cy="15" r="2"   fill="white" opacity="0.85" />
-                <line x1="10" y1="7.4" x2="4"  y2="13" stroke="white" strokeWidth="1.2" opacity="0.55" />
-                <line x1="10" y1="7.4" x2="16" y2="13" stroke="white" strokeWidth="1.2" opacity="0.55" />
-              </svg>
-            </div>
-            <span style={{ fontSize: '22px', fontWeight: 700, color: '#1A0A00', letterSpacing: '-0.02em' }}>
-              Ancestree
-            </span>
-          </div>
-          <p style={{ fontSize: '14px', color: '#9A6C3C', margin: 0 }}>
-            Start building your family tree
-          </p>
-        </div>
+      {/* ── Headline ──────────────────────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={lang + step}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.18 }}
+        >
+          {step === 'email' && (
+            <>
+              <h1 style={{ margin: '0 0 14px', lineHeight: 1.06 }}>
+                {c.lines.map((line, li) => (
+                  <div key={li} style={{ display: 'block', overflow: 'hidden' }}>
+                    {line.split(' ').map((word, wi) => (
+                      <motion.span
+                        key={wi}
+                        initial={{ y: 36, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.08 + li * 0.13 + wi * 0.06, duration: 0.50, ease: EASE }}
+                        style={{
+                          display: 'inline-block', marginRight: '0.22em',
+                          fontSize: lang === 'hi' ? 46 : 52, fontWeight: 800, letterSpacing: '-0.03em',
+                          color: li === c.accentLine ? '#EA580C' : t.text,
+                          transition: 'color 0.35s ease',
+                        }}
+                      >
+                        {word}
+                      </motion.span>
+                    ))}
+                  </div>
+                ))}
+              </h1>
+              <p style={{ margin: '0 0 36px', fontSize: 15.5, color: t.textMuted, lineHeight: 1.65, transition: 'color 0.35s ease' }}>
+                {c.sub}
+              </p>
+            </>
+          )}
 
-        {/* Card */}
-        <div style={{
-          background: '#FFFFFF', borderRadius: '14px', padding: '32px',
-          border: '1px solid rgba(0,0,0,0.07)',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
-        }}>
+          {step === 'password' && (
+            <>
+              <motion.h1
+                initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.45, ease: EASE }}
+                style={{ margin: '0 0 10px', fontSize: 38, fontWeight: 800, letterSpacing: '-0.03em', color: t.text, lineHeight: 1.1, transition: 'color 0.35s ease' }}
+              >
+                {c.pwTitle}
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12, duration: 0.38, ease: EASE }}
+                style={{ margin: '0 0 32px', fontSize: 14.5, color: t.textMuted, lineHeight: 1.6, transition: 'color 0.35s ease' }}
+              >
+                {c.pwSub}
+              </motion.p>
+            </>
+          )}
 
-          {/* Google */}
-          <button
-            onClick={handleGoogle}
-            style={{
-              width: '100%', height: '44px', borderRadius: '8px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              background: '#fff', border: '1.5px solid rgba(0,0,0,0.12)',
-              fontSize: '14px', fontWeight: 500, color: '#1A0A00',
-              cursor: 'pointer', fontFamily: 'inherit', marginBottom: '20px',
-              transition: 'border-color 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = '#EA580C')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)')}
-          >
-            <IconBrandGoogle size={18} />
-            Sign up with Google
-          </button>
+          {step === 'details' && (
+            <>
+              <motion.h1
+                initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.45, ease: EASE }}
+                style={{ margin: '0 0 10px', fontSize: 38, fontWeight: 800, letterSpacing: '-0.03em', color: t.text, lineHeight: 1.1, transition: 'color 0.35s ease' }}
+              >
+                {c.detailsTitle}
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12, duration: 0.38, ease: EASE }}
+                style={{ margin: '0 0 32px', fontSize: 14.5, color: t.textMuted, lineHeight: 1.6, transition: 'color 0.35s ease' }}
+              >
+                {c.detailsSub}
+              </motion.p>
+            </>
+          )}
+        </motion.div>
+      </AnimatePresence>
 
-          {/* Divider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(0,0,0,0.08)' }} />
-            <span style={{ fontSize: '12px', color: '#C4A070', letterSpacing: '0.06em' }}>or</span>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(0,0,0,0.08)' }} />
-          </div>
+      {/* ── Form card ─────────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 32, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 0.36, duration: 0.60, type: 'spring', stiffness: 255, damping: 24 }}
+        style={{
+          background: lv.cardBg, borderRadius: 20, padding: '30px 28px 26px',
+          border: `1px solid ${lv.cardBorder}`, boxShadow: lv.cardShadow,
+          transition: 'background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease',
+        }}
+      >
+        <AnimatePresence mode="wait" custom={dir}>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* ── Step 1: Email ──────────────────────────────────────────── */}
+          {step === 'email' && (
+            <motion.div key="email" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit"
+              transition={{ duration: 0.22, ease: EASE }}>
 
-            {/* Name */}
-            <Field label="Your name">
-              <input
-                type="text" value={name} onChange={e => setName(e.target.value)}
-                placeholder="Rahul Khandelwal"
-                style={inputStyle}
-                onFocus={e => (e.target.style.borderColor = '#EA580C')}
-                onBlur={e  => (e.target.style.borderColor = 'rgba(0,0,0,0.12)')}
-              />
-            </Field>
-
-            {/* Email */}
-            <Field label="Email">
-              <input
-                type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                style={inputStyle}
-                onFocus={e => (e.target.style.borderColor = '#EA580C')}
-                onBlur={e  => (e.target.style.borderColor = 'rgba(0,0,0,0.12)')}
-              />
-            </Field>
-
-            {/* Password */}
-            <Field label="Password">
-              <div style={{ position: 'relative' }}>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.emailLabel}
+                </label>
                 <input
-                  type={showPw ? 'text' : 'password'} value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
-                  style={{ ...inputStyle, paddingRight: '42px', boxSizing: 'border-box' as const }}
-                  onFocus={e => (e.target.style.borderColor = '#EA580C')}
-                  onBlur={e  => (e.target.style.borderColor = 'rgba(0,0,0,0.12)')}
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setEmailErr(''); setEmailExists(false) }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleEmailContinue() }}
+                  onFocus={() => setEmailFocus(true)}
+                  onBlur={() => setEmailFocus(false)}
+                  placeholder={c.emailPh}
+                  autoComplete="email"
+                  autoFocus
+                  style={inputStyle(emailFocus, !!emailErr)}
                 />
-                <button type="button" onClick={() => setShowPw(v => !v)} style={eyeBtn}>
-                  {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                <AnimatePresence>
+                  {emailErr && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
+                      {emailErr}
+                      {emailExists && (
+                        <>
+                          {' '}
+                          <a
+                            href={`/login?email=${encodeURIComponent(email.trim())}`}
+                            style={{ color: '#EA580C', fontWeight: 700, textDecoration: 'none' }}
+                          >
+                            {c.signinCta}
+                          </a>
+                        </>
+                      )}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <motion.button
+                onClick={handleEmailContinue} disabled={loading}
+                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                whileTap={!loading ? { scale: 0.985 } : {}}
+                style={ctaStyle(loading)}
+              >
+                {loading ? (
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.72, repeat: Infinity, ease: 'linear' }}>
+                    <IconLoader2 size={18} />
+                  </motion.div>
+                ) : (
+                  <>
+                    <AnimatePresence mode="wait">
+                      <motion.span key={lang} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
+                        {c.continue}
+                      </motion.span>
+                    </AnimatePresence>
+                    <IconArrowRight size={16} strokeWidth={2.5} />
+                  </>
+                )}
+              </motion.button>
+
+            </motion.div>
+          )}
+
+          {/* ── Step 2: Password ──────────────────────────────────────── */}
+          {step === 'password' && (
+            <motion.div key="password" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit"
+              transition={{ duration: 0.22, ease: EASE }}>
+
+              {/* Email pill */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, padding: '9px 13px', borderRadius: 10, background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)'}` }}>
+                <span style={{ fontSize: 13, color: t.text, fontWeight: 500 }}>{email}</span>
+                <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#EA580C', fontWeight: 700, fontFamily: 'inherit', padding: 0 }}>
+                  {c.back}
                 </button>
               </div>
-              {password.length > 0 && (
-                <StrengthBar password={password} />
-              )}
-            </Field>
 
-            {error && <ErrorBox>{error}</ErrorBox>}
+              {/* Password */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.pwLabel}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPw ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => { setPassword(e.target.value); setPwErr('') }}
+                    onKeyDown={e => { if (e.key === 'Enter') document.getElementById('signup-pw2')?.focus() }}
+                    onFocus={() => setPwFocus(true)}
+                    onBlur={() => setPwFocus(false)}
+                    placeholder={c.pwPh}
+                    autoComplete="new-password"
+                    autoFocus
+                    style={{ ...inputStyle(pwFocus, !!pwErr), paddingRight: 48 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(v => !v)}
+                    style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, display: 'flex', padding: 0 }}
+                  >
+                    {showPw ? <IconEyeOff size={17} /> : <IconEye size={17} />}
+                  </button>
+                </div>
+              </div>
 
-            <button type="submit" disabled={loading} style={{
-              ...submitBtn,
-              background: loading ? '#F0A070' : 'linear-gradient(135deg, #EA580C, #C2410C)',
-              cursor: loading ? 'not-allowed' : 'pointer',
-            }}>
-              {loading ? 'Creating account…' : 'Create account'}
-            </button>
+              {/* Confirm */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.pwConfirmLbl}
+                </label>
+                <input
+                  id="signup-pw2"
+                  type={showPw ? 'text' : 'password'}
+                  value={confirm}
+                  onChange={e => { setConfirm(e.target.value); setPwErr('') }}
+                  onKeyDown={e => { if (e.key === 'Enter') handlePasswordNext() }}
+                  onFocus={() => setPw2Focus(true)}
+                  onBlur={() => setPw2Focus(false)}
+                  placeholder={c.pwConfirmPh}
+                  autoComplete="new-password"
+                  style={inputStyle(pw2Focus, !!pwErr)}
+                />
+                <AnimatePresence>
+                  {pwErr && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
+                      {pwErr}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
 
-            <p style={{ fontSize: '11.5px', color: '#B89070', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
-              By continuing you agree to our{' '}
-              <Link href="#" style={{ color: '#EA580C', textDecoration: 'none' }}>Terms</Link>
-              {' '}and{' '}
-              <Link href="#" style={{ color: '#EA580C', textDecoration: 'none' }}>Privacy Policy</Link>
-            </p>
-          </form>
-        </div>
+              <motion.button
+                onClick={handlePasswordNext} disabled={loading}
+                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                whileTap={!loading ? { scale: 0.985 } : {}}
+                style={ctaStyle(loading)}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.span key={lang} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
+                    {c.next}
+                  </motion.span>
+                </AnimatePresence>
+                <IconArrowRight size={16} strokeWidth={2.5} />
+              </motion.button>
 
-        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: '#9A6C3C' }}>
-          Already have an account?{' '}
-          <Link href="/login" style={{ color: '#EA580C', fontWeight: 600, textDecoration: 'none' }}>
-            Sign in
-          </Link>
-        </p>
-      </div>
-    </div>
+            </motion.div>
+          )}
+
+          {/* ── Step 3: Details ───────────────────────────────────────── */}
+          {step === 'details' && (
+            <motion.div key="details" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit"
+              transition={{ duration: 0.22, ease: EASE }}>
+
+              {/* Photo picker */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  style={{
+                    width: 64, height: 64, borderRadius: '50%',
+                    border: `1.5px dashed ${photoUrl ? 'transparent' : '#EA580C'}`,
+                    background: photoUrl
+                      ? 'transparent'
+                      : isDark ? 'rgba(234,88,12,0.08)' : 'rgba(234,88,12,0.06)',
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden', padding: 0, flexShrink: 0,
+                    transition: 'background 0.2s, border-color 0.2s',
+                  }}
+                  title={photoUrl ? c.photoChange : c.photoAdd}
+                >
+                  {photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <IconCamera size={22} color="#EA580C" strokeWidth={2} />
+                  )}
+                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                      color: '#EA580C', fontWeight: 700, fontFamily: 'inherit', fontSize: 13.5, textAlign: 'left' }}
+                  >
+                    {photoUrl ? c.photoChange : c.photoAdd}
+                  </button>
+                  {photoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => { setPhotoUrl(null); setPhotoErr('') }}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                        color: t.textMuted, fontFamily: 'inherit', fontSize: 12, textAlign: 'left',
+                        display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                    >
+                      <IconX size={11} /> {c.photoRemove}
+                    </button>
+                  )}
+                  {photoErr && (
+                    <span style={{ fontSize: 11, color: '#EF4444' }}>{photoErr}</span>
+                  )}
+                </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={e => handlePhotoSelect(e.target.files?.[0])}
+                  style={{ display: 'none' }}
+                />
+              </div>
+
+              {/* Full name */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.nameLabel}
+                </label>
+                <input
+                  value={fullName}
+                  onChange={e => { setFullName(e.target.value); setNameErr('') }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+                  onFocus={() => setNameFocus(true)}
+                  onBlur={() => setNameFocus(false)}
+                  placeholder={c.namePh}
+                  autoComplete="name"
+                  autoFocus
+                  style={inputStyle(nameFocus, !!nameErr)}
+                />
+                <AnimatePresence>
+                  {nameErr && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
+                      {nameErr}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Gender */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.genderLabel}
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {([['male', c.genderM], ['female', c.genderF], ['other', c.genderO]] as const).map(([val, label]) => {
+                    const active = gender === val
+                    return (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setGender(active ? '' : val)}
+                        style={{
+                          flex: 1, height: 44, borderRadius: 10,
+                          border: `1.5px solid ${active ? '#EA580C' : lv.inputBorder}`,
+                          background: active ? 'rgba(234,88,12,0.10)' : lv.inputBg,
+                          color: active ? '#EA580C' : t.text,
+                          fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
+                          cursor: 'pointer',
+                          boxShadow: active ? '0 0 0 3.5px rgba(234,88,12,0.11)' : 'none',
+                          transition: 'border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s',
+                        }}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Birth year + village in a row */}
+              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                    {c.yearLabel}
+                  </label>
+                  <input
+                    value={birthYear}
+                    onChange={e => { setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4)); setYearErr('') }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+                    onFocus={() => setYearFocus(true)}
+                    onBlur={() => setYearFocus(false)}
+                    placeholder={c.yearPh}
+                    inputMode="numeric"
+                    style={inputStyle(yearFocus, !!yearErr)}
+                  />
+                </div>
+                <div style={{ flex: 1.4 }}>
+                  <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                    {c.villageLabel}
+                  </label>
+                  <input
+                    value={village}
+                    onChange={e => setVillage(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+                    onFocus={() => setVillFocus(true)}
+                    onBlur={() => setVillFocus(false)}
+                    placeholder={c.villagePh}
+                    style={inputStyle(villFocus, false)}
+                  />
+                </div>
+              </div>
+              <AnimatePresence>
+                {yearErr && (
+                  <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    style={{ margin: '-6px 0 8px', fontSize: 11.5, color: '#EF4444' }}>
+                    {yearErr}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {topErr && (
+                  <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    style={{ margin: '0 0 10px', fontSize: 12, color: '#EF4444' }}>
+                    {topErr}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <motion.button
+                onClick={handleCreate} disabled={loading}
+                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                whileTap={!loading ? { scale: 0.985 } : {}}
+                style={{ ...ctaStyle(loading), marginBottom: 12 }}
+              >
+                {loading ? (
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.72, repeat: Infinity, ease: 'linear' }}>
+                    <IconLoader2 size={18} />
+                  </motion.div>
+                ) : (
+                  <AnimatePresence mode="wait">
+                    <motion.span key={lang} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
+                      {c.create}
+                    </motion.span>
+                  </AnimatePresence>
+                )}
+              </motion.button>
+
+              <button
+                onClick={goBack}
+                disabled={loading}
+                style={{ background: 'none', border: 'none', cursor: loading ? 'default' : 'pointer', fontSize: 13, color: t.textMuted, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5, padding: 0 }}
+              >
+                <IconArrowLeft size={13} />
+                {c.back}
+              </button>
+
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </motion.div>
+
+      {/* ── Footer link ─────────────────────────────────────────────────── */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.88, duration: 0.4 }}
+        style={{ textAlign: 'center', marginTop: 22, fontSize: 13.5, color: t.textMuted, transition: 'color 0.35s ease' }}
+      >
+        <AnimatePresence mode="wait">
+          <motion.span key={lang} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
+            {c.haveAcct}{' '}
+            <a href="/login" style={{ color: '#EA580C', fontWeight: 700, textDecoration: 'none' }}>{c.signin}</a>
+          </motion.span>
+        </AnimatePresence>
+      </motion.p>
+
+    </AuthLayout>
   )
 }
 
-/* ── password strength bar ── */
-
-function StrengthBar({ password }: { password: string }) {
-  const score = [/.{8,}/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/]
-    .filter(r => r.test(password)).length
-  const colors = ['#EF4444', '#F97316', '#EAB308', '#22C55E']
-  const labels = ['Too short', 'Weak', 'Fair', 'Strong']
+export default function SignupPage() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-      {[0,1,2,3].map(i => (
-        <div key={i} style={{
-          flex: 1, height: '3px', borderRadius: '2px',
-          background: i < score ? colors[score - 1] : 'rgba(0,0,0,0.08)',
-          transition: 'background 0.2s',
-        }} />
-      ))}
-      <span style={{ fontSize: '11px', color: score ? colors[score-1] : '#B89070', minWidth: '52px' }}>
-        {score ? labels[score - 1] : ''}
-      </span>
-    </div>
+    <Suspense fallback={null}>
+      <SignupInner />
+    </Suspense>
   )
-}
-
-/* ── shared sub-components ── */
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      <span style={labelStyle}>{label}</span>
-      {children}
-    </div>
-  )
-}
-
-function ErrorBox({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      padding: '10px 14px', borderRadius: '8px',
-      background: '#FEF2F2', border: '1px solid #FECACA',
-      fontSize: '13px', color: '#DC2626',
-    }}>
-      {children}
-    </div>
-  )
-}
-
-/* ── style tokens ── */
-
-const labelStyle: React.CSSProperties = { fontSize: '13px', fontWeight: 500, color: '#4A2C0A' }
-
-const inputStyle: React.CSSProperties = {
-  height: '42px', padding: '0 14px',
-  border: '1.5px solid rgba(0,0,0,0.12)', borderRadius: '8px',
-  fontSize: '14px', color: '#1A0A00', background: '#FDFAF6',
-  outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.15s',
-  width: '100%', boxSizing: 'border-box',
-}
-
-const eyeBtn: React.CSSProperties = {
-  position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-  background: 'none', border: 'none', cursor: 'pointer', color: '#9A6C3C',
-  padding: 0, display: 'flex', alignItems: 'center',
-}
-
-const submitBtn: React.CSSProperties = {
-  height: '44px', borderRadius: '8px', border: 'none',
-  color: '#fff', fontSize: '14px', fontWeight: 600,
-  fontFamily: 'inherit', letterSpacing: '0.02em', transition: 'opacity 0.15s',
 }

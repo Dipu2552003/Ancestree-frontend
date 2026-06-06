@@ -19,13 +19,16 @@ import DuplicateFoundModal from '@/components/graph/DuplicateFoundModal'
 import NotificationPanel from '@/components/graph/NotificationPanel'
 import MergeConflictModal from '@/components/graph/MergeConflictModal'
 import MergeComparisonPanel from '@/components/graph/MergeComparisonPanel'
+import AddNodeWizard from '@/components/graph/AddNodeWizard'
 import { useGraphStore } from '@/store/graphStore'
 import { useGraphData } from '@/hooks/useGraphData'
 import { useNodeActions } from '@/hooks/useNodeActions'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { getTheme } from '@/lib/theme'
 import { api, getToken, type PotentialMatch, type MergeConflict } from '@/lib/api'
 import type { PersonData, PendingMatchData, MyPersonInfo } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
+import type { WizardExtras } from '@/components/graph/AddNodeWizard'
 
 function asPersonData(data: unknown): PersonData {
   return data as PersonData
@@ -63,11 +66,14 @@ function GraphInner() {
   }, [perspectiveId])
 
   const { getNodes, setCenter, fitView } = useReactFlow()
-  const { isDark, setIsDark, unreadCount, setNotifications } = useGraphStore()
+  const { isDark, setIsDark, unreadCount, setNotifications, setActiveNodeId } = useGraphStore()
+  const isMobile = useIsMobile()
   const t = getTheme(isDark)
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [panelMode, setPanelMode] = useState<'none' | 'edit' | 'view'>('none')
+  const [navbarAddTrigger, setNavbarAddTrigger] = useState(0)
+  const [wizardAction, setWizardAction] = useState<RelAction | null>(null)
   const [canvasReady, setCanvasReady] = useState(false)
   const fitDone = useRef(false)
   const [contextMenu, setContextMenu] = useState<{
@@ -81,6 +87,13 @@ function GraphInner() {
   const [pendingMatch,    setPendingMatch]    = useState<PendingMatchData | null>(null)
   const [matchPanelOpen,  setMatchPanelOpen]  = useState(false)
   const [mergeSearchNode, setMergeSearchNode] = useState<{ id: string; name: string } | null>(null)
+  const [mergeFromNode, setMergeFromNode] = useState<{
+    id:        string
+    name:      string
+    photoUrl:  string | null
+    nodeState: string
+    matches:   PotentialMatch[] | null   // null = still loading
+  } | null>(null)
 
   const {
     nodes, edges, rawNodes, rawEdges,
@@ -103,6 +116,28 @@ function GraphInner() {
       .then(({ notifications, unread_count }) => setNotifications(notifications, unread_count))
       .catch(() => {})
   }, [setNotifications])
+
+  // Sync active node to the store so PersonNode can subscribe without touching
+  // explorationNodes (which would cause all edges to recompute on every click).
+  useEffect(() => {
+    setActiveNodeId(selectedNodeId ?? contextMenu?.nodeId ?? null)
+  }, [selectedNodeId, contextMenu?.nodeId, setActiveNodeId])
+
+  // Long-press on mobile → open context menu (mirrors onNodeContextMenu for right-click)
+  const nodesRef = useRef(nodes)
+  useEffect(() => { nodesRef.current = nodes }, [nodes])
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { nodeId, clientX, clientY } = (e as CustomEvent<{ nodeId: string; clientX: number; clientY: number }>).detail
+      const node = nodesRef.current.find(n => n.id === nodeId)
+      if (!node) return
+      setSelectedNodeId(null)
+      setPanelMode('none')
+      setContextMenu({ nodeId, x: clientX, y: clientY, personData: asPersonData(node.data) })
+    }
+    window.addEventListener('node-longpress', handler)
+    return () => window.removeEventListener('node-longpress', handler)
+  }, [])
 
 
   const perspectivePerson = perspectiveId
@@ -138,6 +173,20 @@ function GraphInner() {
     else fitView({ padding: 0.35, duration: 600 })
   }, [getNodes, setCenter, fitView])
 
+  const handleSearchSelect = useCallback((personId: string): boolean => {
+    const canvasNodes = getNodes()
+    const node = canvasNodes.find(n => n.id === personId)
+    if (!node) return false
+    setCenter(
+      node.position.x + 64,
+      node.position.y + 79,
+      { zoom: 1.2, duration: 500 },
+    )
+    setSelectedNodeId(personId)
+    setPanelMode('view')
+    return true
+  }, [getNodes, setCenter, setSelectedNodeId, setPanelMode])
+
   // Reset viewport state when switching perspective so the new tree is fitted.
   useEffect(() => {
     fitDone.current = false
@@ -159,9 +208,9 @@ function GraphInner() {
     })
   }, [graphLoading, visibleNodes.length, fitView])
 
-  // When adding a relation from the Navbar, auto-open edit panel for the new node
-  const onNavbarAddRelation = useCallback(async (action: RelAction, name: string) => {
-    await onAddRelation(action, name)
+  const handleWizardAdd = useCallback(async (action: RelAction, fullName: string, extras: WizardExtras) => {
+    await onAddRelation(action, fullName, extras)
+    setWizardAction(null)
     setPanelMode('edit')
   }, [onAddRelation])
 
@@ -208,6 +257,11 @@ function GraphInner() {
         <GraphCanvas
           nodes={explorationNodes} edges={displayEdges}
           onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+          onPaneClick={() => {
+            setContextMenu(null)
+            setSelectedNodeId(null)
+            setPanelMode('none')
+          }}
           onNodeClick={id => {
             setContextMenu(null)
             if (id.startsWith('couple_')) return
@@ -219,7 +273,7 @@ function GraphInner() {
             }
             setSelectedNodeId(prev => {
               if (prev === id) { setPanelMode('none'); return null }
-              setPanelMode('edit')
+              setPanelMode('view')
               return id
             })
           }}
@@ -240,10 +294,12 @@ function GraphInner() {
 
       <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none' }}>
         <Controls style={{ pointerEvents: 'all', background: t.controlBg, border: `1.5px solid ${t.controlBorder}`, borderRadius: '6px', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.06)' }} />
-        <MiniMap
-          style={{ pointerEvents: 'all', background: t.mapBg, border: `1.5px solid ${t.controlBorder}`, borderRadius: '6px' }}
-          nodeColor={n => n.data?.isSelf ? '#EA580C' : n.data?.nodeState === 'claimed' ? '#22C55E' : isDark ? '#4A3F35' : '#D97706'}
-        />
+        {!isMobile && (
+          <MiniMap
+            style={{ pointerEvents: 'all', background: t.mapBg, border: `1.5px solid ${t.controlBorder}`, borderRadius: '6px' }}
+            nodeColor={n => n.data?.isSelf ? '#EA580C' : n.data?.nodeState === 'claimed' ? '#22C55E' : isDark ? '#4A3F35' : '#D97706'}
+          />
+        )}
       </div>
 
       {/* Family name badge — top left */}
@@ -258,7 +314,7 @@ function GraphInner() {
         userSelect: 'none',
         transition: 'background 0.3s',
       }}>
-        <span style={{ fontSize: '15px', lineHeight: 1 }}>🌸</span>
+        <span style={{ fontSize: '15px', lineHeight: 1 }} aria-hidden="true">🌸</span>
         <div style={{ lineHeight: 1.2 }}>
           <div style={{ fontSize: '8.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: t.textMuted }}>
             Family
@@ -270,10 +326,10 @@ function GraphInner() {
       </div>
 
       {/* Notification bell */}
-      <div style={{ position: 'absolute', top: '16px', right: '64px', zIndex: 50 }}>
+      <div style={{ position: 'absolute', top: '16px', right: isMobile ? '68px' : '64px', zIndex: 50 }}>
         <button
           onClick={() => setNotifPanelOpen(v => !v)}
-          style={{ position: 'relative', width: '38px', height: '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'background 0.3s, color 0.3s' }}
+          style={{ position: 'relative', width: isMobile ? '44px' : '38px', height: isMobile ? '44px' : '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'background 0.3s, color 0.3s' }}
           title="Notifications"
         >
           <IconBell size={17} />
@@ -287,23 +343,23 @@ function GraphInner() {
 
       <button
         onClick={() => setIsDark(!isDark)}
-        style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 50, width: '38px', height: '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'background 0.3s, color 0.3s' }}
+        style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 50, width: isMobile ? '44px' : '38px', height: isMobile ? '44px' : '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'background 0.3s, color 0.3s' }}
         title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       >
         {isDark ? <IconSun size={17} /> : <IconMoon size={17} />}
       </button>
 
 
-      {/* Search bar — centered top */}
+      {/* Search bar — centered on desktop, full-width below top bar on mobile */}
       <div style={{
         position:  'absolute',
-        top:       '16px',
-        left:      '50%',
-        transform: 'translateX(-50%)',
+        top:       isMobile ? '68px' : '16px',
+        left:      isMobile ? '16px' : '50%',
+        transform: isMobile ? 'none' : 'translateX(-50%)',
         zIndex:    50,
-        width:     '320px',
+        width:     isMobile ? 'calc(100% - 32px)' : '320px',
       }}>
-        <SearchBar isDark={isDark} />
+        <SearchBar isDark={isDark} onSelectPerson={handleSearchSelect} />
       </div>
 
       {perspectiveId && isExploration && pendingMatch && (
@@ -335,7 +391,7 @@ function GraphInner() {
           isSelf={contextMenu.personData.isSelf}
           isViewerNode={contextMenu.personData.isViewerNode ?? false}
           onViewTree={() => router.push(`/graph?perspective=${contextMenu.nodeId}`)}
-          onEdit={() => setSelectedNodeId(contextMenu.nodeId)}
+          onEdit={() => { setSelectedNodeId(contextMenu.nodeId); setPanelMode('edit') }}
           onInvite={async () => {
             try {
               const { invite_token } = await api.persons.generateInvite(contextMenu.nodeId)
@@ -343,7 +399,35 @@ function GraphInner() {
               await navigator.clipboard.writeText(url)
             } catch { /* ignore */ }
           }}
-          onMergeNode={() => setMergeSearchNode({ id: contextMenu.nodeId, name: contextMenu.personData.fullName })}
+          onMergeNode={() => {
+            const { nodeId, personData } = contextMenu
+            const src = {
+              id:        nodeId,
+              name:      personData.fullName,
+              photoUrl:  personData.photoUrl ?? null,
+              nodeState: personData.nodeState,
+              matches:   null as PotentialMatch[] | null,
+            }
+            setMergeFromNode(src)
+            api.merges.searchDuplicates(personData.fullName)
+              .then(({ results }) => {
+                setMergeFromNode(prev => {
+                  if (!prev || prev.id !== src.id) return prev
+                  // No matches → fall back to the manual search modal
+                  if (results.length === 0) {
+                    setMergeFromNode(null)
+                    setMergeSearchNode({ id: src.id, name: src.name })
+                    return null
+                  }
+                  return { ...prev, matches: results }
+                })
+              })
+              .catch(() => {
+                // On error fall back to manual search
+                setMergeFromNode(null)
+                setMergeSearchNode({ id: src.id, name: src.name })
+              })
+          }}
           onClose={() => setContextMenu(null)}
         />
       )}
@@ -354,19 +438,16 @@ function GraphInner() {
             key={selectedNodeId}
             node={selectedNode}
             onClose={() => setPanelMode('none')}
-            onViewProfile={() => setPanelMode('view')}
             onUpdate={onUpdateNode}
             onSave={onSaveNode}
-            onAddParent={async (name) => { await onAddRelation('father',  name) }}
-            onAddChild={async  (name) => { await onAddRelation('son',     name) }}
-            onAddSpouse={async (name) => { await onAddRelation('spouse',  name) }}
             rawEdges={rawEdges}
             rawNodes={rawNodes}
-            onViewNode={(id) => { setSelectedNodeId(id); setPanelMode('edit') }}
+            onViewNode={(id) => { setSelectedNodeId(id); setPanelMode('view') }}
             onRemoveConnection={async (edgeId) => {
               await api.relationships.delete(edgeId)
               await fetchGraph()
             }}
+            onRequestAddRelation={() => setNavbarAddTrigger(c => c + 1)}
           />
         )}
       </AnimatePresence>
@@ -390,6 +471,40 @@ function GraphInner() {
           matches={duplicateInfo.matches}
           isDark={isDark}
           onDismiss={() => setDuplicateInfo(null)}
+        />
+      )}
+
+      {/* Right-click Merge: loading spinner while auto-searching */}
+      {mergeFromNode && mergeFromNode.matches === null && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 300,
+          background: 'rgba(0,0,0,0.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+          onClick={() => setMergeFromNode(null)}
+        >
+          <div style={{
+            background: t.panelBg, border: `1.5px solid ${t.borderNeutral}`,
+            borderRadius: 16, padding: '28px 36px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+            boxShadow: t.shadow,
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #FDE8CC', borderTopColor: '#EA580C', animation: 'spin 0.8s linear infinite' }} />
+            <p style={{ margin: 0, fontSize: 13, color: t.textMuted }}>Searching for matches…</p>
+          </div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        </div>
+      )}
+
+      {/* Right-click Merge: DuplicateFoundModal with source node card when matches found */}
+      {mergeFromNode && mergeFromNode.matches !== null && mergeFromNode.matches.length > 0 && (
+        <DuplicateFoundModal
+          newPersonId={mergeFromNode.id}
+          myInfo={{ fullName: mergeFromNode.name, photoUrl: mergeFromNode.photoUrl }}
+          matches={mergeFromNode.matches}
+          isDark={isDark}
+          onDismiss={() => setMergeFromNode(null)}
+          sourceNode={{ photoUrl: mergeFromNode.photoUrl, nodeState: mergeFromNode.nodeState }}
         />
       )}
 
@@ -442,7 +557,7 @@ function GraphInner() {
         canDeleteSelected={canDeleteSelected}
         panelMode={panelMode}
         onHome={onHome}
-        onAddRelation={onNavbarAddRelation}
+        onStartWizard={action => setWizardAction(action)}
         onDeleteSelected={() => onDeleteNode(selectedNodeId!)}
         onEdit={() => setPanelMode(m => m === 'edit' ? 'none' : 'edit')}
         onView={() => setPanelMode(m => m === 'view' ? 'none' : 'view')}
@@ -450,7 +565,22 @@ function GraphInner() {
         womanView={womanView}
         onWomanViewChange={onWomanViewChange}
         isDark={isDark}
+        forceAddOpen={navbarAddTrigger}
       />
+
+      {/* Add node wizard */}
+      <AnimatePresence>
+        {wizardAction && (
+          <AddNodeWizard
+            key="add-node-wizard"
+            relAction={wizardAction}
+            anchorName={selectedNodeName}
+            isDark={isDark}
+            onAdd={handleWizardAdd}
+            onClose={() => setWizardAction(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Merge search modal — opened from context menu "Merge node" */}
       <AnimatePresence>

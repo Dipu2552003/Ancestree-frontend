@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 
@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   description: 'A modern family tree & graph platform',
 }
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -17,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.className}>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         {/* Runs synchronously before first paint — prevents dark-mode flash */}
         <script dangerouslySetInnerHTML={{ __html: `
           try {

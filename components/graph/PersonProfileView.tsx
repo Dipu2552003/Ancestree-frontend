@@ -1,11 +1,13 @@
 'use client'
 
+import { useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { IconArrowLeft, IconEdit } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import type { Node } from '@xyflow/react'
 import type { PersonData } from '@/types'
 import { getTheme } from '@/lib/theme'
+import { Z } from '@/lib/zIndex'
 
 interface PersonProfileViewProps {
   node: Node
@@ -25,6 +27,14 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
   const { isDark } = useGraphStore()
   const d = node.data as unknown as PersonData
   const { fullName, birthYear, deathYear, isDeceased, isSelf, relationshipToSelf, photoUrl, nodeState } = d
+
+  // Move focus to the "Back" button after the entry animation settles,
+  // so keyboard users are not left focused on content behind the overlay.
+  const backRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    const id = setTimeout(() => backRef.current?.focus(), 300)
+    return () => clearTimeout(id)
+  }, [])
 
   // Avatar gradient (mirrors PersonNode logic)
   let avatarFrom = '#C4A882', avatarTo = '#9A7B5A'
@@ -64,7 +74,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
       exit={{ opacity: 0, filter: 'blur(20px)' }}
       transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 200,
+        position: 'fixed', inset: 0, zIndex: Z.fullscreen,
         background: t.pageBg, overflowY: 'auto',
       }}
     >
@@ -115,6 +125,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
           }}
         >
           <button
+            ref={backRef}
             onClick={onBack}
             style={{
               display: 'flex', alignItems: 'center', gap: '7px',

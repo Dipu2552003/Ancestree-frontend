@@ -9,6 +9,7 @@ interface GraphState {
   expandedCouples: string[]
   notifications: AppNotification[]
   unreadCount: number
+  activeNodeId: string | null
   setCurrentZoom: (zoom: number) => void
   setIsDark: (dark: boolean) => void
   toggleCollapse: (key: string) => void
@@ -16,6 +17,7 @@ interface GraphState {
   expandCouple: (key: string) => void
   setNotifications: (notifications: AppNotification[], unreadCount: number) => void
   markNotificationRead: (id: string) => void
+  setActiveNodeId: (id: string | null) => void
 }
 
 export const useGraphStore = create<GraphState>()(
@@ -27,6 +29,7 @@ export const useGraphStore = create<GraphState>()(
       expandedCouples: [],
       notifications: [],
       unreadCount: 0,
+      activeNodeId: null,
       setCurrentZoom: (zoom) => set({ currentZoom: zoom }),
       setIsDark: (dark) => set({ isDark: dark }),
       toggleCollapse: (key) => set(s => ({
@@ -40,6 +43,7 @@ export const useGraphStore = create<GraphState>()(
           ? s.expandedCouples.filter(k => k !== key)
           : [...s.expandedCouples, key],
       })),
+      setActiveNodeId: (id) => set({ activeNodeId: id }),
       setNotifications: (notifications, unreadCount) => set({ notifications, unreadCount }),
       markNotificationRead: (id) => set(s => ({
         notifications: s.notifications.map(n => n.id === id ? { ...n, is_read: true } : n),

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
@@ -49,12 +49,45 @@ function ownerBadge(nodeState: string, isSelf: boolean, firstName: string, isDar
 }
 
 function PersonNode({ id, data, selected }: NodeProps) {
-  const { isDark } = useGraphStore()
+  const isDark = useGraphStore(s => s.isDark)
+  const isNodeSelected = useGraphStore(s => s.activeNodeId === id)
   const person = data as unknown as PersonData
   const { fullName, birthYear, deathYear, isAlive, isDeceased, nodeState, isSelf, isViewerNode, relationshipToSelf, photoUrl, animDelay, isMatchHighlight } = person
   const [firstName, lastName] = splitName(fullName)
   const [hovered, setHovered] = useState(false)
   const badge = ownerBadge(nodeState, isSelf, firstName, isDark)
+
+  // Long-press → context menu on mobile (fires a custom event caught by page.tsx)
+  const lpTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lpStart   = useRef<{ x: number; y: number } | null>(null)
+  const lpFired   = useRef(false)
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0]
+    lpStart.current = { x: t.clientX, y: t.clientY }
+    lpFired.current = false
+    lpTimer.current = setTimeout(() => {
+      lpFired.current = true
+      window.dispatchEvent(new CustomEvent('node-longpress', {
+        detail: { nodeId: id, clientX: lpStart.current!.x, clientY: lpStart.current!.y },
+      }))
+    }, 600)
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!lpStart.current || !lpTimer.current) return
+    const t = e.touches[0]
+    if (Math.abs(t.clientX - lpStart.current.x) > 8 || Math.abs(t.clientY - lpStart.current.y) > 8) {
+      clearTimeout(lpTimer.current)
+      lpTimer.current = null
+    }
+  }
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null }
+    if (lpFired.current) { lpFired.current = false; e.preventDefault() }
+    lpStart.current = null
+  }
 
   // ── avatar gradient ──────────────────────────────────────────────
   let avatarFrom = '#C4A882'; let avatarTo = '#9A7B5A'
@@ -71,7 +104,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
   const cardBorder      = isSelf
     ? '2px solid #EA580C'
     : isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)'
-  const cardShadow      = selected
+  const cardShadow      = isNodeSelected
     ? `0 0 0 2.5px #EA580C, ${isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'}`
     : isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'
 
@@ -140,6 +173,9 @@ function PersonNode({ id, data, selected }: NodeProps) {
         transition={{ type: 'spring', stiffness: 380, damping: 22 }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
         style={{
           width: `${W}px`,
           height: `${PHOTO_H + STRIP_H}px`,
@@ -217,7 +253,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
           gap: '1px',
         }}>
           <div style={{
-            fontSize: '8.5px', fontWeight: 600, letterSpacing: '0.1em',
+            fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em',
             textTransform: 'uppercase' as const,
             color: t.text, textAlign: 'center',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -227,7 +263,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
           </div>
           {lastName && (
             <div style={{
-              fontSize: '7.5px', fontWeight: 400, letterSpacing: '0.08em',
+              fontSize: '10px', fontWeight: 400, letterSpacing: '0.06em',
               textTransform: 'uppercase' as const,
               color: lastNameColor, textAlign: 'center',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

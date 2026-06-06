@@ -112,12 +112,16 @@ export interface SentMergeRequest {
 // ── API surface ───────────────────────────────────────────────────
 export const api = {
   auth: {
+    checkEmail: (email: string) =>
+      req<{ exists: boolean }>('/api/auth/check-email', {
+        method: 'POST', body: JSON.stringify({ email }),
+      }),
     signup: (b: { email: string; password: string; display_name: string }) =>
-      req<{ token: string; user: Record<string, unknown> }>('/api/auth/signup', {
+      req<{ token: string; user: { id: string; email: string; display_name: string; person_id: string; family_id: string } }>('/api/auth/signup', {
         method: 'POST', body: JSON.stringify(b),
       }),
     login: (b: { email: string; password: string }) =>
-      req<{ token: string; user: Record<string, unknown> }>('/api/auth/login', {
+      req<{ token: string; user: { id: string; email: string; display_name: string; person_id: string; family_id: string } }>('/api/auth/login', {
         method: 'POST', body: JSON.stringify(b),
       }),
     // Re-issues a JWT with the correct familyId after a merge transfers the user
@@ -225,6 +229,9 @@ export const api = {
   },
 
   merges: {
+    searchDuplicates: (name: string) =>
+      req<{ results: PotentialMatch[] }>(`/api/merges/search?name=${encodeURIComponent(name)}`),
+
     getById: (id: string) =>
       req<{
         id: string; status: string

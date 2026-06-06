@@ -14,11 +14,17 @@ const GENDER_BY_RELATION: Partial<Record<RelAction, string>> = {
   brother: 'male', sister: 'female',
 }
 
+export interface AddExtras {
+  gender?:    string
+  birthYear?: number
+  photoUrl?:  string
+}
+
 interface NodeActionsReturn {
   onUpdateNode: (id: string, data: Partial<PersonData>) => void
   onSaveNode: (id: string, payload: SavePayload) => Promise<void>
   onDeleteNode: (id: string) => Promise<void>
-  onAddRelation: (action: RelAction, fullName: string) => Promise<void>
+  onAddRelation: (action: RelAction, fullName: string, extras?: AddExtras) => Promise<void>
 }
 
 export function useNodeActions(
@@ -126,14 +132,22 @@ export function useNodeActions(
     }
   }, [onUpdateNode, onDuplicateFound])
 
-  const onAddRelation = useCallback(async (action: RelAction, fullName: string) => {
+  const onAddRelation = useCallback(async (action: RelAction, fullName: string, extras?: AddExtras) => {
     if (!selectedNodeId) return
 
     try {
       const person = await api.persons.create({
-        full_name: fullName.trim() || 'Unknown', is_alive: true,
-        ...(GENDER_BY_RELATION[action] ? { gender: GENDER_BY_RELATION[action] } : {}),
+        full_name:  fullName.trim() || 'Unknown',
+        is_alive:   true,
+        gender:     extras?.gender ?? GENDER_BY_RELATION[action] ?? undefined,
+        birth_year: extras?.birthYear,
       })
+
+      // photo_url is not accepted on create — patch it immediately after
+      if (extras?.photoUrl) {
+        try { await api.persons.update(person.id, { photo_url: extras.photoUrl }) }
+        catch { /* non-critical: node is created, photo can be added later */ }
+      }
 
       // All cascade logic (base edge + derived edges) lives in relationshipRules.ts
       const ops = computeCascadeOps(action, selectedNodeId, person.id, edges)
