@@ -245,14 +245,30 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
                   {/* Name + family */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      fontSize:     '13px',
-                      fontWeight:   600,
-                      color:        t.text,
-                      whiteSpace:   'nowrap',
-                      overflow:     'hidden',
-                      textOverflow: 'ellipsis',
+                      display: 'flex', alignItems: 'center', gap: 6,
                     }}>
-                      {person.full_name}
+                      <span style={{
+                        fontSize:     '13px',
+                        fontWeight:   600,
+                        color:        t.text,
+                        whiteSpace:   'nowrap',
+                        overflow:     'hidden',
+                        textOverflow: 'ellipsis',
+                      }}>
+                        {person.full_name}
+                      </span>
+                      {person.is_own_family && (
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          padding: '1px 5px', borderRadius: 3,
+                          background: isDark ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.10)',
+                          color: '#EA580C',
+                          flexShrink: 0,
+                        }}>
+                          Your family
+                        </span>
+                      )}
                     </div>
                     <div style={{
                       fontSize:     '11px',

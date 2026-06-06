@@ -94,7 +94,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
     if (!query.trim()) { setResults([]); return }
     setLoading(true)
     const id = setTimeout(() => {
-      api.search.persons(query.trim())
+      api.search.persons(query.trim(), 'all')
         .then(({ results: r }) => setResults(r))
         .catch(() => setResults([]))
         .finally(() => setLoading(false))

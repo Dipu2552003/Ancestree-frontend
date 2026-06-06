@@ -205,7 +205,7 @@ function Checkpoint({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      title={isCurrent ? `You're viewing ${label}` : isHome ? 'Back to my tree' : `Go to ${label}'s tree`}
+      title={isCurrent ? (isHome ? `You're here` : `Currently viewing ${label}`) : isHome ? 'Back to my tree' : `Go to ${label}'s tree`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -296,7 +296,7 @@ function Checkpoint({
               textTransform: 'uppercase',
             }}
           >
-            You&apos;re here
+            {isHome ? "You're here" : 'Viewing'}
           </span>
         )}
       </span>

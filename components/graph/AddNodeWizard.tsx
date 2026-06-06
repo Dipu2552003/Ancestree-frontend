@@ -81,8 +81,13 @@ interface AddNodeWizardProps {
    *   - For brother/sister: anchor's multi-spouse parent's spouses,
    *                         anchor's own mother first.
    * The step shows only when this list has 2+ entries.
+   * gender/photoUrl are optional — used by the TrioHero preview.
    */
-  motherOptions?: { id: string; name: string }[]
+  motherOptions?: { id: string; name: string; gender?: string; photoUrl?: string }[]
+  /** Father name for the TrioHero preview. Defaults to anchorName (correct for
+   *  child-add, where the anchor IS the father). Pass explicitly for sibling-add
+   *  where the father is the anchor's multi-spouse parent, not the anchor itself. */
+  fatherName?: string
   onAdd:      (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
   onClose:    () => void
 }
@@ -455,6 +460,142 @@ function SingleNodePreview({ fullName, gender, photoUrl, isDark }: {
   )
 }
 
+// ── Small connectors for TrioHero ─────────────────────────────────────────────
+function SmallCoupleLink({ isDark }: { isDark: boolean }) {
+  const dashH = `repeating-linear-gradient(to right,${isDark ? 'rgba(234,88,12,0.45)' : 'rgba(234,88,12,0.32)'} 0 5px,transparent 5px 10px)`
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, padding: '0 4px' }}>
+      <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.18, duration: 0.28 }}
+        style={{ width: 16, height: 2, background: dashH, transformOrigin: 'left' }} />
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.32, type: 'spring', stiffness: 360, damping: 22 }}
+        style={{
+          width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+          background: isDark ? '#1C1410' : '#FFF7ED',
+          border: `1.5px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 0 0 3px ${isDark ? 'rgba(234,88,12,0.07)' : 'rgba(234,88,12,0.05)'}`,
+        }}>
+        <IconHeart size={11} color="#EA580C" />
+      </motion.div>
+      <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.42, duration: 0.28 }}
+        style={{ width: 16, height: 2, background: dashH, transformOrigin: 'right' }} />
+    </div>
+  )
+}
+
+function SmallChildLink({ isDark }: { isDark: boolean }) {
+  const dashV = `repeating-linear-gradient(to bottom,${isDark ? 'rgba(234,88,12,0.45)' : 'rgba(234,88,12,0.32)'} 0 5px,transparent 5px 10px)`
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0' }}>
+      <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 0.20, duration: 0.28 }}
+        style={{ width: 2, height: 14, background: dashV, transformOrigin: 'top' }} />
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.34, type: 'spring', stiffness: 360, damping: 22 }}
+        style={{
+          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+          background: isDark ? '#1C1410' : '#FFF7ED',
+          border: `1.5px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+        <IconArrowDown size={11} color="#EA580C" />
+      </motion.div>
+      <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 0.46, duration: 0.28 }}
+        style={{ width: 2, height: 14, background: dashV, transformOrigin: 'bottom' }} />
+    </div>
+  )
+}
+
+// ── VacantMotherSlot — empty placeholder while no wife is picked ──────────────
+function VacantMotherSlot({ isDark, label }: { isDark: boolean; label: string }) {
+  const W = 112, PH = 102, SH = 36, H = PH + SH
+  return (
+    <div style={{
+      width: W, height: H, flexShrink: 0,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      background: 'transparent',
+      border: `2px dashed ${isDark ? 'rgba(234,88,12,0.40)' : 'rgba(234,88,12,0.35)'}`,
+      borderRadius: 4,
+      color: isDark ? 'rgba(234,88,12,0.62)' : 'rgba(234,88,12,0.55)',
+      textAlign: 'center', padding: '0 6px',
+    }}>
+      <span style={{ fontSize: 26, fontWeight: 300, lineHeight: 1, marginBottom: 6, opacity: 0.65 }}>?</span>
+      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</span>
+    </div>
+  )
+}
+
+// ── TrioHero ──────────────────────────────────────────────────────────────────
+// Mother-slot + Father couple-bar, with new-child dropped below. Shown on the
+// 'mother' step so the user sees the family forming as they pick the wife.
+function TrioHero({
+  fatherName, motherName, motherGender, motherPhotoUrl,
+  newName, newGender, newPhotoUrl, vacantLabel, isDark,
+}: {
+  fatherName:   string
+  motherName:   string | null      // null = vacant slot
+  motherGender?: string
+  motherPhotoUrl?: string
+  newName:      string
+  newGender:    string
+  newPhotoUrl?: string
+  vacantLabel:  string
+  isDark:       boolean
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {/* Couple row */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <AnimatePresence mode="wait">
+            {motherName ? (
+              <motion.div key={`mom-${motherName}`}
+                initial={{ opacity: 0, scale: 0.86, y: 4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.86, y: -4 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
+                <WizardNodeCard fullName={motherName} gender={motherGender ?? 'female'} photoUrl={motherPhotoUrl} isDark={isDark} compact />
+              </motion.div>
+            ) : (
+              <motion.div key="mom-vacant"
+                initial={{ opacity: 0, scale: 0.86 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.86 }}
+                transition={{ duration: 0.18 }}>
+                <VacantMotherSlot isDark={isDark} label={vacantLabel} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: motherName ? labelColor(motherGender ?? 'female') : (isDark ? 'rgba(234,88,12,0.55)' : 'rgba(234,88,12,0.50)') }}>
+            {motherName ? firstName(motherName) : vacantLabel}
+          </span>
+        </div>
+
+        <SmallCoupleLink isDark={isDark} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <AnchorNodeCard fullName={fatherName} isDark={isDark} compact />
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#EA580C' }}>
+            {firstName(fatherName) || 'Father'}
+          </span>
+        </div>
+      </div>
+
+      <SmallChildLink isDark={isDark} />
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+        <WizardNodeCard fullName={newName} gender={newGender} photoUrl={newPhotoUrl} isDark={isDark} compact />
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: labelColor(newGender) }}>
+          {newName.trim() ? firstName(newName) : 'New node'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // ── GenderCard ────────────────────────────────────────────────────────────────
 function GenderCard({
   option, selected, isDark, t, fullWidth, onClick,
@@ -492,7 +633,7 @@ function GenderCard({
 }
 
 // ── Main AddNodeWizard ────────────────────────────────────────────────────────
-export default function AddNodeWizard({ relAction, anchorName, isDark, motherOptions, onAdd, onClose }: AddNodeWizardProps) {
+export default function AddNodeWizard({ relAction, anchorName, isDark, motherOptions, fatherName, onAdd, onClose }: AddNodeWizardProps) {
   const t    = getTheme(isDark)
   const cfg  = REL_CONFIG[relAction]
 
@@ -761,36 +902,64 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, motherOpt
         </div>
 
         {/* ── Node preview hero ── */}
-        <div style={{
-          padding: currentStep === 'name' ? '24px 28px 20px' : '18px 28px 14px',
-          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(234,88,12,0.09)'}`,
-          background: isDark ? 'rgba(255,255,255,0.015)' : 'rgba(234,88,12,0.025)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          minHeight: currentStep === 'name' ? undefined : 100,
-        }}>
-          <AnimatePresence mode="wait">
-            {currentStep === 'name' ? (
-              <motion.div key="two-node"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}>
-                <NodeHero
-                  anchorName={anchorName} newName={fullName} gender={gender}
-                  direction={cfg.direction} relAction={relAction} isDark={isDark}
-                />
-              </motion.div>
-            ) : (
-              <motion.div key="one-node"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}>
-                <SingleNodePreview
-                  fullName={fullName} gender={gender}
-                  photoUrl={currentStep === 'photo' ? photoUrl : undefined}
-                  isDark={isDark}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {(() => {
+          const selectedMother = motherChoice && motherChoice !== 'unknown'
+            ? motherOptions?.find(o => o.id === motherChoice) ?? null
+            : null
+          const triadFatherName = fatherName ?? anchorName
+          const triadHeroHeight =
+            currentStep === 'name'   ? undefined :
+            currentStep === 'mother' ? 260 :
+                                       100
+          return (
+            <div style={{
+              padding: currentStep === 'name' ? '24px 28px 20px' : '18px 28px 14px',
+              borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(234,88,12,0.09)'}`,
+              background: isDark ? 'rgba(255,255,255,0.015)' : 'rgba(234,88,12,0.025)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              minHeight: triadHeroHeight,
+            }}>
+              <AnimatePresence mode="wait">
+                {currentStep === 'name' ? (
+                  <motion.div key="two-node"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}>
+                    <NodeHero
+                      anchorName={anchorName} newName={fullName} gender={gender}
+                      direction={cfg.direction} relAction={relAction} isDark={isDark}
+                    />
+                  </motion.div>
+                ) : currentStep === 'mother' ? (
+                  <motion.div key="trio-node"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22 }}>
+                    <TrioHero
+                      fatherName={triadFatherName}
+                      motherName={selectedMother?.name ?? null}
+                      motherGender={selectedMother?.gender}
+                      motherPhotoUrl={selectedMother?.photoUrl}
+                      newName={fullName}
+                      newGender={gender}
+                      newPhotoUrl={photoUrl}
+                      vacantLabel="Mother"
+                      isDark={isDark}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div key="one-node"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}>
+                    <SingleNodePreview
+                      fullName={fullName} gender={gender}
+                      photoUrl={currentStep === 'photo' ? photoUrl : undefined}
+                      isDark={isDark}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )
+        })()}
 
         {/* ── Step content ── */}
         <div style={{ position: 'relative', overflow: 'hidden' }}>

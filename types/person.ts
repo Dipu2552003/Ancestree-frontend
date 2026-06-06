@@ -140,4 +140,7 @@ export interface EdgeData {
   isActive?: boolean
   animDelay?: number
   sharedChildren?: string[]
+  /** Family-bracket member IDs (all parents in the couple group, left-to-right).
+   *  When >2, the bracket renders a single horizontal bar under everyone. */
+  members?: string[]
 }

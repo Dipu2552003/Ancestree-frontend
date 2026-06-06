@@ -48,15 +48,20 @@ function asPersonData(data: unknown): PersonData {
  * mother step when this list has 2+ entries.
  */
 type SimpleEdge = { id: string; source: string; target: string; data?: unknown }
-type SimpleNode = { id: string; data?: { fullName?: string } }
+type SimpleNode = { id: string; data?: { fullName?: string; gender?: string; photoUrl?: string } }
+type MotherOption = { id: string; name: string; gender?: string; photoUrl?: string }
 function computeMotherOptions(
   action: RelAction,
   anchorId: string | null,
   edges: SimpleEdge[],
   nodes: SimpleNode[],
-): { id: string; name: string }[] {
+): MotherOption[] {
   if (!anchorId) return []
-  const nameOf = (id: string) => nodes.find(n => n.id === id)?.data?.fullName ?? 'Person'
+  const dataOf = (id: string) => nodes.find(n => n.id === id)?.data
+  const optionFor = (id: string): MotherOption => {
+    const d = dataOf(id)
+    return { id, name: d?.fullName ?? 'Person', gender: d?.gender, photoUrl: d?.photoUrl }
+  }
   const relTypeOf = (e: SimpleEdge) =>
     (e.data as { relType?: string } | undefined)?.relType
 
@@ -66,7 +71,7 @@ function computeMotherOptions(
       .map(e => e.source === personId ? e.target : e.source)
 
   if (action === 'son' || action === 'daughter') {
-    return spousesOfPerson(anchorId).map(id => ({ id, name: nameOf(id) }))
+    return spousesOfPerson(anchorId).map(optionFor)
   }
 
   if (action === 'brother' || action === 'sister') {
@@ -83,10 +88,35 @@ function computeMotherOptions(
     const ordered = anchorOwnMom
       ? [anchorOwnMom, ...allWives.filter(w => w !== anchorOwnMom)]
       : allWives
-    return ordered.map(id => ({ id, name: nameOf(id) }))
+    return ordered.map(optionFor)
   }
 
   return []
+}
+
+/**
+ * Father shown in the TrioHero on the 'mother' step.
+ *   - child-add:    anchor IS the father → undefined (wizard falls back to anchorName)
+ *   - sibling-add:  anchor's multi-spouse parent's name (the shared father)
+ */
+function computeFatherName(
+  action: RelAction,
+  anchorId: string | null,
+  edges: SimpleEdge[],
+  nodes: SimpleNode[],
+): string | undefined {
+  if (!anchorId) return undefined
+  if (action !== 'brother' && action !== 'sister') return undefined
+  const relTypeOf = (e: SimpleEdge) =>
+    (e.data as { relType?: string } | undefined)?.relType
+  const spousesOf = (personId: string): number =>
+    edges.filter(e => relTypeOf(e) === 'SPOUSE_OF' && (e.source === personId || e.target === personId)).length
+  const anchorParents = edges
+    .filter(e => relTypeOf(e) === 'PARENT_OF' && e.target === anchorId)
+    .map(e => e.source)
+  const multiSpouseParent = anchorParents.find(p => spousesOf(p) >= 2)
+  if (!multiSpouseParent) return undefined
+  return nodes.find(n => n.id === multiSpouseParent)?.data?.fullName
 }
 
 export default function GraphPage() {
@@ -644,6 +674,7 @@ function GraphInner() {
             anchorName={selectedNodeName}
             isDark={isDark}
             motherOptions={computeMotherOptions(wizardAction, selectedNodeId, rawEdges, rawNodes)}
+            fatherName={computeFatherName(wizardAction, selectedNodeId, rawEdges, rawNodes)}
             onAdd={handleWizardAdd}
             onClose={() => setWizardAction(null)}
           />

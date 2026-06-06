@@ -29,10 +29,15 @@ const BASE_Y = 300   // y of generation 0
 type Pos = { x: number; y: number }
 
 // ── Couple unit ───────────────────────────────────────────────────────────────
+// `left` is the "anchor" — the central person. `right` is their first spouse.
+// `extraSpouses` is the second wife, third wife, etc. They sit to the right of
+// `right` and are spaced one STEP apart, giving consistent gaps in a polygamy
+// row. Children are pooled from EVERY (left, partner) pair.
 interface CoupleUnit {
-  left:     string
-  right:    string | null
-  children: string[]
+  left:          string
+  right:         string | null
+  extraSpouses?: string[]
+  children:      string[]
   // collapse state
   collapsed:        boolean
   hiddenChildCount: number
@@ -139,6 +144,47 @@ export function layoutEngine(
     return u
   }
 
+  // Stable sort key for spouses: birth year ascending, then name. Determines
+  // which wife is "wife 1" vs "wife 2" in the layout row.
+  const sortSpouses = (ids: string[]): string[] => ids.slice().sort((a, b) => {
+    const byA = d(a).birthYear as number | undefined
+    const byB = d(b).birthYear as number | undefined
+    if (byA != null && byB != null) return byA - byB
+    if (byA != null) return -1
+    if (byB != null) return 1
+    return ((d(a).fullName as string) ?? '').localeCompare((d(b).fullName as string) ?? '')
+  })
+
+  // ── Pass 1: multi-spouse anchors get one EXTENDED unit ──────────────────
+  // A person with 2+ same-generation spouses becomes the left member of one
+  // unit holding all their spouses in a row. We only "absorb" spouses that
+  // have no parents in the graph — spouses with their own lineage stay in
+  // their own subtree (otherwise we'd uproot them from their family).
+  for (const n of nodes) {
+    if (unitOf.has(n.id)) continue
+    const g       = genOf(n.id)
+    const spouses = sortSpouses((spousesOf.get(n.id) ?? []).filter(s => genOf(s) === g))
+    if (spouses.length < 2) continue
+
+    // Spouses already claimed by another unit are off-limits.
+    const free = spouses.filter(s => !unitOf.has(s))
+    if (free.length === 0) continue
+
+    const firstSpouse = free[0]
+    const extras = free.slice(1).filter(s => (parentsOf.get(s) ?? []).length === 0)
+
+    const unit = makeUnit(n.id, firstSpouse, g)
+    seenPairs.add([n.id, firstSpouse].sort().join('|'))
+    if (extras.length > 0) {
+      unit.extraSpouses = extras
+      for (const x of extras) {
+        unitOf.set(x, unit)
+        seenPairs.add([n.id, x].sort().join('|'))
+      }
+    }
+  }
+
+  // ── Pass 2: ordinary single-spouse and solo nodes ────────────────────────
   for (const n of nodes) {
     if (unitOf.has(n.id)) continue
     const g       = genOf(n.id)
@@ -166,13 +212,27 @@ export function layoutEngine(
     }
   }
 
-  // Assign shared children to each couple unit
+  // Assign shared children to each couple unit. Multi-spouse extended units
+  // pool kids from EVERY member with union (not intersection) so that kids
+  // who only have one recorded parent edge (typically just the mother) still
+  // land under the unit. Strict 2-couple bracket still uses the intersection.
   for (const u of allUnits) {
-    const leftKids  = new Set(childrenOf.get(u.left) ?? [])
-    const rightKids = u.right ? new Set(childrenOf.get(u.right) ?? []) : new Set<string>()
-    const shared    = u.right
-      ? [...leftKids].filter(c => rightKids.has(c))
-      : [...leftKids]
+    const leftKids = new Set(childrenOf.get(u.left) ?? [])
+    let shared: string[]
+    if (!u.right) {
+      shared = [...leftKids]
+    } else if (u.extraSpouses && u.extraSpouses.length > 0) {
+      // Multi-spouse: union of (left ∪ right ∪ each extra)'s kids.
+      const pool = new Set<string>(leftKids)
+      for (const partner of [u.right, ...u.extraSpouses]) {
+        for (const k of (childrenOf.get(partner) ?? [])) pool.add(k)
+      }
+      shared = [...pool]
+    } else {
+      // Plain 2-parent couple: intersection of both parents' kids.
+      const rightKids = new Set(childrenOf.get(u.right) ?? [])
+      shared = [...leftKids].filter(c => rightKids.has(c))
+    }
     u.children = shared.sort((a, b) => {
       const byA = d(a).birthYear as number | undefined
       const byB = d(b).birthYear as number | undefined
@@ -188,10 +248,38 @@ export function layoutEngine(
   //   (right person merged into the couple card + all their subtree descendants)
   const collapsedDescendants = new Set<string>()
 
+  // Pre-compute every node reachable from a unit's children (so we can refuse
+  // to collapse any couple whose subtree contains the perspective person).
+  function subtreeContains(u: CoupleUnit, needleId: string): boolean {
+    if (u.left === needleId || u.right === needleId) return true
+    if (u.extraSpouses?.includes(needleId)) return true
+    const seen = new Set<string>()
+    const queue = [...u.children]
+    while (queue.length) {
+      const id = queue.shift()!
+      if (id === needleId) return true
+      if (seen.has(id)) continue
+      seen.add(id)
+      for (const c of childrenOf.get(id) ?? []) queue.push(c)
+      for (const s of spousesOf.get(id) ?? []) {
+        if (s === needleId) return true
+        if (!seen.has(s)) seen.add(s)
+      }
+    }
+    return false
+  }
+
   for (const u of allUnits) {
     if (!u.right) continue
+    // Skip the collapse mechanism for multi-spouse extended units — the
+    // "couple card" abstraction only makes sense for a 1:1 pair.
+    if (u.extraSpouses && u.extraSpouses.length > 0) continue
     const unitKey = [u.left, u.right].sort().join('|')
     if (!collapsedUnitKeys.has(unitKey)) continue
+
+    // Never collapse a couple whose subtree contains the perspective person —
+    // otherwise the viewer's "self" node disappears entirely from the canvas.
+    if (subtreeContains(u, selfId)) continue
 
     // Right person is merged into the collapsedCouple node — hide individually
     collapsedDescendants.add(u.right)
@@ -245,7 +333,10 @@ export function layoutEngine(
 
   // ── Reingold-Tilford layout ───────────────────────────────────────────────
 
-  function unitWidth(u: CoupleUnit): number { return u.right ? STEP * 2 : STEP }
+  function unitWidth(u: CoupleUnit): number {
+    const members = 1 + (u.right ? 1 : 0) + (u.extraSpouses?.length ?? 0)
+    return STEP * members
+  }
   function unitHalfWidth(u: CoupleUnit): number { return unitWidth(u) / 2 }
 
   function rightContour(u: CoupleUnit, modAcc: number, depth: number, contour: Map<number, number>) {
@@ -425,6 +516,11 @@ export function layoutEngine(
       if (u.right) {
         pos.set(u.left,  { x: absX,         y })
         pos.set(u.right, { x: absX + STEP,   y })
+        // Extra spouses (multi-spouse anchor): wife 2, wife 3, …
+        const extras = u.extraSpouses ?? []
+        for (let i = 0; i < extras.length; i++) {
+          pos.set(extras[i], { x: absX + STEP * (i + 2), y })
+        }
       } else {
         pos.set(u.left, { x: absX, y })
       }

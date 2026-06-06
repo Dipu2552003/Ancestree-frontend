@@ -144,7 +144,10 @@ function PersonNode({ id, data, selected }: NodeProps) {
         </>
       )}
 
-      {/* YOU badge — outside card, above it */}
+      {/* Self/perspective badge — outside card, above it.
+          - isSelf && isViewerNode → user viewing own tree → "YOU" (solid)
+          - isSelf && !isViewerNode → user viewing someone else's tree → "VIEWING" (solid)
+          - !isSelf && isViewerNode → user appears somewhere in another tree → "YOU" (outline) */}
       {isSelf && (
         <div style={{
           background: '#EA580C', color: '#fff',
@@ -152,10 +155,9 @@ function PersonNode({ id, data, selected }: NodeProps) {
           padding: '2px 8px', marginBottom: '5px',
           textTransform: 'uppercase' as const,
         }}>
-          YOU
+          {isViewerNode ? 'YOU' : 'VIEWING'}
         </div>
       )}
-      {/* Viewer node badge — shown when this is the logged-in user in someone else's perspective */}
       {isViewerNode && !isSelf && (
         <div style={{
           background: 'transparent', color: '#EA580C',

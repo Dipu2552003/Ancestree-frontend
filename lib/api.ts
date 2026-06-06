@@ -41,12 +41,14 @@ export type ConflictType =
   | 'claimed_orphan'
 
 export interface SearchResult {
-  id:          string
-  full_name:   string
-  family_name: string
-  birth_year:  number | null
-  node_state:  string
-  photo_url:   string | null
+  id:            string
+  full_name:     string
+  family_name:   string
+  birth_year:    number | null
+  node_state:    string
+  photo_url:     string | null
+  /** True when this person belongs to the requester's own family. */
+  is_own_family: boolean
 }
 
 export interface MergeConflict {
@@ -242,8 +244,12 @@ export const api = {
   },
 
   search: {
-    persons: (q: string) =>
-      req<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`),
+    /** Default scope is 'all' — search across every family. Pass 'own' to
+     *  restrict to the requester's own family, or 'external' to exclude it. */
+    persons: (q: string, scope: 'own' | 'external' | 'all' = 'all') =>
+      req<{ results: SearchResult[] }>(
+        `/api/search?q=${encodeURIComponent(q)}&scope=${scope}`,
+      ),
   },
 
   merges: {

@@ -3,14 +3,25 @@ import type { PersonData, EdgeData } from '@/types'
 
 // ── Collapse helpers ──────────────────────────────────────────────────────────
 
-/** Builds a map from each collapsed person ID → their couple node ID. */
+/** Builds a map from each collapsed person ID → their couple node ID.
+ *  Multi-spouse anchors are skipped: they belong to an extended unit, not a
+ *  1:1 couple, and collapsing one of their pair-keys would corrupt edges. */
 export function buildCollapseMap(edges: Edge[], collapsedUnitKeys: Set<string>): Map<string, string> {
+  const spouseCount = new Map<string, number>()
+  for (const e of edges) {
+    if ((e.data as unknown as EdgeData)?.relType !== 'SPOUSE_OF') continue
+    spouseCount.set(e.source, (spouseCount.get(e.source) ?? 0) + 1)
+    spouseCount.set(e.target, (spouseCount.get(e.target) ?? 0) + 1)
+  }
+  const isMultiSpouse = (id: string) => (spouseCount.get(id) ?? 0) >= 2
+
   const map = new Map<string, string>()
   for (const e of edges) {
     const rel = (e.data as unknown as EdgeData)?.relType
     if (rel !== 'SPOUSE_OF') continue
     const key = [e.source, e.target].sort().join('|')
     if (!collapsedUnitKeys.has(key)) continue
+    if (isMultiSpouse(e.source) || isMultiSpouse(e.target)) continue
     const coupleId = `couple_${key}`
     map.set(e.source, coupleId)
     map.set(e.target, coupleId)
@@ -127,28 +138,93 @@ export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
     }
   }
 
-  // ── Multi-spouse rule ───────────────────────────────────────────────────────
-  // When a parent has 2+ spouses (active or otherwise), kids belong visually to
-  // *their mother*, not to the shared father. We:
-  //   1. Skip building the couple bracket if either side is multi-spouse.
-  //   2. Suppress every PARENT_OF edge whose *source* is multi-spouse, as long
-  //      as the child still has another (non-multi-spouse) parent to draw from.
-  //      If the child has no other parent, we keep the edge so the kid isn't
-  //      visually orphaned.
-  // Lineage stays derivable through dad ↔ wife → child.
-  const spouseCount = new Map<string, number>()
+  // ── Group SPOUSE_OF edges by person → spouses (every marriage) ──────────────
+  // We include ALL spouse statuses (married, divorced, widowed, separated, …)
+  // because the user wants every wife clustered visually under one bracket —
+  // active or not. This mirrors the layout engine, which also groups regardless
+  // of status. Pass B below still uses the active filter for single-couple
+  // brackets, so a lone divorced couple won't get drawn as an active bracket.
+  const allSpousesOf = new Map<string, Array<{ spouseId: string; edgeId: string }>>()
   for (const e of edges) {
-    if ((e.data as unknown as EdgeData)?.relType !== 'SPOUSE_OF') continue
-    spouseCount.set(e.source, (spouseCount.get(e.source) ?? 0) + 1)
-    spouseCount.set(e.target, (spouseCount.get(e.target) ?? 0) + 1)
+    const data = e.data as unknown as EdgeData | undefined
+    if (data?.relType !== 'SPOUSE_OF') continue
+    for (const personId of [e.source, e.target]) {
+      if (!allSpousesOf.has(personId)) allSpousesOf.set(personId, [])
+    }
+    allSpousesOf.get(e.source)!.push({ spouseId: e.target, edgeId: e.id })
+    allSpousesOf.get(e.target)!.push({ spouseId: e.source, edgeId: e.id })
   }
-  const isMultiSpouse = (id: string) => (spouseCount.get(id) ?? 0) >= 2
 
   const coveredParentIds = new Set<string>()
   const coveredSpouseIds = new Set<string>()
   const familyEdges: Edge[] = []
   const processedPairs = new Set<string>()
+  const processedAnchors = new Set<string>()
 
+  // ── Pass A: multi-spouse anchor → ONE combined bracket ──────────────────
+  // For Nanmalji + Wife1 + Wife2: build a single FamilyEdge spanning leftmost
+  // to rightmost member, with all kids of any (anchor, wifeN) pair pooled. The
+  // renderer draws a common horizontal bar below all three cards.
+  for (const [anchorId, spouseList] of allSpousesOf) {
+    if (spouseList.length < 2) continue
+    if (processedAnchors.has(anchorId)) continue
+
+    // Pool kids from EVERY member (anchor + each spouse). We use union (not
+    // intersection) because real-world data often records only one parent
+    // edge per child — typically PARENT_OF(mother, kid) without the matching
+    // PARENT_OF(father, kid). Strict intersection would empty the bracket and
+    // fall back to spaghetti arrows.
+    const memberIdsForKids = [anchorId, ...spouseList.map(s => s.spouseId)]
+    const allKids = new Set<string>()
+    for (const m of memberIdsForKids) {
+      for (const k of (childrenOf.get(m) ?? [])) allKids.add(k)
+    }
+    if (allKids.size === 0) continue
+
+    // Sort all members by x so the bar spans leftmost → rightmost.
+    const memberIds = [anchorId, ...spouseList.map(s => s.spouseId)]
+    const membersSorted = memberIds.slice().sort((a, b) =>
+      (posMap.get(a)?.x ?? 0) - (posMap.get(b)?.x ?? 0),
+    )
+
+    const sharedKids = [...allKids]
+    const animDelay  = Math.max(
+      ...membersSorted.map(id => delayMap.get(id) ?? 0),
+    ) + 70
+
+    familyEdges.push({
+      id: `family-multi-${anchorId}`,
+      source: membersSorted[0],
+      target: membersSorted[membersSorted.length - 1],
+      type:   'familyEdge',
+      data: {
+        sharedChildren: sharedKids,
+        members:        membersSorted,
+        animDelay,
+      },
+    } as Edge)
+
+    // Mark each (anchor, spouseN) pair as already handled.
+    for (const { spouseId, edgeId } of spouseList) {
+      processedPairs.add([anchorId, spouseId].sort().join('|'))
+      coveredSpouseIds.add(edgeId)
+      processedAnchors.add(spouseId)
+    }
+    processedAnchors.add(anchorId)
+
+    // Mark every PARENT_OF feeding these kids as covered (won't render solo).
+    for (const kid of sharedKids) {
+      for (const parentId of (parentsOf.get(kid) ?? [])) {
+        const pe = edges.find(x =>
+          x.source === parentId && x.target === kid &&
+          (x.data as unknown as EdgeData)?.relType === 'PARENT_OF'
+        )
+        if (pe) coveredParentIds.add(pe.id)
+      }
+    }
+  }
+
+  // ── Pass B: existing single-couple bracket logic ─────────────────────────
   for (const e of edges) {
     const data = e.data as unknown as EdgeData | undefined
     const rel  = data?.relType
@@ -163,10 +239,6 @@ export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
       data?.isActive !== false &&
       (subType === 'married' || subType === 'partner' || subType === 'widowed')
     if (!renderAsCouple) continue
-
-    // Multi-spouse parent on either side → drop the bracket. Kids will hang
-    // under their mother via her solo PARENT_OF edge.
-    if (isMultiSpouse(e.source) || isMultiSpouse(e.target)) continue
 
     const pairKey = [e.source, e.target].sort().join('|')
     if (processedPairs.has(pairKey)) continue
@@ -208,14 +280,6 @@ export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
     if (rel === 'PARENT_OF') {
       // Hidden biological-to-adopted-child edge → drop (data lives in DB only).
       if (isHiddenBioEdge(e)) continue
-      // Multi-spouse rule: if the *source* parent has multiple spouses AND the
-      // child has another parent we can draw, suppress this edge so the child
-      // visually hangs under their mother only.
-      if (isMultiSpouse(e.source)) {
-        const otherParents = (parentsOf.get(e.target) ?? []).filter(p => p !== e.source)
-        const hasDrawableOther = otherParents.some(p => !isMultiSpouse(p))
-        if (hasDrawableOther) continue
-      }
       result.push({ ...e, sourceHandle: 'bottom', targetHandle: 'top', data: { ...(e.data as unknown as EdgeData), animDelay: d } })
     } else if (rel === 'SPOUSE_OF') {
       const sp = posMap.get(e.source)
