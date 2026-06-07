@@ -13,6 +13,7 @@ import { filterGraphBySide, type WomanView } from '@/lib/layouts/familySideFilte
 import { computeNodeRoles, computeDefaultCollapsedUnits } from '@/lib/layouts/computeNodeRoles'
 import { bfsDelays, buildDisplayEdges, buildCollapseMap, remapEdgesForCollapse } from '@/lib/graph/edgeUtils'
 import { computeFamilyName } from '@/lib/graph/computeFamilyName'
+import { injectGhostsForIntraFamilyMarriages } from '@/lib/graph/ghostNodes'
 import { useGraphStore } from '@/store/graphStore'
 
 interface GraphDataReturn {
@@ -96,29 +97,44 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     [rawNodes, rawEdges, womanView],
   )
 
+  // ── Inject ghost nodes for intra-family marriages ────────────────────────
+  // Cousin / sister-in-law marriages produce a SPOUSE_OF between two people
+  // who both have lineage in the tree. Ghosts duplicate the further-from-self
+  // partner so the spouse line and the couple's children render next to the
+  // anchor, instead of crossing the canvas.
+  const { nodes: ghostedNodes, edges: ghostedEdges } = useMemo(
+    () => filteredNodes.length > 0
+      ? (() => {
+          const r = injectGhostsForIntraFamilyMarriages(filteredNodes, filteredEdges)
+          return { nodes: r.nodes, edges: r.edges }
+        })()
+      : { nodes: [] as typeof filteredNodes, edges: [] as typeof filteredEdges },
+    [filteredNodes, filteredEdges],
+  )
+
   // ── Family name — topmost blood-line ancestor's first name ───────────────
   const familyName = useMemo(
-    () => computeFamilyName(filteredNodes, filteredEdges),
-    [filteredNodes, filteredEdges],
+    () => computeFamilyName(ghostedNodes, ghostedEdges),
+    [ghostedNodes, ghostedEdges],
   )
 
   // ── Layout with collapse ──────────────────────────────────────────────────
   const visibleNodes = useMemo(() => {
-    if (filteredNodes.length === 0) return []
+    if (ghostedNodes.length === 0) return []
     let perspective: 'self' | 'mother' | 'spouse' = 'self'
     if (isMarriedWoman && womanView === 'piyar') perspective = 'spouse'
-    return layoutEngine(filteredNodes, filteredEdges, perspective, collapsedSet)
-  }, [filteredNodes, filteredEdges, isMarriedWoman, womanView, collapsedSet])
+    return layoutEngine(ghostedNodes, ghostedEdges, perspective, collapsedSet)
+  }, [ghostedNodes, ghostedEdges, isMarriedWoman, womanView, collapsedSet])
 
   // ── Remap edges for collapsed units ──────────────────────────────────────
   const collapseMap = useMemo(
-    () => buildCollapseMap(filteredEdges, collapsedSet),
-    [filteredEdges, collapsedSet],
+    () => buildCollapseMap(ghostedEdges, collapsedSet),
+    [ghostedEdges, collapsedSet],
   )
 
   const remappedEdges = useMemo(
-    () => remapEdgesForCollapse(filteredEdges, collapseMap),
-    [filteredEdges, collapseMap],
+    () => remapEdgesForCollapse(ghostedEdges, collapseMap),
+    [ghostedEdges, collapseMap],
   )
 
   // ── Build display edges ───────────────────────────────────────────────────

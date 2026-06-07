@@ -12,6 +12,7 @@ import type { Node, Edge } from '@xyflow/react'
 import type { PersonData, SavePayload, EdgeData } from '@/types'
 import { getTheme } from '@/lib/theme'
 import { api } from '@/lib/api'
+import { isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
 
 interface NodePanelProps {
   node: Node
@@ -285,7 +286,8 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
   const handleGenerateInvite = useCallback(async () => {
     setInviteGenerating(true)
     try {
-      const { invite_token } = await api.persons.generateInvite(node.id)
+      const realId = isGhostNodeId(node.id) ? realIdFromGhost(node.id) : node.id
+      const { invite_token } = await api.persons.generateInvite(realId)
       setInviteCode(invite_token)
     } catch (err: unknown) {
       console.error(err)

@@ -27,6 +27,7 @@ import { useNodeActions } from '@/hooks/useNodeActions'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { getTheme } from '@/lib/theme'
 import { api, getToken, type PotentialMatch, type MergeConflict } from '@/lib/api'
+import { isGhostNodeId, realIdFromGhost, realEdgeId } from '@/lib/graph/ghostNodes'
 import type { PersonData, PendingMatchData, MyPersonInfo } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 import type { WizardExtras } from '@/components/graph/AddNodeWizard'
@@ -472,15 +473,17 @@ function GraphInner() {
           onEdit={() => { setSelectedNodeId(contextMenu.nodeId); setPanelMode('edit') }}
           onInvite={async () => {
             try {
-              const { invite_token } = await api.persons.generateInvite(contextMenu.nodeId)
+              const inviteRealId = isGhostNodeId(contextMenu.nodeId) ? realIdFromGhost(contextMenu.nodeId) : contextMenu.nodeId
+              const { invite_token } = await api.persons.generateInvite(inviteRealId)
               const url = `${window.location.origin}/invite?token=${invite_token}`
               await navigator.clipboard.writeText(url)
             } catch { /* ignore */ }
           }}
           onMergeNode={() => {
             const { nodeId, personData } = contextMenu
+            const realNodeId = isGhostNodeId(nodeId) ? realIdFromGhost(nodeId) : nodeId
             const src = {
-              id:        nodeId,
+              id:        realNodeId,
               name:      personData.fullName,
               photoUrl:  personData.photoUrl ?? null,
               nodeState: personData.nodeState,
@@ -522,7 +525,7 @@ function GraphInner() {
             rawNodes={rawNodes}
             onViewNode={(id) => { setSelectedNodeId(id); setPanelMode('view') }}
             onRemoveConnection={async (edgeId) => {
-              await api.relationships.delete(edgeId)
+              await api.relationships.delete(realEdgeId(edgeId))
               await fetchGraph()
             }}
             onRequestAddRelation={() => setNavbarAddTrigger(c => c + 1)}
@@ -649,7 +652,8 @@ function GraphInner() {
                 && d?.isActive !== false
             })
             if (hasActiveSpouse) {
-              setSecondSpouseAnchor({ id: selectedNodeId, name: selectedNodeName })
+              const anchorRealId = isGhostNodeId(selectedNodeId) ? realIdFromGhost(selectedNodeId) : selectedNodeId
+              setSecondSpouseAnchor({ id: anchorRealId, name: selectedNodeName })
               return
             }
           }
@@ -673,8 +677,8 @@ function GraphInner() {
             relAction={wizardAction}
             anchorName={selectedNodeName}
             isDark={isDark}
-            motherOptions={computeMotherOptions(wizardAction, selectedNodeId, rawEdges, rawNodes)}
-            fatherName={computeFatherName(wizardAction, selectedNodeId, rawEdges, rawNodes)}
+            motherOptions={computeMotherOptions(wizardAction, selectedNodeId && isGhostNodeId(selectedNodeId) ? realIdFromGhost(selectedNodeId) : selectedNodeId, rawEdges, rawNodes)}
+            fatherName={computeFatherName(wizardAction, selectedNodeId && isGhostNodeId(selectedNodeId) ? realIdFromGhost(selectedNodeId) : selectedNodeId, rawEdges, rawNodes)}
             onAdd={handleWizardAdd}
             onClose={() => setWizardAction(null)}
           />

@@ -45,6 +45,15 @@ export interface PersonData {
   nodeState: NodeState
   isSelf: boolean
   isViewerNode?: boolean
+  /** True when this node is a *duplicate render* of another node in the same
+   *  tree (used for cousin/intra-family marriages so the spouse line doesn't
+   *  cross the canvas). The original person's data is mirrored here; selecting
+   *  this node should behave as if the user clicked the real one. */
+  isGhost?: boolean
+  /** The canonical person ID this ghost mirrors. */
+  realPersonId?: string
+  /** The partner (anchor) on whose side this ghost is rendered. */
+  ghostAnchorId?: string
   relationshipToSelf: string
   canEdit?: boolean
   canEditProfile?: boolean

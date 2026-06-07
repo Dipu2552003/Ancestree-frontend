@@ -7,6 +7,7 @@ import { api, type PotentialMatch } from '@/lib/api'
 import type { PersonData, SavePayload, MyPersonInfo } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 import { computeCascadeOps } from '@/lib/graph/relationshipRules'
+import { isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
 
 const GENDER_BY_RELATION: Partial<Record<RelAction, string>> = {
   father: 'male', mother: 'female',
@@ -45,18 +46,27 @@ export function useNodeActions(
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>,
   onDuplicateFound: (newPersonId: string, matches: PotentialMatch[], myInfo: MyPersonInfo) => void,
 ): NodeActionsReturn {
+  // Ghosts (intra-family-marriage duplicates) live only in the render layer
+  // but share the underlying person row. API calls must always target the real
+  // person id; local state updates must reach both the ghost and real copies.
+  const toRealId = (id: string) => isGhostNodeId(id) ? realIdFromGhost(id) : id
+
   const onUpdateNode = useCallback((id: string, data: Partial<PersonData>) => {
-    setNodes(prev => prev.map(n => n.id === id ? { ...n, data: { ...n.data, ...data } } : n))
+    const realId = toRealId(id)
+    setNodes(prev => prev.map(n =>
+      toRealId(n.id) === realId ? { ...n, data: { ...n.data, ...data } } : n,
+    ))
   }, [setNodes])
 
   const onDeleteNode = useCallback(async (id: string) => {
-    await api.persons.delete(id)
+    await api.persons.delete(toRealId(id))
     setSelectedNodeId(null)
     await fetchGraph()
   }, [fetchGraph, setSelectedNodeId])
 
   const onSaveNode = useCallback(async (id: string, payload: SavePayload) => {
-    const result = await api.persons.update(id, {
+    const realId = toRealId(id)
+    const result = await api.persons.update(realId, {
       full_name:        payload.fullName,
       first_name:       payload.firstName ?? null,
       middle_name:      payload.middleName ?? null,
@@ -143,6 +153,9 @@ export function useNodeActions(
 
   const onAddRelation = useCallback(async (action: RelAction, fullName: string, extras?: AddExtras) => {
     if (!selectedNodeId) return
+    // Selecting a ghost (intra-family-marriage duplicate) must behave as if
+    // the user clicked the real node — backend has no concept of ghosts.
+    const realSelectedNodeId = toRealId(selectedNodeId)
 
     try {
       const person = await api.persons.create({
@@ -161,7 +174,14 @@ export function useNodeActions(
       // All cascade logic (base edge + derived edges) lives in relationshipRules.ts.
       // For an "Add spouse" action, decorate the base SPOUSE_OF op with the
       // marriage metadata so it lands on that single edge (not the cascades).
-      const ops = computeCascadeOps(action, selectedNodeId, person.id, edges)
+      // Ghost ids are a render-only abstraction (intra-family marriages) — the
+      // cascade rules must reason about real person ids, so normalize first.
+      const realEdges = edges.map(e => ({
+        ...e,
+        source: toRealId(e.source),
+        target: toRealId(e.target),
+      }))
+      const ops = computeCascadeOps(action, realSelectedNodeId, person.id, realEdges)
       const isChildAdd        = action === 'son'     || action === 'daughter'
       const isSiblingAdd      = action === 'brother' || action === 'sister'
       const needsParentChoice = isChildAdd || isSiblingAdd
@@ -172,7 +192,7 @@ export function useNodeActions(
           action === 'spouse' &&
           op.rel_type === 'SPOUSE_OF' &&
           op.from_person_id === person.id &&
-          op.to_person_id === selectedNodeId
+          op.to_person_id === realSelectedNodeId
         // For child & sibling adds, set sub_type on every PARENT_OF op so the
         // cascaded parents share the adoption status of the new person.
         const isParentEdgeForChildOrSibling = needsParentChoice && op.rel_type === 'PARENT_OF'
