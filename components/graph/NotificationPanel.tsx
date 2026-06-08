@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  IconX, IconBell, IconGitMerge, IconLoader2,
+  IconX, IconBell, IconGitMerge,
   IconInbox, IconSend, IconClock, IconArrowRight, IconEye,
 } from '@tabler/icons-react'
 import { api, type AppNotification, type MergeConflict, type SentMergeRequest, type PossibleMatchNotificationDetails } from '@/lib/api'
 import type { PendingMatchData } from '@/types'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
+import { Spinner, StatusBadge } from '@/components/ui'
 import MergeAcceptPreviewModal from './MergeAcceptPreviewModal'
 
 interface NotificationPanelProps {
@@ -41,35 +42,6 @@ function timeAgo(iso: string): string {
   const d = Math.floor(h / 24)
   if (d < 30) return `${d}d ago`
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-}
-
-// ── Status badge ──────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: 'proposed' | 'confirmed' | 'rejected' | 'reversed' }) {
-  const cfg = {
-    proposed: { label: 'Pending',  bg: 'rgba(234,179,8,0.12)',  color: '#B45309', dot: '#F59E0B' },
-    confirmed:{ label: 'Accepted', bg: 'rgba(34,197,94,0.12)',  color: '#15803D', dot: '#22C55E' },
-    rejected: { label: 'Rejected', bg: 'rgba(239,68,68,0.10)',  color: '#B91C1C', dot: '#EF4444' },
-    reversed: { label: 'Reversed', bg: 'rgba(107,114,128,0.10)', color: '#4B5563', dot: '#9CA3AF' },
-  }[status]
-
-  return (
-    <span style={{
-      display:      'inline-flex',
-      alignItems:   'center',
-      gap:          '5px',
-      padding:      '3px 9px',
-      borderRadius: '999px',
-      background:   cfg.bg,
-      fontSize:     '10.5px',
-      fontWeight:   700,
-      color:        cfg.color,
-      whiteSpace:   'nowrap',
-    }}>
-      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: cfg.dot, display: 'inline-block', flexShrink: 0 }} />
-      {cfg.label}
-    </span>
-  )
 }
 
 // ── MergeRequestCard (incoming — shown in Inbox) ──────────────────────────────
@@ -224,7 +196,7 @@ function MergeRequestCard({
         }}
       >
         {viewLoading
-          ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={12} /></motion.span>
+          ? <Spinner size={12} />
           : <><IconArrowRight size={12} /> View their tree first</>
         }
       </button>
@@ -245,7 +217,7 @@ function MergeRequestCard({
           }}
         >
           {actionState === 'loading'
-            ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={13} /></motion.span>
+            ? <Spinner size={13} />
             : <><IconGitMerge size={13} /> Accept & Connect</>
           }
         </button>
@@ -364,7 +336,7 @@ function ClaimSuggestionCard({
         }}
       >
         {state === 'loading'
-          ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={13} /></motion.span>
+          ? <Spinner size={13} />
           : <><IconGitMerge size={13} /> Request to join</>
         }
       </button>
@@ -451,7 +423,7 @@ function PossibleMatchCard({
         }}
       >
         {viewLoading
-          ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={12} /></motion.span>
+          ? <Spinner size={12} />
           : <><IconArrowRight size={12} /> View tree &amp; decide</>
         }
       </button>

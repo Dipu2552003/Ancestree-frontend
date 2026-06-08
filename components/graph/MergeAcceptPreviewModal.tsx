@@ -3,35 +3,21 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  IconX, IconLoader2, IconCheck, IconGitMerge,
+  IconX, IconCheck, IconGitMerge,
   IconAlertTriangle, IconArrowDown, IconArrowRight,
 } from '@tabler/icons-react'
 import type { Node, Edge } from '@xyflow/react'
-import type { PersonData } from '@/types'
 import { api } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
 import { Z } from '@/lib/zIndex'
+import { Avatar, Spinner } from '@/components/ui'
+import {
+  extractDirectRelations,
+  type NeighborInfo,
+  type PersonSnapshot,
+} from '@/lib/graph/relations'
 
 // ── Types ────────────────────────────────────────────────────────────────────
-
-interface NeighborInfo {
-  id:        string
-  name:      string
-  photoUrl:  string | null
-  gender:    string | null
-  birthYear: number | null
-}
-
-interface PersonSnapshot {
-  id:        string
-  name:      string
-  photoUrl:  string | null
-  gender:    string | null
-  birthYear: number | null
-  parents:   NeighborInfo[]
-  spouses:   NeighborInfo[]
-  children:  NeighborInfo[]
-}
 
 interface MergeAcceptPreviewModalProps {
   mergeRecordId:  string
@@ -67,69 +53,6 @@ interface MergeAcceptPreviewModalProps {
 interface Warning {
   kind:    'double_parent' | 'double_spouse' | 'gender_mismatch' | 'birth_year_mismatch'
   message: string
-}
-
-// ── Relation extraction (graph → direct neighbours) ──────────────────────────
-
-/** Walks the supplied nodes/edges to find direct parents/spouses/children of
- *  the given person id. Pure — same logic for both sides of the merge. */
-function extractDirectRelations(
-  personId: string,
-  nodes:    Node[],
-  edges:    Edge[],
-): PersonSnapshot {
-  const nodeMap = new Map(nodes.map(n => [n.id, n.data as unknown as PersonData]))
-  const self    = nodeMap.get(personId)
-
-  const asNeighbor = (id: string): NeighborInfo | null => {
-    const d = nodeMap.get(id)
-    if (!d) return null
-    return {
-      id,
-      name:      d.fullName ?? '',
-      photoUrl:  d.photoUrl ?? null,
-      gender:    d.gender ?? null,
-      birthYear: d.birthYear ?? null,
-    }
-  }
-
-  const parents:  NeighborInfo[] = []
-  const spouses:  NeighborInfo[] = []
-  const children: NeighborInfo[] = []
-
-  for (const e of edges) {
-    const rel = (e.data as { relType?: string } | undefined)?.relType
-    if (rel === 'PARENT_OF') {
-      if (e.target === personId) {
-        const n = asNeighbor(e.source); if (n) parents.push(n)
-      }
-      if (e.source === personId) {
-        const n = asNeighbor(e.target); if (n) children.push(n)
-      }
-    }
-    if (rel === 'SPOUSE_OF') {
-      const otherId = e.source === personId ? e.target : e.target === personId ? e.source : null
-      if (otherId) {
-        const n = asNeighbor(otherId); if (n) spouses.push(n)
-      }
-    }
-  }
-
-  const dedupe = (arr: NeighborInfo[]) => {
-    const seen = new Set<string>()
-    return arr.filter(n => (seen.has(n.id) ? false : (seen.add(n.id), true)))
-  }
-
-  return {
-    id:        personId,
-    name:      self?.fullName ?? '',
-    photoUrl:  self?.photoUrl ?? null,
-    gender:    self?.gender ?? null,
-    birthYear: self?.birthYear ?? null,
-    parents:   dedupe(parents),
-    spouses:   dedupe(spouses),
-    children:  dedupe(children),
-  }
 }
 
 // ── Merge simulation (union of relations) ────────────────────────────────────
@@ -219,41 +142,6 @@ function detectWarnings(a: PersonSnapshot, b: PersonSnapshot): Warning[] {
 
 // ── Mini visual components ───────────────────────────────────────────────────
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (!parts.length) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
-
-function Avatar({
-  name, photoUrl, size = 40, isNew = false,
-}: { name: string; photoUrl: string | null; size?: number; isNew?: boolean }) {
-  const ring = isNew ? '0 0 0 2px #22C55E, 0 4px 12px rgba(34,197,94,0.30)' : '0 2px 6px rgba(0,0,0,0.15)'
-  if (photoUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={photoUrl} alt={name} style={{
-        width: size, height: size, borderRadius: '50%', objectFit: 'cover',
-        boxShadow: ring, flexShrink: 0,
-      }} />
-    )
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%',
-      background: isNew
-        ? 'linear-gradient(135deg, #22C55E, #16A34A)'
-        : 'linear-gradient(135deg, #EA580C, #C2410C)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#fff', fontSize: size * 0.36, fontWeight: 700,
-      boxShadow: ring, flexShrink: 0,
-    }}>
-      {initials(name)}
-    </div>
-  )
-}
-
 /** Small avatar + name beneath, used for parents/spouses/children chips. */
 function NeighborChip({
   n, isNew, isDark,
@@ -264,7 +152,11 @@ function NeighborChip({
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
       maxWidth: 64,
     }}>
-      <Avatar name={n.name} photoUrl={n.photoUrl} size={32} isNew={isNew} />
+      <Avatar
+        name={n.name} photoUrl={n.photoUrl} size={32}
+        gradient={isNew ? 'success' : 'saffron'}
+        ring={isNew ? 'highlight' : 'soft'}
+      />
       <span style={{
         fontSize: 10, color: isNew ? '#15803D' : t.textMuted,
         fontWeight: isNew ? 700 : 500,
@@ -599,9 +491,7 @@ export default function MergeAcceptPreviewModal({
                 padding: 40, color: t.textMuted, fontSize: 12,
                 gap: 10,
               }}>
-                <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}>
-                  <IconLoader2 size={16} />
-                </motion.span>
+                <Spinner size={16} />
                 Loading both sides of the tree…
               </div>
             ) : (
@@ -742,7 +632,7 @@ export default function MergeAcceptPreviewModal({
             }}
           >
             {committing
-              ? <><motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={14} /></motion.span> Merging…</>
+              ? <><Spinner size={14} /> Merging…</>
               : warnings.length > 0
                 ? <><IconAlertTriangle size={14} /> Yes, merge anyway</>
                 : <><IconCheck size={14} /> Yes, merge</>

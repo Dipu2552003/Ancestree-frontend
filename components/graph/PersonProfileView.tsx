@@ -9,6 +9,7 @@ import type { Node } from '@xyflow/react'
 import type { PersonData } from '@/types'
 import { getTheme } from '@/lib/theme'
 import { Z } from '@/lib/zIndex'
+import { getInitials } from '@/lib/format/initials'
 
 interface PersonProfileViewProps {
   node: Node
@@ -18,13 +19,6 @@ interface PersonProfileViewProps {
 
 const CURRENT_YEAR = new Date().getFullYear()
 const EASE = [0.25, 0.1, 0.25, 1] as const
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
 
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '')
 

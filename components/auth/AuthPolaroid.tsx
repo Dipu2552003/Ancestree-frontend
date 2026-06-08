@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { IconGenderMale, IconGenderFemale, IconGenderGenderless, IconUser } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
+import { getInitials } from '@/lib/format/initials'
 
 export type PolaroidGender = 'male' | 'female' | 'other' | ''
 
@@ -30,13 +31,6 @@ const STRIP_H = 64
 function splitName(fullName: string): [string, string] {
   const parts = fullName.trim().split(/\s+/).filter(Boolean)
   return [parts[0] ?? '', parts.slice(1).join(' ')]
-}
-
-function initials(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return ''
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 export default function AuthPolaroid({
@@ -156,7 +150,7 @@ export default function AuthPolaroid({
                 {GenderIcon ? (
                   <GenderIcon size={56} strokeWidth={1.5} />
                 ) : hasName ? (
-                  initials(trimmed)
+                  getInitials(trimmed)
                 ) : (
                   <IconUser size={50} strokeWidth={1.4} />
                 )}

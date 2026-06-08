@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   IconUser, IconMail, IconLock, IconLogout,
-  IconLoader2, IconCheck, IconEye, IconEyeOff, IconArrowLeft,
+  IconCheck, IconEye, IconEyeOff, IconArrowLeft,
 } from '@tabler/icons-react'
 import { api, clearToken } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
+import { getInitials } from '@/lib/format/initials'
+import { Spinner } from '@/components/ui'
 
 interface Props {
   isDark:   boolean
@@ -16,13 +18,6 @@ interface Props {
 }
 
 type Pane = 'menu' | 'email' | 'password'
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
 
 export default function ProfileMenu({ isDark, isMobile }: Props) {
   const router = useRouter()
@@ -428,7 +423,7 @@ function ChangeEmailForm({
         <button type="button" onClick={submit} disabled={!isValid || busy || done} style={submitStyle(!isValid, busy)}>
           {done ? (<><IconCheck size={14} strokeWidth={2.5} /> Updated</>)
             : busy
-              ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }} style={{ display: 'flex' }}><IconLoader2 size={14} /></motion.span>
+              ? <Spinner size={14} />
               : 'Save new email'
           }
         </button>
@@ -523,7 +518,7 @@ function ChangePasswordForm({
         <button type="button" onClick={submit} disabled={!isValid || busy || done} style={submitStyle(!isValid, busy)}>
           {done ? (<><IconCheck size={14} strokeWidth={2.5} /> Updated</>)
             : busy
-              ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }} style={{ display: 'flex' }}><IconLoader2 size={14} /></motion.span>
+              ? <Spinner size={14} />
               : 'Save new password'
           }
         </button>

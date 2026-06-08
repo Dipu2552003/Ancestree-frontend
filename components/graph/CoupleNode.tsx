@@ -5,17 +5,12 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
 import type { PersonData } from '@/types'
 import { getTheme } from '@/lib/theme'
+import { getInitials } from '@/lib/format/initials'
 
 const PERSON_W = 128
 const PHOTO_H  = 118
 const STRIP_H  = 40
 const TOTAL_W  = PERSON_W * 2 + 1   // 1px divider
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
 
 function avatarColors(p: PersonData) {
   if (p.isSelf)                    return { from: '#EA580C', to: '#C2410C' }

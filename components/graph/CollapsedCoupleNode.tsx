@@ -5,15 +5,11 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
 import type { PersonData } from '@/types'
 import { getTheme } from '@/lib/theme'
+import { getInitials } from '@/lib/format/initials'
 
 const TOTAL_W = 260   // spans the same visual space as an expanded couple
 const PHOTO_H = 100
 const STRIP_H = 48
-
-function getInitials(name: string) {
-  const p = name.trim().split(/\s+/)
-  return p.length === 1 ? p[0].slice(0, 2).toUpperCase() : (p[0][0] + p[p.length - 1][0]).toUpperCase()
-}
 
 function avatarBg(person: PersonData): [string, string] {
   if (person.isSelf)                   return ['#EA580C', '#C2410C']

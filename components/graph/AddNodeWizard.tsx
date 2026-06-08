@@ -8,6 +8,7 @@ import {
 } from '@tabler/icons-react'
 import { getTheme, COLORS } from '@/lib/theme'
 import { Z } from '@/lib/zIndex'
+import { getInitials } from '@/lib/format/initials'
 import type { RelAction } from '@/components/graph/Navbar'
 
 // ── Photo compression ─────────────────────────────────────────────────────────
@@ -122,12 +123,6 @@ const MONTH_NAMES = [
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function initials(name: string): string {
-  const p = name.trim().split(/\s+/).filter(Boolean)
-  if (!p.length) return ''
-  return p.length === 1 ? p[0].slice(0, 2).toUpperCase() : (p[0][0] + p[p.length - 1][0]).toUpperCase()
-}
-
 function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] ?? ''
 }
@@ -206,7 +201,7 @@ function WizardNodeCard({
                 <motion.span key="init"
                   initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
                   style={{ fontSize: initSize, fontWeight: 500, letterSpacing: '0.02em' }}>
-                  {initials(fullName)}
+                  {getInitials(fullName)}
                 </motion.span>
               ) : (
                 <motion.span key="sym"
@@ -303,7 +298,7 @@ function AnchorNodeCard({ fullName, isDark, compact = false }: { fullName: strin
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: '#fff', fontSize: initSize, fontWeight: 500, letterSpacing: '0.02em',
         }}>
-          {initials(fullName) || '?'}
+          {getInitials(fullName)}
         </div>
       </div>
       <div style={{

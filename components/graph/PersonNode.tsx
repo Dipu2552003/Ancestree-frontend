@@ -6,17 +6,11 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
 import type { PersonData } from '@/types'
 import { getTheme } from '@/lib/theme'
+import { getInitials } from '@/lib/format/initials'
 
 function splitName(fullName: string): [string, string] {
   const parts = fullName.trim().split(/\s+/)
   return [parts[0] ?? '', parts.slice(1).join(' ')]
-}
-
-function getInitials(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 const W = 128

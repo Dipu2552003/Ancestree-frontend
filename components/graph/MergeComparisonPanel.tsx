@@ -2,11 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconX, IconGitMerge, IconLoader2, IconCheck, IconArrowLeft } from '@tabler/icons-react'
+import { IconX, IconGitMerge, IconCheck, IconArrowLeft } from '@tabler/icons-react'
 import type { Node, Edge } from '@xyflow/react'
 import type { PersonData, PendingMatchData } from '@/types'
 import { api } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
+import { Avatar, Spinner } from '@/components/ui'
 import MergeAcceptPreviewModal from './MergeAcceptPreviewModal'
 
 interface MergeComparisonPanelProps {
@@ -21,32 +22,6 @@ interface MergeComparisonPanelProps {
   onBackToTree:     () => void
   onAccepted?:      (conflicts: import('@/lib/api').MergeConflict[]) => void
   onRejected?:      () => void
-}
-
-function getInitials(name: string) {
-  return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
-}
-
-function Avatar({ name, photoUrl, size = 52 }: { name: string; photoUrl?: string | null; size?: number }) {
-  if (photoUrl) {
-    return (
-      <img src={photoUrl} alt={name} style={{
-        width: size, height: size, borderRadius: '12px',
-        objectFit: 'cover', border: '2px solid rgba(234,88,12,0.2)',
-      }} />
-    )
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '12px',
-      background: 'linear-gradient(135deg, #EA580C, #C2410C)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#fff', fontSize: size * 0.3, fontWeight: 700,
-      border: '2px solid rgba(234,88,12,0.2)',
-    }}>
-      {getInitials(name)}
-    </div>
-  )
 }
 
 function FieldChip({ label, isDark }: { label: string; isDark: boolean }) {
@@ -211,7 +186,11 @@ export default function MergeComparisonPanel({
           <div style={{ padding: '16px 14px', display: 'flex', gap: '10px', borderBottom: `1px solid ${dividerBg}` }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center', textAlign: 'center' }}>
               <div style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: labelCol, marginBottom: '4px' }}>Your node</div>
-              <Avatar name={pendingMatch.myPersonName} photoUrl={pendingMatch.myPhotoUrl} size={48} />
+              <Avatar
+                name={pendingMatch.myPersonName} photoUrl={pendingMatch.myPhotoUrl} size={48}
+                shape="rounded" ring="none"
+                style={{ border: '2px solid rgba(234,88,12,0.2)', borderRadius: 12 }}
+              />
               <div style={{ fontSize: '13px', fontWeight: 700, color: t.text }}>{pendingMatch.myPersonName}</div>
               {pendingMatch.myBirthYear    && <div style={{ fontSize: '11px', color: t.textMuted }}>b. {pendingMatch.myBirthYear}</div>}
               {pendingMatch.myNativeVillage && <div style={{ fontSize: '11px', color: t.textMuted }}>{pendingMatch.myNativeVillage}</div>}
@@ -228,7 +207,11 @@ export default function MergeComparisonPanel({
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center', textAlign: 'center' }}>
               <div style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: labelCol, marginBottom: '4px' }}>Their node</div>
-              <Avatar name={theirData.fullName} photoUrl={theirData.photoUrl} size={48} />
+              <Avatar
+                name={theirData.fullName} photoUrl={theirData.photoUrl} size={48}
+                shape="rounded" ring="none"
+                style={{ border: '2px solid rgba(234,88,12,0.2)', borderRadius: 12 }}
+              />
               <div style={{ fontSize: '13px', fontWeight: 700, color: t.text }}>{theirData.fullName}</div>
               {theirData.birthYear    && <div style={{ fontSize: '11px', color: t.textMuted }}>b. {theirData.birthYear}</div>}
               {theirData.nativeVillage && <div style={{ fontSize: '11px', color: t.textMuted }}>{theirData.nativeVillage}</div>}
@@ -308,7 +291,7 @@ export default function MergeComparisonPanel({
                   }}
                 >
                   {loading
-                    ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={14} /></motion.span>
+                    ? <Spinner size={14} />
                     : <><IconCheck size={14} /> Accept &amp; Connect</>
                   }
                 </button>
@@ -341,7 +324,7 @@ export default function MergeComparisonPanel({
                   }}
                 >
                   {loading
-                    ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={14} /></motion.span>
+                    ? <Spinner size={14} />
                     : <><IconGitMerge size={14} /> Merge</>
                   }
                 </button>
