@@ -7,6 +7,7 @@ import type { Node, Edge } from '@xyflow/react'
 import type { PersonData, PendingMatchData } from '@/types'
 import { api } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
+import MergeAcceptPreviewModal from './MergeAcceptPreviewModal'
 
 interface MergeComparisonPanelProps {
   pendingMatch:     PendingMatchData
@@ -102,9 +103,13 @@ export default function MergeComparisonPanel({
   const theirData = matchNode.data as unknown as PersonData
   const conf = confidence(pendingMatch.matchScore)
 
-  const [done, setDone]       = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
+  const [done, setDone]                 = useState(false)
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState('')
+  // Two-step accept: clicking "Accept" opens the preview modal instead of
+  // committing directly. The preview is the user's first "yes" (they review
+  // the visual outcome); if warnings exist it requires a second yes inline.
+  const [previewOpen, setPreviewOpen]   = useState(false)
 
   const context = useMemo(
     () => deriveContext(matchNode.id, nodes, edges),
@@ -129,16 +134,10 @@ export default function MergeComparisonPanel({
     }
   }
 
-  async function handleAccept() {
+  function handleAccept() {
     if (!pendingMatch.mergeRecordId || !onAccepted) return
-    setLoading(true); setError('')
-    try {
-      const result = await api.merges.accept(pendingMatch.mergeRecordId)
-      onAccepted(result.conflicts ?? [])
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to accept')
-      setLoading(false)
-    }
+    setError('')
+    setPreviewOpen(true)
   }
 
   async function handleReject() {
@@ -363,6 +362,25 @@ export default function MergeComparisonPanel({
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {previewOpen && pendingMatch.mergeRecordId && onAccepted && (
+          <MergeAcceptPreviewModal
+            mergeRecordId={pendingMatch.mergeRecordId}
+            myPersonId={pendingMatch.myPersonId}
+            myPersonName={pendingMatch.myPersonName}
+            myPhotoUrl={pendingMatch.myPhotoUrl ?? null}
+            myGender={pendingMatch.myGender ?? null}
+            myBirthYear={pendingMatch.myBirthYear ?? null}
+            matchNode={matchNode}
+            nodes={nodes}
+            edges={edges}
+            isDark={isDark}
+            onCancel={() => setPreviewOpen(false)}
+            onAccepted={c => { setPreviewOpen(false); onAccepted(c) }}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

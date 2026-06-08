@@ -7,7 +7,7 @@ import { IconX, IconSearch, IconLoader2, IconGitMerge } from '@tabler/icons-reac
 import { api, type SearchResult } from '@/lib/api'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
-import { NodeCard, GhostCard, cardInitials, CARD_W, CARD_H } from './NodeCard'
+import { NodeCard, GhostCard, CARD_W, CARD_H, MiniNodeCard, searchMetaPieces } from './NodeCard'
 
 interface Props {
   sourceNodeId:   string
@@ -347,6 +347,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
           <AnimatePresence>
             {results.map((r, i) => {
               const isHov = hovered?.id === r.id
+              const meta  = searchMetaPieces(r)
               return (
                 <motion.button
                   key={r.id}
@@ -357,7 +358,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
                   onMouseEnter={() => setHovered(r)}
                   onMouseLeave={() => setHovered(null)}
                   style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 14,
                     padding: '10px 12px', borderRadius: 12, textAlign: 'left',
                     border: `1.5px solid ${isHov
                       ? (isDark ? 'rgba(234,88,12,0.3)' : 'rgba(234,88,12,0.2)')
@@ -369,28 +370,33 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
                     transition: 'background 0.12s, border-color 0.12s',
                   }}
                 >
-                  {/* Avatar */}
-                  <div style={{
-                    width: 42, height: 42, borderRadius: 11, flexShrink: 0, overflow: 'hidden',
-                    background: r.node_state === 'claimed' ? '#C2410C' : '#D97706',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: isHov ? '0 3px 12px rgba(0,0,0,0.2)' : 'none',
-                    transition: 'box-shadow 0.12s',
-                  }}>
-                    {r.photo_url
-                      ? <img src={r.photo_url} alt={r.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{cardInitials(r.full_name)}</span>
-                    }
-                  </div>
+                  <MiniNodeCard
+                    fullName={r.full_name}
+                    photoUrl={r.photo_url}
+                    nodeState={r.node_state as 'proxy' | 'invited' | 'claimed'}
+                    isDark={isDark}
+                  />
 
                   {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div style={{
+                      fontSize: 13.5, fontWeight: 600, color: t.text,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      lineHeight: 1.25,
+                    }}>
                       {r.full_name}
                     </div>
-                    <div style={{ fontSize: 11.5, color: t.textMuted, marginTop: 2 }}>
-                      {r.family_name}{r.birth_year && ` · ${r.birth_year}`}
-                    </div>
+                    {meta.length > 0 && (
+                      <div style={{
+                        fontSize: 11.5,
+                        color: isHov ? '#EA580C' : t.textMuted,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        lineHeight: 1.3,
+                        transition: 'color 0.1s',
+                      }}>
+                        {meta.join(' · ')}
+                      </div>
+                    )}
                   </div>
 
                   {/* Badge */}

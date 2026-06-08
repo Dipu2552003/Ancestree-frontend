@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  IconX, IconBell, IconGitMerge, IconCheck, IconLoader2,
+  IconX, IconBell, IconGitMerge, IconLoader2,
   IconInbox, IconSend, IconClock, IconArrowRight, IconEye,
 } from '@tabler/icons-react'
 import { api, type AppNotification, type MergeConflict, type SentMergeRequest, type PossibleMatchNotificationDetails } from '@/lib/api'
 import type { PendingMatchData } from '@/types'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
+import MergeAcceptPreviewModal from './MergeAcceptPreviewModal'
 
 interface NotificationPanelProps {
   isDark:          boolean
@@ -87,6 +88,17 @@ function MergeRequestCard({
   const [err, setErr] = useState('')
   const [viewLoading, setViewLoading] = useState(false)
 
+  // Resolved merge record + open state for the preview modal. Filled in
+  // when the user clicks Accept (we need person ids/names that the
+  // notification payload alone doesn't carry).
+  const [preview, setPreview] = useState<{
+    mergeRecordId: string
+    myPersonId:    string
+    myPersonName:  string
+    theirPersonId: string
+    theirPersonName: string
+  } | null>(null)
+
   async function handleViewTree() {
     if (!notification.merge_record_id) return
     setViewLoading(true)
@@ -151,19 +163,34 @@ function MergeRequestCard({
     )
   }
 
-  async function accept() {
+  /** Opens the merge-preview modal. The actual accept API call happens
+   *  inside the modal — only after the user has reviewed both sides and
+   *  the simulated merged tree, then confirmed. */
+  async function openPreview() {
     if (!notification.merge_record_id) return
     setActionState('loading'); setErr('')
     try {
-      const result = await api.merges.accept(notification.merge_record_id)
-      await api.notifications.markRead(notification.id)
-      markNotificationRead(notification.id)
-      setActionState('done')
-      onAccepted(result.conflicts ?? [])
+      const merge = await api.merges.getById(notification.merge_record_id)
+      setPreview({
+        mergeRecordId:   merge.id,
+        myPersonId:      merge.canonical_person_id,
+        myPersonName:    merge.canonical_person_name,
+        theirPersonId:   merge.merged_person_id,
+        theirPersonName: merge.merged_person_name,
+      })
+      setActionState('idle')
     } catch (e) {
       setActionState('idle')
-      setErr(e instanceof Error ? e.message : 'Failed to accept')
+      setErr(e instanceof Error ? e.message : 'Could not load merge details')
     }
+  }
+
+  async function handlePreviewAccepted(conflicts: MergeConflict[]) {
+    setPreview(null)
+    try { await api.notifications.markRead(notification.id) } catch { /* non-fatal */ }
+    markNotificationRead(notification.id)
+    setActionState('done')
+    onAccepted(conflicts)
   }
 
   async function reject() {
@@ -205,7 +232,7 @@ function MergeRequestCard({
       {err && <p style={{ margin: 0, fontSize: '11px', color: '#EF4444' }}>{err}</p>}
       <div style={{ display: 'flex', gap: '8px' }}>
         <button
-          onClick={accept}
+          onClick={openPreview}
           disabled={actionState === 'loading'}
           style={{
             flex: 1, height: '34px', borderRadius: '9px', border: 'none',
@@ -236,6 +263,25 @@ function MergeRequestCard({
           Reject
         </button>
       </div>
+
+      <AnimatePresence>
+        {preview && (
+          <MergeAcceptPreviewModal
+            key={preview.mergeRecordId}
+            mergeRecordId={preview.mergeRecordId}
+            myPersonId={preview.myPersonId}
+            myPersonName={preview.myPersonName}
+            myPhotoUrl={null}
+            myGender={null}
+            myBirthYear={null}
+            theirPersonId={preview.theirPersonId}
+            theirPersonName={preview.theirPersonName}
+            isDark={isDark}
+            onCancel={() => setPreview(null)}
+            onAccepted={handlePreviewAccepted}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -387,8 +433,6 @@ function PossibleMatchCard({
     <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
       <div style={{ fontSize: '11.5px', color: t.textMuted, lineHeight: 1.5 }}>
         <span style={{ color: t.text, fontWeight: 600 }}>{details.canonical_person_name}</span>
-        {' · '}
-        <span>{details.canonical_family_name}</span>
         {' · '}
         <span style={{ color: confColor, fontWeight: 600 }}>{conf}</span>
       </div>
@@ -597,7 +641,7 @@ function SentRow({ r, isDark }: { r: SentMergeRequest; isDark: boolean }) {
             textOverflow: 'ellipsis',
             whiteSpace:   'nowrap',
           }}>
-            {r.canonical_family_name}
+            {r.canonical_person_name}
           </span>
         </div>
         <StatusBadge status={r.status} />
@@ -617,7 +661,7 @@ function SentRow({ r, isDark }: { r: SentMergeRequest; isDark: boolean }) {
       {r.status === 'proposed' && (
         <div style={{ padding: '0 14px 11px' }}>
           <span style={{ fontSize: '11px', color: '#B45309' }}>
-            ⏳ Waiting for {r.canonical_family_name} to respond…
+            ⏳ Waiting for {r.canonical_person_name} to respond…
           </span>
         </div>
       )}

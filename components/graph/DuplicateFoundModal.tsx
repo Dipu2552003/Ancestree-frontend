@@ -29,6 +29,17 @@ function confidence(score: number) {
   return               { label: 'Weak match',        color: '#64748B' }
 }
 
+/** Same shape as searchMetaPieces in NodeCard, joined to a single string.
+ *  Keeps the new "Father: … · village haal city" identity convention
+ *  consistent between search results and the duplicate-found modal. */
+function personMetaLine(m: PotentialMatch): string {
+  const pieces: string[] = []
+  if (m.father_name) pieces.push(`Father: ${m.father_name}`)
+  const places = [m.native_village, m.current_city].filter(Boolean) as string[]
+  if (places.length > 0) pieces.push(places.join(' haal '))
+  return pieces.join(' · ')
+}
+
 export default function DuplicateFoundModal({
   newPersonId, myInfo, matches, isDark, onDismiss, sourceNode,
 }: DuplicateFoundModalProps) {
@@ -146,9 +157,11 @@ export default function DuplicateFoundModal({
                           {conf.label}
                         </span>
                       </div>
-                      <div style={{ fontSize: '11.5px', color: '#EA580C', fontWeight: 600, marginBottom: '2px' }}>
-                        {match.family_name}
-                      </div>
+                      {personMetaLine(match) && (
+                        <div style={{ fontSize: '11.5px', color: t.textMuted, marginBottom: '2px', lineHeight: 1.4 }}>
+                          {personMetaLine(match)}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {match.matched_fields.slice(0, 3).map(f => (
                           <span key={f} style={{ fontSize: '10px', color: t.textMuted, background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', padding: '1px 6px', borderRadius: '5px' }}>

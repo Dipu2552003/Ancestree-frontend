@@ -4,8 +4,9 @@ import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'rea
 import { AnimatePresence, motion } from 'framer-motion'
 import { ReactFlowProvider, Controls, MiniMap, useReactFlow } from '@xyflow/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { IconSun, IconMoon, IconBell } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconBell, IconUsers } from '@tabler/icons-react'
 import GraphCanvas from '@/components/graph/GraphCanvas'
+import ProfileMenu from '@/components/graph/ProfileMenu'
 import SearchBar from '@/components/graph/SearchBar'
 import DotField from '@/components/graph/DotField'
 import NodePanel from '@/components/graph/NodePanel'
@@ -34,6 +35,30 @@ import type { WizardExtras } from '@/components/graph/AddNodeWizard'
 
 function asPersonData(data: unknown): PersonData {
   return data as PersonData
+}
+
+// Dismissed duplicate-suggestion person ids — once a user closes the
+// "Possible match found" modal for a person, never show it again for that id.
+const DISMISSED_DUP_KEY = 'dismissedDupSuggestions'
+
+function isDupDismissed(personId: string): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const raw = localStorage.getItem(DISMISSED_DUP_KEY)
+    return raw ? (JSON.parse(raw) as string[]).includes(personId) : false
+  } catch { return false }
+}
+
+function markDupDismissed(personId: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = localStorage.getItem(DISMISSED_DUP_KEY)
+    const arr: string[] = raw ? JSON.parse(raw) : []
+    if (!arr.includes(personId)) {
+      arr.push(personId)
+      localStorage.setItem(DISMISSED_DUP_KEY, JSON.stringify(arr))
+    }
+  } catch { /* ignore */ }
 }
 
 /**
@@ -174,13 +199,6 @@ function GraphInner() {
   const [matchPanelOpen,  setMatchPanelOpen]  = useState(false)
   const [mergeSearchNode, setMergeSearchNode] = useState<{ id: string; name: string } | null>(null)
   const [secondSpouseAnchor, setSecondSpouseAnchor] = useState<{ id: string; name: string } | null>(null)
-  const [mergeFromNode, setMergeFromNode] = useState<{
-    id:        string
-    name:      string
-    photoUrl:  string | null
-    nodeState: string
-    matches:   PotentialMatch[] | null   // null = still loading
-  } | null>(null)
 
   const {
     nodes, edges, rawNodes, rawEdges,
@@ -192,9 +210,24 @@ function GraphInner() {
     familyName,
   } = useGraphData(perspectiveId)
 
+  // Total real people in the current family. rawNodes is the backend person set
+  // before couple/ghost/load-more pseudo-nodes are injected, so it's the stable
+  // member count regardless of collapse or mayka/piyar filtering.
+  const memberCount = useMemo(
+    () => rawNodes.filter(
+      n => !n.id.startsWith('couple_')
+        && !n.id.startsWith('__load_more')
+        && !isGhostNodeId(n.id),
+    ).length,
+    [rawNodes],
+  )
+
   const { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation } = useNodeActions(
     edges, setNodes, setEdges, fetchGraph, selectedNodeId, setSelectedNodeId,
-    (newPersonId, matches, myInfo) => setDuplicateInfo({ newPersonId, matches, myInfo }),
+    (newPersonId, matches, myInfo) => {
+      if (isDupDismissed(newPersonId)) return
+      setDuplicateInfo({ newPersonId, matches, myInfo })
+    },
   )
 
   // Fetch notification unread count on load
@@ -234,6 +267,10 @@ function GraphInner() {
 
   // Exploration mode — true when we're viewing another tree to evaluate a merge
   const isExploration     = !!perspectiveId && !!pendingMatch
+  // When the exploration banner occupies the top strip, push the whole HUD row
+  // (badge, search, bell, profile, theme) down so nothing overlaps it.
+  const EXPLORE_BANNER_H  = 46
+  const hudOffset         = isExploration ? EXPLORE_BANNER_H : 0
   const matchHighlightNode = useMemo(
     () => isExploration ? (nodes.find(n => asPersonData(n.data).isSelf) ?? null) : null,
     [nodes, isExploration],
@@ -352,6 +389,9 @@ function GraphInner() {
           onNodeClick={id => {
             setContextMenu(null)
             if (id.startsWith('couple_')) return
+            // Synthetic UI chips (load-more) handle their own click via the
+            // inner button — don't open the person panel for them.
+            if (id.startsWith('__load_more_')) return
 
             // In exploration mode, clicking the highlighted node opens the merge comparison panel
             if (isExploration && matchHighlightNode && id === matchHighlightNode.id) {
@@ -391,7 +431,7 @@ function GraphInner() {
 
       {/* Family name badge — top left */}
       <div style={{
-        position: 'absolute', top: '16px', left: '16px', zIndex: 50,
+        position: 'absolute', top: `${16 + hudOffset}px`, left: '16px', zIndex: 50,
         display: 'flex', alignItems: 'center', gap: '8px',
         padding: '7px 14px',
         background: t.cardBg,
@@ -399,7 +439,7 @@ function GraphInner() {
         borderRadius: '10px',
         boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.45)' : '0 2px 8px rgba(0,0,0,0.08)',
         userSelect: 'none',
-        transition: 'background 0.3s',
+        transition: 'top 0.3s ease, background 0.3s',
       }}>
         <span style={{ fontSize: '15px', lineHeight: 1 }} aria-hidden="true">🌸</span>
         <div style={{ lineHeight: 1.2 }}>
@@ -410,10 +450,27 @@ function GraphInner() {
             {familyName}
           </div>
         </div>
+
+        {/* Member count */}
+        <div style={{ width: '1px', height: '22px', background: t.controlBorder, margin: '0 2px' }} aria-hidden="true" />
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: '4px', color: t.textMuted }}
+          title={`${memberCount} ${memberCount === 1 ? 'member' : 'members'} in this family`}
+        >
+          <IconUsers size={14} stroke={1.8} />
+          <span style={{ fontSize: '13px', fontWeight: 700, color: t.text, lineHeight: 1 }}>
+            {memberCount}
+          </span>
+        </div>
+      </div>
+
+      {/* Profile menu */}
+      <div style={{ position: 'absolute', top: `${16 + hudOffset}px`, right: isMobile ? '120px' : '112px', zIndex: 50, transition: 'top 0.3s ease' }}>
+        <ProfileMenu isDark={isDark} isMobile={isMobile} />
       </div>
 
       {/* Notification bell */}
-      <div style={{ position: 'absolute', top: '16px', right: isMobile ? '68px' : '64px', zIndex: 50 }}>
+      <div style={{ position: 'absolute', top: `${16 + hudOffset}px`, right: isMobile ? '68px' : '64px', zIndex: 50, transition: 'top 0.3s ease' }}>
         <button
           onClick={() => setNotifPanelOpen(v => !v)}
           style={{ position: 'relative', width: isMobile ? '44px' : '38px', height: isMobile ? '44px' : '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'background 0.3s, color 0.3s' }}
@@ -430,7 +487,7 @@ function GraphInner() {
 
       <button
         onClick={() => setIsDark(!isDark)}
-        style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 50, width: isMobile ? '44px' : '38px', height: isMobile ? '44px' : '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'background 0.3s, color 0.3s' }}
+        style={{ position: 'absolute', top: `${16 + hudOffset}px`, right: '16px', zIndex: 50, width: isMobile ? '44px' : '38px', height: isMobile ? '44px' : '38px', borderRadius: '8px', background: t.toggleBg, color: t.toggleColor, border: `1.5px solid ${t.toggleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)', transition: 'top 0.3s ease, background 0.3s, color 0.3s' }}
         title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       >
         {isDark ? <IconSun size={17} /> : <IconMoon size={17} />}
@@ -440,11 +497,12 @@ function GraphInner() {
       {/* Search bar — centered on desktop, full-width below top bar on mobile */}
       <div style={{
         position:  'absolute',
-        top:       isMobile ? '68px' : '16px',
+        top:       `${(isMobile ? 68 : 16) + hudOffset}px`,
         left:      isMobile ? '16px' : '50%',
         transform: isMobile ? 'none' : 'translateX(-50%)',
         zIndex:    50,
         width:     isMobile ? 'calc(100% - 32px)' : '320px',
+        transition: 'top 0.3s ease',
       }}>
         <SearchBar isDark={isDark} onSelectPerson={handleSearchSelect} />
       </div>
@@ -452,9 +510,8 @@ function GraphInner() {
       {perspectiveId && isExploration && pendingMatch && (
         <ExplorationBanner
           mode={pendingMatch.mode}
-          familyName={pendingMatch.canonicalFamilyName}
-          personName={pendingMatch.myPersonName}
           canonicalPersonName={pendingMatch.canonicalPersonName}
+          personName={pendingMatch.myPersonName}
           isDark={isDark}
         />
       )}
@@ -482,32 +539,7 @@ function GraphInner() {
           onMergeNode={() => {
             const { nodeId, personData } = contextMenu
             const realNodeId = isGhostNodeId(nodeId) ? realIdFromGhost(nodeId) : nodeId
-            const src = {
-              id:        realNodeId,
-              name:      personData.fullName,
-              photoUrl:  personData.photoUrl ?? null,
-              nodeState: personData.nodeState,
-              matches:   null as PotentialMatch[] | null,
-            }
-            setMergeFromNode(src)
-            api.merges.searchDuplicates(personData.fullName)
-              .then(({ results }) => {
-                setMergeFromNode(prev => {
-                  if (!prev || prev.id !== src.id) return prev
-                  // No matches → fall back to the manual search modal
-                  if (results.length === 0) {
-                    setMergeFromNode(null)
-                    setMergeSearchNode({ id: src.id, name: src.name })
-                    return null
-                  }
-                  return { ...prev, matches: results }
-                })
-              })
-              .catch(() => {
-                // On error fall back to manual search
-                setMergeFromNode(null)
-                setMergeSearchNode({ id: src.id, name: src.name })
-              })
+            setMergeSearchNode({ id: realNodeId, name: personData.fullName })
           }}
           onClose={() => setContextMenu(null)}
         />
@@ -544,48 +576,18 @@ function GraphInner() {
         )}
       </AnimatePresence>
 
-      {/* Duplicate-found modal — shown after a node is created with matches */}
+      {/* Duplicate-found modal — shown once after a node is created with matches.
+          Dismissals are persisted, so it never re-pops for the same person. */}
       {duplicateInfo && (
         <DuplicateFoundModal
           newPersonId={duplicateInfo.newPersonId}
           myInfo={duplicateInfo.myInfo}
           matches={duplicateInfo.matches}
           isDark={isDark}
-          onDismiss={() => setDuplicateInfo(null)}
-        />
-      )}
-
-      {/* Right-click Merge: loading spinner while auto-searching */}
-      {mergeFromNode && mergeFromNode.matches === null && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 300,
-          background: 'rgba(0,0,0,0.35)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-          onClick={() => setMergeFromNode(null)}
-        >
-          <div style={{
-            background: t.panelBg, border: `1.5px solid ${t.borderNeutral}`,
-            borderRadius: 16, padding: '28px 36px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
-            boxShadow: t.shadow,
-          }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #FDE8CC', borderTopColor: '#EA580C', animation: 'spin 0.8s linear infinite' }} />
-            <p style={{ margin: 0, fontSize: 13, color: t.textMuted }}>Searching for matches…</p>
-          </div>
-          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-        </div>
-      )}
-
-      {/* Right-click Merge: DuplicateFoundModal with source node card when matches found */}
-      {mergeFromNode && mergeFromNode.matches !== null && mergeFromNode.matches.length > 0 && (
-        <DuplicateFoundModal
-          newPersonId={mergeFromNode.id}
-          myInfo={{ fullName: mergeFromNode.name, photoUrl: mergeFromNode.photoUrl }}
-          matches={mergeFromNode.matches}
-          isDark={isDark}
-          onDismiss={() => setMergeFromNode(null)}
-          sourceNode={{ photoUrl: mergeFromNode.photoUrl, nodeState: mergeFromNode.nodeState }}
+          onDismiss={() => {
+            markDupDismissed(duplicateInfo.newPersonId)
+            setDuplicateInfo(null)
+          }}
         />
       )}
 

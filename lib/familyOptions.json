@@ -1,0 +1,11 @@
+{
+  "gotras": [
+    { "name": "Natani",   "color": "#EA580C" },
+    { "name": "Khuteta",  "color": "#D97706" },
+    { "name": "Kulwal",   "color": "#C2410C" },
+    { "name": "Kaythwal", "color": "#16A34A" },
+    { "name": "Mehrwal",  "color": "#7C3AED" },
+    { "name": "Dhokriya", "color": "#0E7490" }
+  ],
+  "villages": ["Sirohi", "Kailashnagar", "Jhalodi", "Munghtla", "Sirodi"]
+}

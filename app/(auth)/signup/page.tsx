@@ -6,9 +6,20 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconLoader2, IconArrowLeft, IconEye, IconEyeOff, IconCamera, IconX } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, setToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
+import familyOptions from '@/lib/familyOptions.json'
+
+const GOTRAS   = familyOptions.gotras.map(g => g.name)
+const VILLAGES = familyOptions.villages
+
+// Capitalise the first letter of each word (for custom "Other" entries).
+const toTitleCase = (s: string) => s.replace(/\b\w/g, ch => ch.toUpperCase())
+
+// Sentinel value used by the chip selectors for the free-text "Other" option.
+const OTHER = '__other__'
 
 // Compress an uploaded image into a JPEG data URL (max 480px). Same flow used
 // in NodePanel — keeps payload small enough to persist directly.
@@ -66,8 +77,11 @@ const COPY = {
     genderO:      'Other',
     yearLabel:    'Birth year',
     yearPh:       'e.g. 1998',
+    gotraLabel:   'Gotra',
+    gotraOtherPh: 'Type your gotra',
     villageLabel: 'Native village (optional)',
-    villagePh:    'e.g. Bikaner',
+    villageOtherPh: 'Type your village',
+    other:        'Other',
     create:       'Create account',
 
     haveAcct:     'Already have an account?',
@@ -80,6 +94,7 @@ const COPY = {
     errPwMatch:   'Passwords do not match',
     errName:      'Please enter your full name',
     errYear:      'Enter a valid year between 1900 and today',
+    errGotra:     'Please select or enter your gotra',
     errNetwork:   'Could not reach the server. Please try again.',
     signinCta:    'Sign in instead',
     yourNode:     'Your node',
@@ -116,8 +131,11 @@ const COPY = {
     genderO:      'अन्य',
     yearLabel:    'जन्म वर्ष',
     yearPh:       'जैसे 1998',
+    gotraLabel:   'गोत्र',
+    gotraOtherPh: 'अपना गोत्र लिखें',
     villageLabel: 'मूल गाँव (वैकल्पिक)',
-    villagePh:    'जैसे बीकानेर',
+    villageOtherPh: 'अपना गाँव लिखें',
+    other:        'अन्य',
     create:       'खाता बनाएँ',
 
     haveAcct:     'पहले से खाता है?',
@@ -130,6 +148,7 @@ const COPY = {
     errPwMatch:   'पासवर्ड मेल नहीं खाते',
     errName:      'कृपया अपना पूरा नाम दर्ज करें',
     errYear:      '1900 और आज के बीच एक वैध वर्ष दर्ज करें',
+    errGotra:     'कृपया अपना गोत्र चुनें या लिखें',
     errNetwork:   'सर्वर तक नहीं पहुँच सका। पुनः प्रयास करें।',
     signinCta:    'साइन इन करें',
     yourNode:     'आपका नोड',
@@ -147,10 +166,51 @@ const stepVariants = {
   exit:   (d: number) => ({ x: d * -28, opacity: 0 }),
 }
 
+// Wrapping pill selector (gotra / village). An extra "Other" pill lets the user
+// switch to a free-text entry handled by the parent.
+function Chips({ options, value, onChange, otherLabel, isDark }: {
+  options: readonly string[]
+  value: string
+  onChange: (v: string) => void
+  otherLabel: string
+  isDark: boolean
+}) {
+  const t = getTheme(isDark)
+  const inputBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)'
+  const inputBg     = isDark ? '#141210' : '#FDFAF6'
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {[...options, OTHER].map(opt => {
+        const active = value === opt
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(active ? '' : opt)}
+            style={{
+              height: 38, padding: '0 14px', borderRadius: 10,
+              border: `1.5px solid ${active ? '#EA580C' : inputBorder}`,
+              background: active ? 'rgba(234,88,12,0.10)' : inputBg,
+              color: active ? '#EA580C' : t.text,
+              fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+              boxShadow: active ? '0 0 0 3px rgba(234,88,12,0.10)' : 'none',
+              transition: 'border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s',
+            }}
+          >
+            {opt === OTHER ? otherLabel : opt}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function SignupInner() {
   const router = useRouter()
   const search = useSearchParams()
   const { isDark } = useGraphStore()
+  const isMobile = useIsMobile()
 
   const [lang,        setLang]        = useState<AuthLang>('en')
   const [[step, dir], setStepDir]     = useState<[Step, number]>(['email', 1])
@@ -173,14 +233,19 @@ function SignupInner() {
   const [fullName,    setFullName]    = useState('')
   const [gender,      setGender]      = useState<'male' | 'female' | 'other' | ''>('')
   const [birthYear,   setBirthYear]   = useState('')
-  const [village,     setVillage]     = useState('')
+  const [gotraSel,    setGotraSel]    = useState('')   // a gotra name, OTHER, or ''
+  const [gotraOther,  setGotraOther]  = useState('')
+  const [gotraErr,    setGotraErr]    = useState('')
+  const [gotraFocus,  setGotraFocus]  = useState(false)
+  const [villageSel,  setVillageSel]  = useState('')   // a village name, OTHER, or ''
+  const [villageOther,setVillageOther]= useState('')
+  const [villageFocus,setVillageFocus]= useState(false)
   const [photoUrl,    setPhotoUrl]    = useState<string | null>(null)
   const [photoErr,    setPhotoErr]    = useState('')
   const [nameErr,     setNameErr]     = useState('')
   const [yearErr,     setYearErr]     = useState('')
   const [nameFocus,   setNameFocus]   = useState(false)
   const [yearFocus,   setYearFocus]   = useState(false)
-  const [villFocus,   setVillFocus]   = useState(false)
   const fileRef       = useRef<HTMLInputElement>(null)
 
   const [loading,     setLoading]     = useState(false)
@@ -255,10 +320,18 @@ function SignupInner() {
   }
 
   // ── Step 3: details + final submit ──────────────────────────────────────────
+  // Resolved free-text values for the chip selectors.
+  const finalGotra   = gotraSel === OTHER   ? toTitleCase(gotraOther.trim())   : gotraSel
+  const finalVillage = villageSel === OTHER ? toTitleCase(villageOther.trim()) : villageSel
+
   const handleCreate = async () => {
     const name = fullName.trim()
     if (!name) { setNameErr(c.errName); return }
     setNameErr('')
+
+    // Gotra is required.
+    if (!finalGotra) { setGotraErr(c.errGotra); return }
+    setGotraErr('')
 
     let yearNum: number | undefined
     if (birthYear.trim()) {
@@ -284,7 +357,8 @@ function SignupInner() {
       const extras: Record<string, unknown> = {}
       if (gender)          extras.gender          = gender
       if (yearNum != null) extras.birth_year      = yearNum
-      if (village.trim())  extras.native_village  = village.trim()
+      if (finalGotra)      extras.gotra           = finalGotra
+      if (finalVillage)    extras.native_village  = finalVillage
       if (photoUrl)        extras.photo_url       = photoUrl
 
       if (Object.keys(extras).length > 0 && user.person_id) {
@@ -355,7 +429,7 @@ function SignupInner() {
                         transition={{ delay: 0.08 + li * 0.13 + wi * 0.06, duration: 0.50, ease: EASE }}
                         style={{
                           display: 'inline-block', marginRight: '0.22em',
-                          fontSize: lang === 'hi' ? 46 : 52, fontWeight: 800, letterSpacing: '-0.03em',
+                          fontSize: lang === 'hi' ? (isMobile ? 32 : 46) : (isMobile ? 36 : 52), fontWeight: 800, letterSpacing: '-0.03em',
                           color: li === c.accentLine ? '#EA580C' : t.text,
                           transition: 'color 0.35s ease',
                         }}
@@ -366,7 +440,7 @@ function SignupInner() {
                   </div>
                 ))}
               </h1>
-              <p style={{ margin: '0 0 36px', fontSize: 15.5, color: t.textMuted, lineHeight: 1.65, transition: 'color 0.35s ease' }}>
+              <p style={{ margin: isMobile ? '0 0 24px' : '0 0 36px', fontSize: isMobile ? 14.5 : 15.5, color: t.textMuted, lineHeight: 1.65, transition: 'color 0.35s ease' }}>
                 {c.sub}
               </p>
             </>
@@ -377,14 +451,14 @@ function SignupInner() {
               <motion.h1
                 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.45, ease: EASE }}
-                style={{ margin: '0 0 10px', fontSize: 38, fontWeight: 800, letterSpacing: '-0.03em', color: t.text, lineHeight: 1.1, transition: 'color 0.35s ease' }}
+                style={{ margin: '0 0 10px', fontSize: isMobile ? 28 : 38, fontWeight: 800, letterSpacing: '-0.03em', color: t.text, lineHeight: 1.1, transition: 'color 0.35s ease' }}
               >
                 {c.pwTitle}
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.12, duration: 0.38, ease: EASE }}
-                style={{ margin: '0 0 32px', fontSize: 14.5, color: t.textMuted, lineHeight: 1.6, transition: 'color 0.35s ease' }}
+                style={{ margin: isMobile ? '0 0 22px' : '0 0 32px', fontSize: 14.5, color: t.textMuted, lineHeight: 1.6, transition: 'color 0.35s ease' }}
               >
                 {c.pwSub}
               </motion.p>
@@ -396,14 +470,14 @@ function SignupInner() {
               <motion.h1
                 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.45, ease: EASE }}
-                style={{ margin: '0 0 10px', fontSize: 38, fontWeight: 800, letterSpacing: '-0.03em', color: t.text, lineHeight: 1.1, transition: 'color 0.35s ease' }}
+                style={{ margin: '0 0 10px', fontSize: isMobile ? 28 : 38, fontWeight: 800, letterSpacing: '-0.03em', color: t.text, lineHeight: 1.1, transition: 'color 0.35s ease' }}
               >
                 {c.detailsTitle}
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.12, duration: 0.38, ease: EASE }}
-                style={{ margin: '0 0 32px', fontSize: 14.5, color: t.textMuted, lineHeight: 1.6, transition: 'color 0.35s ease' }}
+                style={{ margin: isMobile ? '0 0 22px' : '0 0 32px', fontSize: 14.5, color: t.textMuted, lineHeight: 1.6, transition: 'color 0.35s ease' }}
               >
                 {c.detailsSub}
               </motion.p>
@@ -696,46 +770,90 @@ function SignupInner() {
                 </div>
               </div>
 
-              {/* Birth year + village in a row */}
-              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
-                    {c.yearLabel}
-                  </label>
-                  <input
-                    value={birthYear}
-                    onChange={e => { setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4)); setYearErr('') }}
-                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
-                    onFocus={() => setYearFocus(true)}
-                    onBlur={() => setYearFocus(false)}
-                    placeholder={c.yearPh}
-                    inputMode="numeric"
-                    style={inputStyle(yearFocus, !!yearErr)}
-                  />
-                </div>
-                <div style={{ flex: 1.4 }}>
-                  <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
-                    {c.villageLabel}
-                  </label>
-                  <input
-                    value={village}
-                    onChange={e => setVillage(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
-                    onFocus={() => setVillFocus(true)}
-                    onBlur={() => setVillFocus(false)}
-                    placeholder={c.villagePh}
-                    style={inputStyle(villFocus, false)}
-                  />
-                </div>
+              {/* Birth year */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.yearLabel}
+                </label>
+                <input
+                  value={birthYear}
+                  onChange={e => { setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4)); setYearErr('') }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+                  onFocus={() => setYearFocus(true)}
+                  onBlur={() => setYearFocus(false)}
+                  placeholder={c.yearPh}
+                  inputMode="numeric"
+                  style={inputStyle(yearFocus, !!yearErr)}
+                />
+                <AnimatePresence>
+                  {yearErr && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
+                      {yearErr}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
-              <AnimatePresence>
-                {yearErr && (
-                  <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    style={{ margin: '-6px 0 8px', fontSize: 11.5, color: '#EF4444' }}>
-                    {yearErr}
-                  </motion.p>
+
+              {/* Gotra (required) */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.gotraLabel} <span style={{ color: '#EA580C' }}>*</span>
+                </label>
+                <Chips
+                  options={GOTRAS}
+                  value={gotraSel}
+                  onChange={v => { setGotraSel(v); setGotraErr('') }}
+                  otherLabel={c.other}
+                  isDark={isDark}
+                />
+                {gotraSel === OTHER && (
+                  <input
+                    value={gotraOther}
+                    onChange={e => { setGotraOther(toTitleCase(e.target.value)); setGotraErr('') }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+                    onFocus={() => setGotraFocus(true)}
+                    onBlur={() => setGotraFocus(false)}
+                    placeholder={c.gotraOtherPh}
+                    autoFocus
+                    style={{ ...inputStyle(gotraFocus, !!gotraErr), marginTop: 8 }}
+                  />
                 )}
-              </AnimatePresence>
+                <AnimatePresence>
+                  {gotraErr && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      style={{ margin: '6px 0 0', fontSize: 11.5, color: '#EF4444' }}>
+                      {gotraErr}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Native village (optional) */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.villageLabel}
+                </label>
+                <Chips
+                  options={VILLAGES}
+                  value={villageSel}
+                  onChange={setVillageSel}
+                  otherLabel={c.other}
+                  isDark={isDark}
+                />
+                {villageSel === OTHER && (
+                  <input
+                    value={villageOther}
+                    onChange={e => setVillageOther(toTitleCase(e.target.value))}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+                    onFocus={() => setVillageFocus(true)}
+                    onBlur={() => setVillageFocus(false)}
+                    placeholder={c.villageOtherPh}
+                    autoFocus
+                    style={{ ...inputStyle(villageFocus, false), marginTop: 8 }}
+                  />
+                )}
+              </div>
 
               <AnimatePresence>
                 {topErr && (

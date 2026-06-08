@@ -30,6 +30,15 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T
 }
 
+// ── Graph depth defaults ──────────────────────────────────────────
+// Initial generations loaded above/below the perspective person. The "Load
+// more" chip on the canvas bumps the relevant depth by DEPTH_LOAD_STEP and
+// re-fetches. The backend clamps to what actually exists and reports back
+// `hasMoreAncestors` / `hasMoreDescendants` so the chip hides at the root.
+export const ANCESTOR_DEPTH_DEFAULT   = 10
+export const DESCENDANT_DEPTH_DEFAULT = 10
+export const DEPTH_LOAD_STEP          = 5
+
 // ── Shared types ──────────────────────────────────────────────────
 
 export type ConflictType =
@@ -49,6 +58,10 @@ export interface SearchResult {
   photo_url:     string | null
   /** True when this person belongs to the requester's own family. */
   is_own_family: boolean
+  /** First-recorded PARENT_OF source (prefers male), null if no parent linked. */
+  father_name:    string | null
+  native_village: string | null
+  current_city:   string | null
 }
 
 export interface MergeConflict {
@@ -64,9 +77,11 @@ export interface PotentialMatch {
   full_name:      string
   birth_year:     number | null
   native_village: string | null
+  current_city:   string | null
   gotra:          string | null
   gender:         string | null
   photo_url:      string | null
+  father_name:    string | null
   family_name:    string
   family_id:      string
   member_count:   number
@@ -130,14 +145,54 @@ export const api = {
     // to a different family.  Call this whenever the graph loads empty.
     refreshToken: () =>
       req<{ token: string }>('/api/auth/refresh-token', { method: 'POST' }),
+
+    me: () =>
+      req<{ id: string; email: string; display_name: string; person_id: string }>('/api/auth/me'),
+
+    changeEmail: (b: { new_email: string; current_password: string }) =>
+      req<{ id: string; email: string }>('/api/auth/email', {
+        method: 'PATCH', body: JSON.stringify(b),
+      }),
+
+    changePassword: (b: { current_password: string; new_password: string }) =>
+      req<{ success: boolean }>('/api/auth/password', {
+        method: 'PATCH', body: JSON.stringify(b),
+      }),
+
+    forgotPassword: (email: string) =>
+      req<{ success: boolean }>('/api/auth/forgot-password', {
+        method: 'POST', body: JSON.stringify({ email }),
+      }),
+
+    resetPassword: (b: { token: string; new_password: string }) =>
+      req<{ success: boolean }>('/api/auth/reset-password', {
+        method: 'POST', body: JSON.stringify(b),
+      }),
   },
 
   graph: {
-    fetch: (perspectiveId?: string) => req<{
-      nodes: import('@xyflow/react').Node[]
-      edges: import('@xyflow/react').Edge[]
-      meta: { totalNodes: number }
-    }>(perspectiveId ? `/api/graph?perspective=${encodeURIComponent(perspectiveId)}` : '/api/graph'),
+    fetch: (
+      perspectiveId?: string,
+      ancestorDepth:   number = ANCESTOR_DEPTH_DEFAULT,
+      descendantDepth: number = DESCENDANT_DEPTH_DEFAULT,
+    ) => {
+      const qs = new URLSearchParams()
+      if (perspectiveId) qs.set('perspective', perspectiveId)
+      qs.set('ancestorDepth',   String(ancestorDepth))
+      qs.set('descendantDepth', String(descendantDepth))
+      return req<{
+        nodes: import('@xyflow/react').Node[]
+        edges: import('@xyflow/react').Edge[]
+        meta: {
+          totalNodes:               number
+          perspectivePersonId?:     string
+          effectiveAncestorDepth:   number
+          effectiveDescendantDepth: number
+          hasMoreAncestors:         boolean
+          hasMoreDescendants:       boolean
+        }
+      }>(`/api/graph?${qs.toString()}`)
+    },
   },
 
   persons: {
@@ -207,7 +262,16 @@ export const api = {
 
   invite: {
     lookup: (token: string) =>
-      req<{ full_name: string; family_name: string; birth_year: number | null; photo_url: string | null }>(
+      req<{
+        full_name:               string
+        family_name:             string
+        birth_year:              number | null
+        photo_url:               string | null
+        inviter_full_name:       string | null
+        inviter_father_name:     string | null
+        inviter_native_village:  string | null
+        inviter_current_city:    string | null
+      }>(
         `/api/invite/lookup?token=${encodeURIComponent(token)}`
       ),
     claim: (token: string) =>

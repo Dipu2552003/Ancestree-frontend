@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconLoader2, IconEye, IconEyeOff } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, setToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
@@ -35,6 +36,12 @@ const COPY = {
     errNetwork:  'Could not reach the server. Please try again.',
     signupCta:   'Create one',
     welcomeBack: 'Welcome back',
+    forgotLink:  'Forgot password?',
+    forgotTitle: 'Reset your password',
+    forgotSub:   "We'll email you a link to reset your password. The link expires in 1 hour.",
+    sendReset:   'Send reset link',
+    forgotSent:  "If an account exists for this email, we've sent a reset link.",
+    forgotBack:  '← Back to sign in',
   },
   hi: {
     lines:       ['आपके परिवार', 'की कहानी,', 'एक जगह।'],
@@ -59,10 +66,16 @@ const COPY = {
     errNetwork:  'सर्वर तक नहीं पहुँच सका। पुनः प्रयास करें।',
     signupCta:   'खाता बनाएँ',
     welcomeBack: 'वापस स्वागत है',
+    forgotLink:  'पासवर्ड भूल गए?',
+    forgotTitle: 'पासवर्ड रीसेट करें',
+    forgotSub:   'हम आपको रीसेट लिंक ईमेल करेंगे। यह लिंक 1 घंटे में समाप्त हो जाता है।',
+    sendReset:   'रीसेट लिंक भेजें',
+    forgotSent:  'अगर इस ईमेल पर खाता है, तो हमने रीसेट लिंक भेज दिया है।',
+    forgotBack:  '← साइन इन पर वापस',
   },
 } as const
 
-type Step = 'email' | 'password'
+type Step = 'email' | 'password' | 'forgot'
 const EASE = [0.22, 1, 0.36, 1] as const
 
 // Step slide variants — dir: 1 = forward, -1 = back
@@ -75,6 +88,7 @@ const stepVariants = {
 export default function LoginPage() {
   const router = useRouter()
   const { isDark } = useGraphStore()
+  const isMobile = useIsMobile()
   const [lang,      setLang]      = useState<AuthLang>('en')
   const [[step, dir], setStepDir] = useState<[Step, number]>(['email', 1])
   const [email,     setEmail]     = useState('')
@@ -86,6 +100,8 @@ export default function LoginPage() {
   const [pwFocus,   setPwFocus]   = useState(false)
   const [showPw,    setShowPw]    = useState(false)
   const [loading,   setLoading]   = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotErr,  setForgotErr]  = useState('')
 
   const t = getTheme(isDark)
   const c = COPY[lang]
@@ -103,6 +119,30 @@ export default function LoginPage() {
 
   const goForward = () => setStepDir(['password', 1])
   const goBack    = () => { setStepDir(['email', -1]); setPassword(''); setPwErr('') }
+  const goForgot  = () => {
+    setStepDir(['forgot', 1])
+    setForgotSent(false); setForgotErr('')
+  }
+  const goBackFromForgot = () => {
+    setStepDir([password ? 'password' : 'email', -1])
+    setForgotErr('')
+  }
+
+  const handleSendReset = async () => {
+    const trimmed = email.trim()
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setForgotErr(c.errEmail); return
+    }
+    setForgotErr(''); setLoading(true)
+    try {
+      await api.auth.forgotPassword(trimmed)
+      setForgotSent(true)
+    } catch (err) {
+      setForgotErr((err as Error).message || c.errNetwork)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleContinue = async () => {
     const trimmed = email.trim()
@@ -195,7 +235,7 @@ export default function LoginPage() {
                     transition={{ delay: 0.08 + li * 0.13 + wi * 0.06, duration: 0.50, ease: EASE }}
                     style={{
                       display: 'inline-block', marginRight: '0.22em',
-                      fontSize: lang === 'hi' ? 46 : 52, fontWeight: 800, letterSpacing: '-0.03em',
+                      fontSize: lang === 'hi' ? (isMobile ? 32 : 46) : (isMobile ? 36 : 52), fontWeight: 800, letterSpacing: '-0.03em',
                       color: li === c.accentLine ? '#EA580C' : t.text,
                       transition: 'color 0.35s ease',
                     }}
@@ -211,7 +251,7 @@ export default function LoginPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.52, duration: 0.40, ease: EASE }}
-            style={{ margin: '0 0 36px', fontSize: 15.5, color: t.textMuted, lineHeight: 1.65, fontWeight: 400, transition: 'color 0.35s ease' }}
+            style={{ margin: isMobile ? '0 0 24px' : '0 0 36px', fontSize: isMobile ? 14.5 : 15.5, color: t.textMuted, lineHeight: 1.65, fontWeight: 400, transition: 'color 0.35s ease' }}
           >
             {c.sub}
           </motion.p>
@@ -346,6 +386,20 @@ export default function LoginPage() {
                     </motion.p>
                   )}
                 </AnimatePresence>
+
+                <div style={{ marginTop: 8, textAlign: 'right' }}>
+                  <button
+                    type="button"
+                    onClick={goForgot}
+                    style={{
+                      background: 'none', border: 'none', padding: 0,
+                      fontSize: 12, fontWeight: 600, color: '#EA580C',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    {c.forgotLink}
+                  </button>
+                </div>
               </div>
 
               {/* Sign in */}
@@ -367,6 +421,91 @@ export default function LoginPage() {
                   </AnimatePresence>
                 )}
               </motion.button>
+
+            </motion.div>
+          )}
+
+          {/* ── Step 3: Forgot password ───────────────────────────────────── */}
+          {step === 'forgot' && (
+            <motion.div key="forgot" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit"
+              transition={{ duration: 0.22, ease: EASE }}>
+
+              <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 700, color: t.text, letterSpacing: '-0.01em' }}>
+                {c.forgotTitle}
+              </h2>
+              <p style={{ margin: '0 0 18px', fontSize: 13, color: t.textMuted, lineHeight: 1.55 }}>
+                {c.forgotSub}
+              </p>
+
+              {forgotSent ? (
+                <div style={{
+                  padding: '14px 16px', borderRadius: 12,
+                  background: isDark ? 'rgba(20,64,26,0.45)' : '#DCFCE7',
+                  border: `1px solid ${isDark ? 'rgba(34,197,94,0.35)' : '#86EFAC'}`,
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  marginBottom: 16,
+                }}>
+                  <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>✓</span>
+                  <p style={{ margin: 0, fontSize: 13, color: isDark ? '#86EFAC' : '#15803D', lineHeight: 1.5 }}>
+                    {c.forgotSent}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted }}>
+                      {c.emailLabel}
+                    </label>
+                    <input
+                      value={email}
+                      onChange={e => { setEmail(e.target.value); setForgotErr('') }}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSendReset() }}
+                      onFocus={() => setEmailFocus(true)}
+                      onBlur={() => setEmailFocus(false)}
+                      placeholder={c.emailPh}
+                      autoComplete="email"
+                      autoFocus
+                      style={inputStyle(emailFocus, forgotErr)}
+                    />
+                    <AnimatePresence>
+                      {forgotErr && (
+                        <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
+                          {forgotErr}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  <motion.button
+                    onClick={handleSendReset} disabled={loading}
+                    whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                    whileTap={!loading ? { scale: 0.985 } : {}}
+                    style={ctaStyle(loading)}
+                  >
+                    {loading ? (
+                      <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.72, repeat: Infinity, ease: 'linear' }}>
+                        <IconLoader2 size={18} />
+                      </motion.div>
+                    ) : (
+                      c.sendReset
+                    )}
+                  </motion.button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={goBackFromForgot}
+                style={{
+                  marginTop: 14, width: '100%',
+                  background: 'none', border: 'none', padding: 0,
+                  fontSize: 13, fontWeight: 600, color: '#EA580C',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {c.forgotBack}
+              </button>
 
             </motion.div>
           )}

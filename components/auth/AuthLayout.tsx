@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { IconSun, IconMoon } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthPreviewCanvas from '@/components/auth/AuthPreviewCanvas'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
 
@@ -98,6 +99,7 @@ const EASE = [0.22, 1, 0.36, 1] as const
 export default function AuthLayout({ lang, onLangChange, preview = null, children }: AuthLayoutProps) {
   const { isDark, setIsDark } = useGraphStore()
   const t = getTheme(isDark)
+  const isMobile = useIsMobile()
 
   const lv = {
     navBg:        isDark ? 'rgba(11,10,9,0.88)'      : 'rgba(255,247,237,0.88)',
@@ -117,7 +119,7 @@ export default function AuthLayout({ lang, onLangChange, preview = null, childre
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, ease: EASE }}
         style={{
-          height: 64, padding: '0 40px',
+          height: 64, padding: isMobile ? '0 16px' : '0 40px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           borderBottom: `1px solid ${lv.navBorder}`,
           background: lv.navBg,
@@ -137,7 +139,7 @@ export default function AuthLayout({ lang, onLangChange, preview = null, childre
               <line x1="10" y1="7.4" x2="16" y2="13" stroke="white" strokeWidth="1.4" opacity="0.60" />
             </svg>
           </div>
-          <span style={{ fontSize: 20, fontWeight: 800, color: t.text, letterSpacing: '-0.03em', userSelect: 'none', transition: 'color 0.35s ease' }}>
+          <span style={{ fontSize: isMobile ? 18 : 20, fontWeight: 800, color: t.text, letterSpacing: '-0.03em', userSelect: 'none', transition: 'color 0.35s ease' }}>
             Ancestree
           </span>
         </a>
@@ -173,25 +175,34 @@ export default function AuthLayout({ lang, onLangChange, preview = null, childre
       </motion.header>
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row' }}>
 
         {/* Left — page content */}
-        <div style={{ width: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '56px 48px', borderRight: `1px solid ${lv.panelBorder}`, transition: 'border-color 0.35s ease', overflowY: 'auto' }}>
+        <div style={{
+          width: isMobile ? '100%' : '50%',
+          display: 'flex', alignItems: 'center',
+          justifyContent: isMobile ? 'flex-start' : 'center',
+          padding: isMobile ? '28px 18px 44px' : '56px 48px',
+          borderRight: isMobile ? 'none' : `1px solid ${lv.panelBorder}`,
+          transition: 'border-color 0.35s ease', overflowY: 'auto',
+        }}>
           <div style={{ width: '100%', maxWidth: 420 }}>
             {children}
           </div>
         </div>
 
-        {/* Right — demo tree */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.80, delay: 0.18 }}
-          style={{ width: '50%', minHeight: 'calc(100vh - 64px)', position: 'sticky', top: 64, background: t.pageBg, overflow: 'hidden', transition: 'background 0.35s ease' }}
-        >
-          <PanelDotField isDark={isDark} />
-          <AuthPreviewCanvas preview={preview} />
-        </motion.div>
+        {/* Right — demo tree (decorative; hidden on mobile) */}
+        {!isMobile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.80, delay: 0.18 }}
+            style={{ width: '50%', minHeight: 'calc(100vh - 64px)', position: 'sticky', top: 64, background: t.pageBg, overflow: 'hidden', transition: 'background 0.35s ease' }}
+          >
+            <PanelDotField isDark={isDark} />
+            <AuthPreviewCanvas preview={preview} />
+          </motion.div>
+        )}
 
       </div>
     </div>

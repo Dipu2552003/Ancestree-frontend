@@ -66,7 +66,7 @@ export function useNodeActions(
 
   const onSaveNode = useCallback(async (id: string, payload: SavePayload) => {
     const realId = toRealId(id)
-    const result = await api.persons.update(realId, {
+    await api.persons.update(realId, {
       full_name:        payload.fullName,
       first_name:       payload.firstName ?? null,
       middle_name:      payload.middleName ?? null,
@@ -139,17 +139,10 @@ export function useNodeActions(
       bio:              payload.bio ?? undefined,
       photoUrl:         payload.photoUrl ?? undefined,
     })
-    if (result.potential_matches && result.potential_matches.length > 0) {
-      onDuplicateFound(id, result.potential_matches, {
-        fullName:      payload.fullName,
-        gender:        payload.gender ?? null,
-        birthYear:     payload.birthYear ?? null,
-        nativeVillage: payload.nativeVillage ?? null,
-        gotra:         payload.gotra ?? null,
-        photoUrl:      payload.photoUrl ?? null,
-      })
-    }
-  }, [onUpdateNode, onDuplicateFound])
+    // Note: result.potential_matches is intentionally ignored on the edit
+    // path. The "Possible match found" suggestion only fires when a person
+    // is first created (see onAddRelation below).
+  }, [onUpdateNode])
 
   const onAddRelation = useCallback(async (action: RelAction, fullName: string, extras?: AddExtras) => {
     if (!selectedNodeId) return

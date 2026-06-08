@@ -15,6 +15,7 @@ import { bfsDelays, buildDisplayEdges, buildCollapseMap, remapEdgesForCollapse }
 import { computeFamilyName } from '@/lib/graph/computeFamilyName'
 import { injectGhostsForIntraFamilyMarriages } from '@/lib/graph/ghostNodes'
 import { useGraphStore } from '@/store/graphStore'
+import { LOAD_MORE_NODE_WIDTH, LOAD_MORE_NODE_HEIGHT } from '@/components/graph/LoadMoreNode'
 
 interface GraphDataReturn {
   nodes: Node[]
@@ -51,12 +52,21 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const [graphLoading, setGraphLoading] = useState(true)
   const [womanView, setWomanView] = useState<WomanView>('piyar')
 
-  const { collapsedUnitIds, initCollapseState } = useGraphStore()
+  const {
+    collapsedUnitIds, initCollapseState,
+    ancestorDepth, descendantDepth,
+    hasMoreAncestors, hasMoreDescendants,
+    setDepthFlags,
+  } = useGraphStore()
 
   // ── Fetch raw data from backend ───────────────────────────────────────────
   const fetchGraph = useCallback(async () => {
     try {
-      const data = await api.graph.fetch(perspectivePersonId)
+      const data = await api.graph.fetch(perspectivePersonId, ancestorDepth, descendantDepth)
+      setDepthFlags({
+        hasMoreAncestors:   data.meta.hasMoreAncestors,
+        hasMoreDescendants: data.meta.hasMoreDescendants,
+      })
       const rawE = data.edges.map(e => ({ ...e, type: 'sketchEdge' }))
 
       // Bake animation delays into rawNodes (once, uses only edge structure)
@@ -84,7 +94,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     } finally {
       setGraphLoading(false)
     }
-  }, [perspectivePersonId, initCollapseState])
+  }, [perspectivePersonId, initCollapseState, ancestorDepth, descendantDepth, setDepthFlags])
 
   // ── Derive collapse set from store ────────────────────────────────────────
   const collapsedSet = useMemo(() => new Set(collapsedUnitIds), [collapsedUnitIds])
@@ -119,12 +129,54 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   )
 
   // ── Layout with collapse ──────────────────────────────────────────────────
-  const visibleNodes = useMemo(() => {
+  const laidOutNodes = useMemo(() => {
     if (ghostedNodes.length === 0) return []
     let perspective: 'self' | 'mother' | 'spouse' = 'self'
     if (isMarriedWoman && womanView === 'piyar') perspective = 'spouse'
     return layoutEngine(ghostedNodes, ghostedEdges, perspective, collapsedSet)
   }, [ghostedNodes, ghostedEdges, isMarriedWoman, womanView, collapsedSet])
+
+  // ── Inject "Load N more" chips above the top row / below the bottom row ──
+  // The chips are React Flow nodes positioned in flow coordinates so they pan
+  // and zoom with the canvas. The layout engine centers the perspective anchor
+  // such that anchor.position.x + NODE_W/2 = 0, so x=0 is the canvas centre —
+  // exactly where the chips belong.
+  const visibleNodes = useMemo(() => {
+    if (laidOutNodes.length === 0) return laidOutNodes
+    if (!hasMoreAncestors && !hasMoreDescendants) return laidOutNodes
+
+    let minY =  Infinity
+    let maxY = -Infinity
+    for (const n of laidOutNodes) {
+      if (n.position.y < minY) minY = n.position.y
+      if (n.position.y > maxY) maxY = n.position.y
+    }
+
+    const chipX  = -LOAD_MORE_NODE_WIDTH / 2
+    const CARD_HEIGHT = 160     // approx. PersonNode total height
+    const MARGIN      = 32
+
+    const extras: Node[] = []
+    if (hasMoreAncestors) {
+      extras.push({
+        id: '__load_more_ancestors__',
+        type: 'loadMoreNode',
+        position: { x: chipX, y: minY - LOAD_MORE_NODE_HEIGHT - MARGIN },
+        data: { direction: 'ancestors', animDelay: 0.1 },
+        draggable: false, selectable: false, focusable: false,
+      } as Node)
+    }
+    if (hasMoreDescendants) {
+      extras.push({
+        id: '__load_more_descendants__',
+        type: 'loadMoreNode',
+        position: { x: chipX, y: maxY + CARD_HEIGHT + MARGIN },
+        data: { direction: 'descendants', animDelay: 0.1 },
+        draggable: false, selectable: false, focusable: false,
+      } as Node)
+    }
+    return [...laidOutNodes, ...extras]
+  }, [laidOutNodes, hasMoreAncestors, hasMoreDescendants])
 
   // ── Remap edges for collapsed units ──────────────────────────────────────
   const collapseMap = useMemo(

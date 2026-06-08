@@ -6,24 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { IconSearch, IconX, IconLoader2 } from '@tabler/icons-react'
 import { api, type SearchResult } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
+import { MiniNodeCard, searchMetaPieces } from './NodeCard'
 
 interface SearchBarProps {
   isDark: boolean
   onSelectPerson?: (personId: string) => boolean
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
-
-function nodeStateColor(state: string): string {
-  if (state === 'claimed') return '#EA580C'
-  return '#D97706'
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -200,6 +187,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
           >
             {results.map((person, i) => {
               const isActive = cursor === i
+              const meta     = searchMetaPieces(person)
               return (
                 <div
                   key={person.id}
@@ -209,8 +197,8 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
                   style={{
                     display:    'flex',
                     alignItems: 'center',
-                    gap:        '10px',
-                    padding:    '9px 12px',
+                    gap:        '12px',
+                    padding:    '10px 12px',
                     cursor:     'pointer',
                     background: isActive
                       ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)')
@@ -221,39 +209,24 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
                     transition: 'background 0.1s',
                   }}
                 >
-                  {/* Avatar */}
-                  <div style={{
-                    width:          '34px',
-                    height:         '34px',
-                    borderRadius:   '50%',
-                    flexShrink:     0,
-                    overflow:       'hidden',
-                    background:     person.photo_url ? 'transparent' : nodeStateColor(person.node_state),
-                    display:        'flex',
-                    alignItems:     'center',
-                    justifyContent: 'center',
-                    fontSize:       '12px',
-                    fontWeight:     700,
-                    color:          '#fff',
-                  }}>
-                    {person.photo_url
-                      ? <img src={person.photo_url} alt={person.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : getInitials(person.full_name)
-                    }
-                  </div>
+                  <MiniNodeCard
+                    fullName={person.full_name}
+                    photoUrl={person.photo_url}
+                    nodeState={person.node_state as 'proxy' | 'invited' | 'claimed'}
+                    isDark={isDark}
+                  />
 
-                  {/* Name + family */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 6,
-                    }}>
+                  {/* Name + meta */}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{
-                        fontSize:     '13px',
+                        fontSize:     '13.5px',
                         fontWeight:   600,
                         color:        t.text,
                         whiteSpace:   'nowrap',
                         overflow:     'hidden',
                         textOverflow: 'ellipsis',
+                        lineHeight:   1.25,
                       }}>
                         {person.full_name}
                       </span>
@@ -270,18 +243,19 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
                         </span>
                       )}
                     </div>
-                    <div style={{
-                      fontSize:     '11px',
-                      color:        isActive ? '#EA580C' : t.textMuted,
-                      marginTop:    '1px',
-                      whiteSpace:   'nowrap',
-                      overflow:     'hidden',
-                      textOverflow: 'ellipsis',
-                      transition:   'color 0.1s',
-                    }}>
-                      {person.family_name}
-                      {person.birth_year ? ` · b. ${person.birth_year}` : ''}
-                    </div>
+                    {meta.length > 0 && (
+                      <div style={{
+                        fontSize:     '11.5px',
+                        color:        isActive ? '#EA580C' : t.textMuted,
+                        whiteSpace:   'nowrap',
+                        overflow:     'hidden',
+                        textOverflow: 'ellipsis',
+                        lineHeight:   1.3,
+                        transition:   'color 0.1s',
+                      }}>
+                        {meta.join(' · ')}
+                      </div>
+                    )}
                   </div>
 
                   {/* "View tree" hint — only on hover */}

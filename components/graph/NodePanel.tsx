@@ -361,26 +361,18 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
     const sk = opts?.sectionKey
     const isOpen = sk ? sectionsOpen[sk] : true
     const filled = (opts?.fields && sk && !isOpen) ? countFilled(opts.fields) : 0
-    const Tag = sk ? 'button' : 'div'
-    return (
-      <Tag
-        {...(sk ? {
-          type: 'button' as const,
-          onClick: () => setSectionsOpen(p => ({ ...p, [sk]: !p[sk] })),
-          'aria-expanded': isOpen,
-        } : {})}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          padding: '10px 16px 8px', width: sk ? '100%' : undefined,
-          borderTop: `1px solid ${t.border}`,
-          background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
-          marginTop: '4px',
-          cursor: sk ? 'pointer' : 'default',
-          userSelect: 'none' as const,
-          border: 'none', fontFamily: 'inherit',
-          textAlign: 'left' as const,
-        }}
-      >
+    const baseStyle: React.CSSProperties = {
+      display: 'flex', alignItems: 'center', gap: '8px',
+      padding: '10px 16px 8px',
+      borderTop: `1px solid ${t.border}`,
+      background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+      marginTop: '4px',
+      userSelect: 'none',
+      fontFamily: 'inherit',
+      textAlign: 'left',
+    }
+    const inner = (
+      <>
         <div style={{
           width: '2px', height: '12px', borderRadius: '1px', flexShrink: 0,
           background: isDark ? 'rgba(234,88,12,0.45)' : 'rgba(234,88,12,0.35)',
@@ -410,7 +402,20 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
             <IconChevronDown size={13} strokeWidth={2} />
           </motion.span>
         )}
-      </Tag>
+      </>
+    )
+    if (!sk) {
+      return <div style={baseStyle}>{inner}</div>
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => setSectionsOpen(p => ({ ...p, [sk]: !p[sk] }))}
+        aria-expanded={isOpen}
+        style={{ ...baseStyle, width: '100%', cursor: 'pointer', border: 'none' }}
+      >
+        {inner}
+      </button>
     )
   }
 
@@ -793,109 +798,69 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
 
         {/* ── CONTACT ── */}
         {sectionHeader('Contact', { sectionKey: 'contact', fields: ['phone', 'whatsapp', 'email'] })}
-        <AnimatePresence initial={false}>
-          {sectionsOpen.contact && (
-            <motion.div
-              key="contact-body"
-              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {field('Phone', 'phone', '+91 98765 43210', { type: 'tel' })}
-                {field('WhatsApp', 'whatsapp', '+91 98765 43210', { type: 'tel' })}
-                {field('Email', 'email', 'name@example.com', { type: 'email' })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {sectionsOpen.contact && (
+          <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {field('Phone', 'phone', '+91 98765 43210', { type: 'tel' })}
+            {field('WhatsApp', 'whatsapp', '+91 98765 43210', { type: 'tel' })}
+            {field('Email', 'email', 'name@example.com', { type: 'email' })}
+          </div>
+        )}
 
         {/* ── CURRENT LOCATION ── */}
         {sectionHeader('Current Location', { sectionKey: 'currentLocation', fields: ['currentAddress', 'currentCity', 'currentState', 'currentCountry', 'currentPincode'] })}
-        <AnimatePresence initial={false}>
-          {sectionsOpen.currentLocation && (
-            <motion.div
-              key="location-body"
-              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {field('Address', 'currentAddress', 'Street / apartment')}
-                {row(
-                  field('City', 'currentCity', 'City', { half: true }),
-                  field('State', 'currentState', 'State', { half: true }),
-                )}
-                {row(
-                  field('Country', 'currentCountry', 'India', { half: true }),
-                  field('Pincode', 'currentPincode', '000000', { half: true }),
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {sectionsOpen.currentLocation && (
+          <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {field('Address', 'currentAddress', 'Street / apartment')}
+            {row(
+              field('City', 'currentCity', 'City', { half: true }),
+              field('State', 'currentState', 'State', { half: true }),
+            )}
+            {row(
+              field('Country', 'currentCountry', 'India', { half: true }),
+              field('Pincode', 'currentPincode', '000000', { half: true }),
+            )}
+          </div>
+        )}
 
         {/* ── NATIVE / ORIGIN ── */}
         {sectionHeader('Native / Origin', { sectionKey: 'nativeOrigin', fields: ['nativeVillage', 'nativeTehsil', 'nativeDistrict', 'nativeState', 'nativeCountry'] })}
-        <AnimatePresence initial={false}>
-          {sectionsOpen.nativeOrigin && (
-            <motion.div
-              key="native-body"
-              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {row(
-                  field('Village', 'nativeVillage', 'Ancestral village', { half: true }),
-                  field('Tehsil', 'nativeTehsil', 'Tehsil', { half: true }),
-                )}
-                {row(
-                  field('District', 'nativeDistrict', 'District', { half: true }),
-                  field('State', 'nativeState', 'State', { half: true }),
-                )}
-                {field('Country', 'nativeCountry', 'India')}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {sectionsOpen.nativeOrigin && (
+          <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {row(
+              field('Village', 'nativeVillage', 'Ancestral village', { half: true }),
+              field('Tehsil', 'nativeTehsil', 'Tehsil', { half: true }),
+            )}
+            {row(
+              field('District', 'nativeDistrict', 'District', { half: true }),
+              field('State', 'nativeState', 'State', { half: true }),
+            )}
+            {field('Country', 'nativeCountry', 'India')}
+          </div>
+        )}
 
         {/* ── WORK & EDUCATION ── */}
         {sectionHeader('Work & Education', { sectionKey: 'workEducation', fields: ['occupation', 'occupationDetail', 'education', 'bio'] })}
-        <AnimatePresence initial={false}>
-          {sectionsOpen.workEducation && (
-            <motion.div
-              key="work-body"
-              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {field('Occupation', 'occupation', 'e.g. Engineer, Farmer')}
-                {field('Occupation detail', 'occupationDetail', 'Company / more detail')}
-                {field('Education', 'education', 'Highest qualification')}
-                <div>
-                  <label style={labelStyle}>Bio</label>
-                  <textarea
-                    value={draft.bio}
-                    onChange={set('bio')}
-                    onFocus={() => setFocused('bio')} onBlur={() => setFocused(null)}
-                    placeholder="A short note about this person…"
-                    rows={3}
-                    style={{
-                      ...inputStyle('bio'), height: 'auto', padding: '8px 10px',
-                      resize: 'vertical', lineHeight: '1.5',
-                    }}
-                  />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {sectionsOpen.workEducation && (
+          <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {field('Occupation', 'occupation', 'e.g. Engineer, Farmer')}
+            {field('Occupation detail', 'occupationDetail', 'Company / more detail')}
+            {field('Education', 'education', 'Highest qualification')}
+            <div>
+              <label style={labelStyle}>Bio</label>
+              <textarea
+                value={draft.bio}
+                onChange={set('bio')}
+                onFocus={() => setFocused('bio')} onBlur={() => setFocused(null)}
+                placeholder="A short note about this person…"
+                rows={3}
+                style={{
+                  ...inputStyle('bio'), height: 'auto', padding: '8px 10px',
+                  resize: 'vertical', lineHeight: '1.5',
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* ── Save ── */}
         <div style={{ padding: '16px 16px 8px' }}>

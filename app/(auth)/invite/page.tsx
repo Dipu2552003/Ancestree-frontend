@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconLoader2, IconArrowLeft, IconEye, IconEyeOff, IconUserCheck } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, getToken, setToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
@@ -22,7 +23,7 @@ const COPY = {
 
     previewTitle: 'Is this you?',
     previewSub:   'Confirm the details below, then claim your node.',
-    inTree:       'in',
+    invitedBy:    'Invited by',
     born:         'Born',
     joining:      'Joining',
     claimable:    'Awaiting you',
@@ -61,7 +62,7 @@ const COPY = {
 
     previewTitle: 'क्या यह आप हैं?',
     previewSub:   'नीचे दिए विवरण देखें और अपना नोड दावा करें।',
-    inTree:       'पेड़ में',
+    invitedBy:    'आमंत्रित करने वाले',
     born:         'जन्म',
     joining:      'जुड़ रहे',
     claimable:    'आपकी प्रतीक्षा में',
@@ -97,10 +98,23 @@ const EASE = [0.22, 1, 0.36, 1] as const
 type Step = 'token' | 'preview'
 
 interface LookupResult {
-  full_name:   string
-  family_name: string
-  birth_year:  number | null
-  photo_url:   string | null
+  full_name:              string
+  family_name:            string
+  birth_year:             number | null
+  photo_url:              string | null
+  inviter_full_name:      string | null
+  inviter_father_name:    string | null
+  inviter_native_village: string | null
+  inviter_current_city:   string | null
+}
+
+/** "Father: X · village haal city" — matches search/duplicate-found format. */
+function inviterMetaLine(p: LookupResult): string {
+  const pieces: string[] = []
+  if (p.inviter_father_name) pieces.push(`Father: ${p.inviter_father_name}`)
+  const places = [p.inviter_native_village, p.inviter_current_city].filter(Boolean) as string[]
+  if (places.length > 0) pieces.push(places.join(' haal '))
+  return pieces.join(' · ')
 }
 
 // ── Inner ─────────────────────────────────────────────────────────────────────
@@ -108,6 +122,7 @@ function InviteInner() {
   const router = useRouter()
   const params = useSearchParams()
   const { isDark } = useGraphStore()
+  const isMobile = useIsMobile()
   const [lang, setLang] = useState<AuthLang>('en')
 
   // Has the user already got a session?
@@ -236,7 +251,9 @@ function InviteInner() {
         photoUrl:  preview.photo_url,
         nodeState: 'proxy',
         subtitle:  c.claimable,
-        pill:      `${c.joining} ${preview.family_name}`,
+        pill:      preview.inviter_full_name
+          ? `${c.invitedBy} ${preview.inviter_full_name}`
+          : c.claimable,
       }
     : null
 
@@ -260,7 +277,7 @@ function InviteInner() {
                 transition={{ delay: 0.08, duration: 0.50, ease: EASE }}
                 style={{
                   margin: '0 0 14px', lineHeight: 1.06,
-                  fontSize: lang === 'hi' ? 44 : 52,
+                  fontSize: lang === 'hi' ? (isMobile ? 32 : 44) : (isMobile ? 36 : 52),
                   fontWeight: 800, letterSpacing: '-0.03em',
                   color: t.text, transition: 'color 0.35s ease',
                 }}
@@ -285,7 +302,7 @@ function InviteInner() {
               <motion.h1
                 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.45, ease: EASE }}
-                style={{ margin: '0 0 10px', fontSize: 38, fontWeight: 800, letterSpacing: '-0.03em', color: t.text, lineHeight: 1.1, transition: 'color 0.35s ease' }}
+                style={{ margin: '0 0 10px', fontSize: isMobile ? 28 : 38, fontWeight: 800, letterSpacing: '-0.03em', color: t.text, lineHeight: 1.1, transition: 'color 0.35s ease' }}
               >
                 {c.previewTitle}
               </motion.h1>
@@ -400,10 +417,23 @@ function InviteInner() {
                   <div style={{ fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 2 }}>
                     {preview.full_name}
                   </div>
-                  <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.4 }}>
-                    {c.inTree} <span style={{ fontWeight: 600, color: '#EA580C' }}>{preview.family_name}</span>
-                    {preview.birth_year ? <>{' · '}{c.born} {preview.birth_year}</> : null}
-                  </div>
+                  {preview.birth_year && (
+                    <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.4 }}>
+                      {c.born} {preview.birth_year}
+                    </div>
+                  )}
+                  {preview.inviter_full_name && (
+                    <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.5, marginTop: 6 }}>
+                      <div>
+                        {c.invitedBy} <span style={{ fontWeight: 600, color: '#EA580C' }}>{preview.inviter_full_name}</span>
+                      </div>
+                      {inviterMetaLine(preview) && (
+                        <div style={{ fontSize: 11.5, marginTop: 2 }}>
+                          {inviterMetaLine(preview)}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

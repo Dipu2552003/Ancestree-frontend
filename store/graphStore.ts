@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { AppNotification } from '@/lib/api'
+import {
+  type AppNotification,
+  ANCESTOR_DEPTH_DEFAULT,
+  DESCENDANT_DEPTH_DEFAULT,
+  DEPTH_LOAD_STEP,
+} from '@/lib/api'
 
 interface GraphState {
   currentZoom: number
@@ -10,6 +15,14 @@ interface GraphState {
   notifications: AppNotification[]
   unreadCount: number
   activeNodeId: string | null
+  // Depth-bounded loading state. The graph hook reads these to drive each
+  // fetch; the chip components read the `hasMore*` flags to know when to show.
+  // Keyed implicitly by the currently-loaded perspective — perspective change
+  // resets these via `resetDepths()` in useGraphData.
+  ancestorDepth: number
+  descendantDepth: number
+  hasMoreAncestors: boolean
+  hasMoreDescendants: boolean
   setCurrentZoom: (zoom: number) => void
   setIsDark: (dark: boolean) => void
   toggleCollapse: (key: string) => void
@@ -18,6 +31,10 @@ interface GraphState {
   setNotifications: (notifications: AppNotification[], unreadCount: number) => void
   markNotificationRead: (id: string) => void
   setActiveNodeId: (id: string | null) => void
+  bumpAncestorDepth: () => void
+  bumpDescendantDepth: () => void
+  setDepthFlags: (flags: { hasMoreAncestors: boolean; hasMoreDescendants: boolean }) => void
+  resetDepths: () => void
 }
 
 export const useGraphStore = create<GraphState>()(
@@ -30,6 +47,24 @@ export const useGraphStore = create<GraphState>()(
       notifications: [],
       unreadCount: 0,
       activeNodeId: null,
+      ancestorDepth:      ANCESTOR_DEPTH_DEFAULT,
+      descendantDepth:    DESCENDANT_DEPTH_DEFAULT,
+      hasMoreAncestors:   false,
+      hasMoreDescendants: false,
+      bumpAncestorDepth: () => set(s => s.hasMoreAncestors
+        ? { ancestorDepth: s.ancestorDepth + DEPTH_LOAD_STEP }
+        : {}),
+      bumpDescendantDepth: () => set(s => s.hasMoreDescendants
+        ? { descendantDepth: s.descendantDepth + DEPTH_LOAD_STEP }
+        : {}),
+      setDepthFlags: ({ hasMoreAncestors, hasMoreDescendants }) =>
+        set({ hasMoreAncestors, hasMoreDescendants }),
+      resetDepths: () => set({
+        ancestorDepth:      ANCESTOR_DEPTH_DEFAULT,
+        descendantDepth:    DESCENDANT_DEPTH_DEFAULT,
+        hasMoreAncestors:   false,
+        hasMoreDescendants: false,
+      }),
       setCurrentZoom: (zoom) => set({ currentZoom: zoom }),
       setIsDark: (dark) => set({ isDark: dark }),
       toggleCollapse: (key) => set(s => ({

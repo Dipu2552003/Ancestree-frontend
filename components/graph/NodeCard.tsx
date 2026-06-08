@@ -1,5 +1,6 @@
 'use client'
 
+import type { SearchResult } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
 
 // ── Dimensions (1.2× the canvas node) ────────────────────────────────────────
@@ -121,6 +122,125 @@ export function NodeCard({
       </div>
     </div>
   )
+}
+
+// ── Mini polaroid (search dropdowns / merge result rows) ─────────────────────
+// Scaled-down twin of NodeCard. Same construction (photo + name strip, gradient
+// avatar fallback) so the search dropdown reads as the canvas card shrunk down.
+export const MINI_CARD_W       = 56
+export const MINI_CARD_PHOTO_H = 56
+export const MINI_CARD_STRIP_H = 18
+export const MINI_CARD_H       = MINI_CARD_PHOTO_H + MINI_CARD_STRIP_H
+
+function firstWord(full: string | null | undefined): string {
+  if (!full) return ''
+  return full.trim().split(/\s+/)[0] ?? ''
+}
+
+export function MiniNodeCard({
+  fullName, photoUrl, nodeState = 'proxy', isDeceased = false, isDark,
+}: {
+  fullName:   string
+  photoUrl?:  string | null
+  nodeState?: 'proxy' | 'invited' | 'claimed'
+  isDeceased?: boolean
+  isDark:     boolean
+}) {
+  const t = getTheme(isDark)
+  const [from, to] = avatarGrad(nodeState, false, isDeceased)
+
+  return (
+    <div style={{
+      width: MINI_CARD_W,
+      height: MINI_CARD_H,
+      flexShrink: 0,
+      background: t.cardBg,
+      border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)',
+      boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.45)' : '0 2px 6px rgba(0,0,0,0.10)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      borderRadius: 2,
+    }}>
+      <div style={{
+        width: MINI_CARD_W,
+        height: MINI_CARD_PHOTO_H,
+        background: isDark ? '#1A1612' : '#FAF5EF',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        {photoUrl ? (
+          <img
+            src={photoUrl}
+            alt={fullName}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            backgroundImage: `linear-gradient(135deg, ${from}, ${to})`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontSize: 11, fontWeight: 500, letterSpacing: '0.02em',
+          }}>
+            {cardInitials(fullName)}
+          </div>
+        )}
+        {isDeceased && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.22)',
+            mixBlendMode: 'multiply',
+          }} />
+        )}
+      </div>
+      <div style={{
+        width: MINI_CARD_W,
+        height: MINI_CARD_STRIP_H,
+        borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'}`,
+        background: isDark ? '#141210' : '#FFFFFF',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 4px',
+      }}>
+        <span style={{
+          fontSize: 8,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: isDark ? '#EDE8E3' : '#1A0A00',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          width: '100%',
+          textAlign: 'center',
+        }}>
+          {firstWord(fullName)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/** Sub-line builder shared by every search-result row:
+ *
+ *      Father: <full father name> · <village> haal <current city>
+ *
+ *  "haal" (हाल) is the connector you'd use in conversation to mean
+ *  "originally from X, now in Y". Skips pieces that are missing; falls back
+ *  to birth year so the row never reads empty. Family name is intentionally
+ *  not surfaced — the whole frontend now identifies people by person, not
+ *  by family. */
+export function searchMetaPieces(person: SearchResult): string[] {
+  const parts: string[] = []
+  if (person.father_name) parts.push(`Father: ${person.father_name}`)
+  const places = [person.native_village, person.current_city].filter(Boolean) as string[]
+  if (places.length > 0) parts.push(places.join(' haal '))
+  if (parts.length === 0 && person.birth_year) parts.push(`b. ${person.birth_year}`)
+  return parts
 }
 
 // ── Ghost / empty slot ────────────────────────────────────────────────────────

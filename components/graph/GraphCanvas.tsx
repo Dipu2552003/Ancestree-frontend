@@ -13,11 +13,12 @@ import {
 import '@xyflow/react/dist/style.css'
 import { nodeTypes } from './PersonNode'
 import { collapsedCoupleNodeType } from './CollapsedCoupleNode'
+import { loadMoreNodeType } from './LoadMoreNode'
 import { edgeTypes } from './SketchEdge'
 import { familyEdgeType } from './FamilyEdge'
 import { useTiltEffect } from '@/hooks/useTiltEffect'
 
-const allNodeTypes = { ...nodeTypes, ...collapsedCoupleNodeType }
+const allNodeTypes = { ...nodeTypes, ...collapsedCoupleNodeType, ...loadMoreNodeType }
 const allEdgeTypes = { ...edgeTypes, ...familyEdgeType }
 import { useGraphStore } from '@/store/graphStore'
 

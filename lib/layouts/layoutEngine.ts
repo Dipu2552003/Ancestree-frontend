@@ -229,9 +229,22 @@ export function layoutEngine(
       }
       shared = [...pool]
     } else {
-      // Plain 2-parent couple: intersection of both parents' kids.
+      // Plain 2-parent couple. Start with the intersection (children with
+      // edges to BOTH spouses — unambiguously this couple's). Then absorb
+      // any child of either spouse whose ONLY other recorded parent is the
+      // partner in this couple, i.e. they have no alternative couple unit
+      // to land under. Without this, a child with a single PARENT_OF edge
+      // (sparse data, or a missing step-parent) ends up as an orphan root
+      // and floats off to the side of the canvas.
       const rightKids = new Set(childrenOf.get(u.right) ?? [])
-      shared = [...leftKids].filter(c => rightKids.has(c))
+      const absorbed  = new Set<string>([...leftKids].filter(c => rightKids.has(c)))
+      for (const k of [...leftKids, ...rightKids]) {
+        if (absorbed.has(k)) continue
+        const otherParents = (parentsOf.get(k) ?? [])
+          .filter(p => p !== u.left && p !== u.right)
+        if (otherParents.length === 0) absorbed.add(k)
+      }
+      shared = [...absorbed]
     }
     u.children = shared.sort((a, b) => {
       const byA = d(a).birthYear as number | undefined
@@ -325,9 +338,25 @@ export function layoutEngine(
     }
   }
 
-  // Sort sibling units and assign indexes for stable layout
+  // Sort sibling units left-to-right by the bloodline anchor's birth year
+  // (eldest first). u.left is always the child-of-the-parent-unit; u.right is
+  // the spouse who married in, so birth-year sort runs on `left` only.
+  // Comparator mirrors the per-person comparator at the children-assignment
+  // step above so collapse counts and visual order agree.
   for (const [, list] of unitChildren) {
-    list.sort((a, b) => a.left.localeCompare(b.left))
+    list.sort((a, b) => {
+      const byA = d(a.left).birthYear as number | undefined
+      const byB = d(b.left).birthYear as number | undefined
+      if (byA !== undefined && byB !== undefined) return byA - byB
+      if (byA !== undefined) return -1
+      if (byB !== undefined) return 1
+      // Final tie-break: full name, then person id, so the result is stable
+      // and human-meaningful when birth years are missing entirely.
+      const nameA = (d(a.left).fullName as string) ?? ''
+      const nameB = (d(b.left).fullName as string) ?? ''
+      const byName = nameA.localeCompare(nameB)
+      return byName !== 0 ? byName : a.left.localeCompare(b.left)
+    })
     list.forEach((u, i) => { u.index = i })
   }
 
