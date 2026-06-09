@@ -7,7 +7,7 @@ import { IconGitMerge, IconX, IconLoader2, IconCheck, IconLink } from '@tabler/i
 import { api } from '@/lib/api'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
-import { NodeCard, cardInitials, CARD_W, CARD_H, CARD_PH, CARD_SH } from './NodeCard'
+import { NodeCard, cardInitials, CARD_W, CARD_H, CARD_PH, CARD_SH } from '../NodeCard'
 
 interface Props {
   sourceNodeId:   string

@@ -7,7 +7,7 @@ import type { Node, Edge } from '@xyflow/react'
 import type { PersonData, PendingMatchData } from '@/types'
 import { api } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
-import { Avatar, Spinner } from '@/components/ui'
+import { Avatar, Spinner, SidePanel } from '@/components/ui'
 import MergeAcceptPreviewModal from './MergeAcceptPreviewModal'
 
 interface MergeComparisonPanelProps {
@@ -131,20 +131,7 @@ export default function MergeComparisonPanel({
   const dividerBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'
 
   return (
-    <motion.div
-      initial={{ x: 340 }}
-      animate={{ x: 0 }}
-      exit={{ x: 340 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      style={{
-        position: 'fixed', top: 0, right: 0, height: '100vh', width: '340px',
-        background: t.panelBg, zIndex: 100,
-        display: 'flex', flexDirection: 'column',
-        borderLeft: `1.5px solid ${t.border}`,
-        boxShadow: isDark ? '-8px 0 32px rgba(0,0,0,0.5)' : '-4px 0 24px rgba(0,0,0,0.10)',
-        overflowY: 'auto',
-      }}
-    >
+    <SidePanel isDark={isDark} width={340}>
       {/* Header */}
       <div style={{
         padding: '16px 16px 14px', flexShrink: 0,
@@ -364,6 +351,6 @@ export default function MergeComparisonPanel({
           />
         )}
       </AnimatePresence>
-    </motion.div>
+    </SidePanel>
   )
 }

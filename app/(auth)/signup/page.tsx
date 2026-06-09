@@ -9,6 +9,7 @@ import { getTheme } from '@/lib/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, setToken } from '@/lib/api'
+import { compressPhoto } from '@/lib/image'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
 import familyOptions from '@/lib/familyOptions.json'
 
@@ -20,30 +21,6 @@ const toTitleCase = (s: string) => s.replace(/\b\w/g, ch => ch.toUpperCase())
 
 // Sentinel value used by the chip selectors for the free-text "Other" option.
 const OTHER = '__other__'
-
-// Compress an uploaded image into a JPEG data URL (max 480px). Same flow used
-// in NodePanel — keeps payload small enough to persist directly.
-function compressPhoto(file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) return Promise.reject(new Error('Not an image'))
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const blobUrl = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(blobUrl)
-      const MAX = 480
-      const scale = Math.min(1, MAX / Math.max(img.width, img.height))
-      const canvas = document.createElement('canvas')
-      canvas.width  = Math.round(img.width  * scale)
-      canvas.height = Math.round(img.height * scale)
-      const ctx = canvas.getContext('2d')
-      if (!ctx) { resolve(canvas.toDataURL()); return }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      resolve(canvas.toDataURL('image/jpeg', 0.78))
-    }
-    img.onerror = reject
-    img.src = blobUrl
-  })
-}
 
 // ── Bilingual copy ────────────────────────────────────────────────────────────
 const COPY = {

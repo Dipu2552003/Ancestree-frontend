@@ -1,0 +1,1 @@
+export { compressPhoto } from './compressPhoto'

@@ -7,7 +7,7 @@ import { IconX, IconSearch, IconLoader2, IconGitMerge } from '@tabler/icons-reac
 import { api, type SearchResult } from '@/lib/api'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
-import { NodeCard, GhostCard, CARD_W, CARD_H, MiniNodeCard, searchMetaPieces } from './NodeCard'
+import { NodeCard, GhostCard, CARD_W, CARD_H, MiniNodeCard, searchMetaPieces } from '../NodeCard'
 
 interface Props {
   sourceNodeId:   string

@@ -1,0 +1,180 @@
+// Pure mapping from page state + data → GraphOverlays prop bundles.
+//
+// The overlay prop blocks used to live inline on /graph in one ~120-line tail.
+// That made it hard to scan the page's actual shape. The mapping is mechanical
+// (each overlay's open-state + onClose wires back to the corresponding state
+// flag, plus a handful of action callbacks) so it lifts cleanly into a helper.
+//
+// Returns the props GraphOverlays consumes, minus `isDark` — that comes from
+// the theme store and the page passes it separately.
+
+import type { Node, Edge } from '@xyflow/react'
+import { api, type MergeConflict } from '@/lib/api'
+import { isGhostNodeId, realIdFromGhost, realEdgeId } from '@/lib/graph/ghostNodes'
+import { computeMotherOptions, computeFatherName } from '@/lib/graph/wizardOptions'
+import { markDupDismissed } from '@/lib/storage'
+import {
+  deriveActiveSpousesFromEdges,
+  deriveChildrenFromEdges,
+} from '@/components/graph/SecondSpouseWizard'
+import type {
+  ContextMenuOverlay, EditPanelOverlay, ViewPanelOverlay, DuplicateOverlay,
+  NotifOverlay, ConflictOverlay, ComparisonOverlay, WizardOverlay,
+  SecondSpouseOverlay, MergeSearchOverlay,
+} from '@/components/graph/GraphOverlays'
+import type { PersonData, SavePayload } from '@/types'
+import type { RelAction } from '@/components/graph/Navbar'
+import type { WizardExtras } from '@/components/graph/AddNodeWizard'
+import type { useGraphPageState } from '@/hooks/useGraphPageState'
+
+type State = ReturnType<typeof useGraphPageState>
+
+interface RouterLike {
+  push:    (href: string) => void
+  replace: (href: string) => void
+}
+
+export interface OverlayBundles {
+  contextMenu:  ContextMenuOverlay  | null
+  editPanel:    EditPanelOverlay    | null
+  viewPanel:    ViewPanelOverlay    | null
+  duplicate:    DuplicateOverlay    | null
+  notif:        NotifOverlay        | null
+  conflict:     ConflictOverlay     | null
+  comparison:   ComparisonOverlay   | null
+  wizard:       WizardOverlay       | null
+  secondSpouse: SecondSpouseOverlay | null
+  mergeSearch:  MergeSearchOverlay  | null
+}
+
+interface BuildOverlayPropsArgs {
+  s:                  State
+  selectedNode:       Node | null
+  selectedNodeName:   string
+  matchHighlightNode: Node | null
+  anchorRealId:       string | null
+  nodes:              Node[]
+  edges:              Edge[]
+  rawNodes:           Node[]
+  rawEdges:           Edge[]
+  router:             RouterLike
+  fetchGraph:         () => Promise<void>
+  onUpdateNode:       (id: string, data: Partial<PersonData>) => void
+  onSaveNode:         (id: string, data: SavePayload) => Promise<void>
+  handleWizardAdd:    (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
+  onMergeAccepted:    (conflicts: MergeConflict[]) => void
+}
+
+export function buildOverlayProps({
+  s, selectedNode, selectedNodeName, matchHighlightNode, anchorRealId,
+  nodes, edges, rawNodes, rawEdges,
+  router, fetchGraph, onUpdateNode, onSaveNode, handleWizardAdd, onMergeAccepted,
+}: BuildOverlayPropsArgs): OverlayBundles {
+  return {
+    contextMenu: s.contextMenu && {
+      ...s.contextMenu,
+      onViewTree: () => router.push(`/graph?perspective=${s.contextMenu!.nodeId}`),
+      onEdit:     () => { s.setSelectedNodeId(s.contextMenu!.nodeId); s.setPanelMode('edit') },
+      onInvite:   async () => {
+        try {
+          const id = s.contextMenu!.nodeId
+          const inviteRealId = isGhostNodeId(id) ? realIdFromGhost(id) : id
+          const { invite_token } = await api.persons.generateInvite(inviteRealId)
+          const url = `${window.location.origin}/invite?token=${invite_token}`
+          await navigator.clipboard.writeText(url)
+        } catch { /* ignore */ }
+      },
+      onMergeNode: () => {
+        const { nodeId, personData } = s.contextMenu!
+        const realNodeId = isGhostNodeId(nodeId) ? realIdFromGhost(nodeId) : nodeId
+        s.setMergeSearchNode({ id: realNodeId, name: personData.fullName })
+      },
+      onClose: () => s.setContextMenu(null),
+    },
+
+    editPanel: s.panelMode === 'edit' && selectedNode ? {
+      node: selectedNode,
+      rawEdges,
+      rawNodes,
+      onClose:              () => s.setPanelMode('none'),
+      onUpdate:             onUpdateNode,
+      onSave:               onSaveNode,
+      onViewNode:           (id) => { s.setSelectedNodeId(id); s.setPanelMode('view') },
+      onRemoveConnection:   async (edgeId) => {
+        await api.relationships.delete(realEdgeId(edgeId))
+        await fetchGraph()
+      },
+      onRequestAddRelation: () => s.setNavbarAddTrigger(c => c + 1),
+    } : null,
+
+    viewPanel: s.panelMode === 'view' && selectedNode ? {
+      node:   selectedNode,
+      onBack: () => s.setPanelMode('none'),
+      onEdit: () => s.setPanelMode('edit'),
+    } : null,
+
+    duplicate: s.duplicateInfo ? {
+      ...s.duplicateInfo,
+      onDismiss: () => {
+        markDupDismissed(s.duplicateInfo!.newPersonId)
+        s.setDuplicateInfo(null)
+      },
+    } : null,
+
+    notif: s.notifPanelOpen ? {
+      onClose: () => s.setNotifPanelOpen(false),
+      onMergeAccepted,
+    } : null,
+
+    conflict: s.mergeConflicts.length > 0 ? {
+      conflicts: s.mergeConflicts,
+      nodes,
+      onClose: () => s.setMergeConflicts([]),
+    } : null,
+
+    comparison: s.matchPanelOpen && s.pendingMatch && matchHighlightNode ? {
+      pendingMatch:    s.pendingMatch,
+      matchNode:       matchHighlightNode,
+      nodes,
+      edges,
+      onClose:         () => s.setMatchPanelOpen(false),
+      onNotSamePerson: () => s.setMatchPanelOpen(false),
+      onRequestSent:   () => router.push('/graph'),
+      onBackToTree:    () => router.push('/graph'),
+      onAccepted:      onMergeAccepted,
+      onRejected:      () => router.push('/graph'),
+    } : null,
+
+    wizard: s.wizardAction ? {
+      relAction:     s.wizardAction,
+      anchorName:    selectedNodeName,
+      motherOptions: computeMotherOptions(s.wizardAction, anchorRealId, rawEdges, rawNodes),
+      fatherName:    computeFatherName(s.wizardAction, anchorRealId, rawEdges, rawNodes),
+      onAdd:         handleWizardAdd,
+      onClose:       () => s.setWizardAction(null),
+    } : null,
+
+    secondSpouse: s.secondSpouseAnchor ? {
+      anchorId:         s.secondSpouseAnchor.id,
+      anchorName:       s.secondSpouseAnchor.name,
+      existingSpouses:  deriveActiveSpousesFromEdges(
+        s.secondSpouseAnchor.id,
+        rawEdges,
+        rawNodes.map(n => ({ id: n.id, data: n.data as { fullName?: string; isAlive?: boolean } })),
+      ),
+      existingChildren: deriveChildrenFromEdges(
+        s.secondSpouseAnchor.id,
+        rawEdges,
+        rawNodes.map(n => ({ id: n.id, data: n.data as { fullName?: string; photoUrl?: string | null } })),
+      ),
+      onComplete: async () => { s.setSecondSpouseAnchor(null); await fetchGraph() },
+      onClose:    () => s.setSecondSpouseAnchor(null),
+    } : null,
+
+    mergeSearch: s.mergeSearchNode ? {
+      sourceNodeId:   s.mergeSearchNode.id,
+      sourceNodeName: s.mergeSearchNode.name,
+      onClose:        () => s.setMergeSearchNode(null),
+    } : null,
+  }
+}
