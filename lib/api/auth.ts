@@ -14,7 +14,7 @@ export const auth = {
       method: 'POST', body: JSON.stringify({ email }),
     }),
 
-  signup: (b: { email: string; password: string; display_name: string }) =>
+  signup: (b: { email: string; password: string; display_name: string; tree_type?: 'public' | 'private' }) =>
     req<{ token: string; user: UserSession }>('/api/auth/signup', {
       method: 'POST', body: JSON.stringify(b),
     }),

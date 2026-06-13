@@ -7,11 +7,7 @@ import { useGraphStore } from '@/store/graphStore'
 import type { PersonData } from '@/types'
 import { getTheme } from '@/lib/theme'
 import { getInitials } from '@/lib/format/initials'
-
-function splitName(fullName: string): [string, string] {
-  const parts = fullName.trim().split(/\s+/)
-  return [parts[0] ?? '', parts.slice(1).join(' ')]
-}
+import { gotraColor, darkenHex } from '@/lib/graph/gotraColors'
 
 const W = 128
 const PHOTO_H = 118
@@ -43,11 +39,12 @@ function ownerBadge(nodeState: string, isSelf: boolean, firstName: string, isDar
 }
 
 function PersonNode({ id, data, selected }: NodeProps) {
-  const isDark = useGraphStore(s => s.isDark)
+  const isDark     = useGraphStore(s => s.isDark)
+  const gotraMode  = useGraphStore(s => s.gotraMode)
   const isNodeSelected = useGraphStore(s => s.activeNodeId === id)
   const person = data as unknown as PersonData
-  const { fullName, birthYear, deathYear, isAlive, isDeceased, nodeState, isSelf, isViewerNode, relationshipToSelf, photoUrl, animDelay, isMatchHighlight } = person
-  const [firstName, lastName] = splitName(fullName)
+  const { fullName, isDeceased, nodeState, isSelf, isViewerNode, relationshipToSelf, photoUrl, animDelay, isMatchHighlight } = person
+  const firstName = fullName.trim().split(/\s+/)[0] ?? ''
   const [hovered, setHovered] = useState(false)
   const badge = ownerBadge(nodeState, isSelf, firstName, isDark)
 
@@ -83,10 +80,24 @@ function PersonNode({ id, data, selected }: NodeProps) {
     lpStart.current = null
   }
 
+  const onTouchCancel = () => {
+    if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null }
+    lpFired.current = false
+    lpStart.current = null
+  }
+
   // ── avatar gradient ──────────────────────────────────────────────
+  // Priority: isSelf and isDeceased always win over gotra highlight.
+  // For all other states, gotra node-mode overrides the default state color.
   let avatarFrom = '#C4A882'; let avatarTo = '#9A7B5A'
   if (isSelf)                    { avatarFrom = '#EA580C'; avatarTo = '#C2410C' }
   else if (isDeceased)           { avatarFrom = '#94A3B8'; avatarTo = '#64748B' }
+  else if (gotraMode === 'node') {
+    const gc = gotraColor(person.gotra)
+    if (gc) { avatarFrom = gc; avatarTo = darkenHex(gc, 45) }
+    else if (nodeState === 'claimed') { avatarFrom = '#C2410C'; avatarTo = '#9A3412' }
+    else if (nodeState === 'proxy')   { avatarFrom = '#D97706'; avatarTo = '#B45309' }
+  }
   else if (nodeState === 'claimed') { avatarFrom = '#C2410C'; avatarTo = '#9A3412' }
   else if (nodeState === 'proxy')   { avatarFrom = '#D97706'; avatarTo = '#B45309' }
 
@@ -94,15 +105,16 @@ function PersonNode({ id, data, selected }: NodeProps) {
   const t             = getTheme(isDark)
   const stripBg       = isDark ? '#141210' : '#FFFFFF'
   const stripBorder   = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'
-  const lastNameColor = isDark ? 'rgba(237,232,227,0.55)' : 'rgba(26,10,0,0.45)'
+  // In node-gotra mode, replace the left border with a 3px gotra-colored accent.
+  const gotraAccentColor = gotraMode === 'node' ? gotraColor(person.gotra) : null
   const cardBorder      = isSelf
     ? '2px solid #EA580C'
-    : isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)'
+    : gotraAccentColor
+      ? `3px solid ${gotraAccentColor}`
+      : isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)'
   const cardShadow      = isNodeSelected
     ? `0 0 0 2.5px #EA580C, ${isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'}`
     : isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'
-
-  const gradId = `grad-${id}-${isDark ? 'd' : 'l'}`
 
   return (
     <motion.div
@@ -145,22 +157,23 @@ function PersonNode({ id, data, selected }: NodeProps) {
       {isSelf && (
         <div style={{
           background: '#EA580C', color: '#fff',
-          fontSize: '7px', fontWeight: 700, letterSpacing: '0.12em',
-          padding: '2px 8px', marginBottom: '5px',
+          fontSize: '7.5px', fontWeight: 700, letterSpacing: '0.16em',
+          padding: '2.5px 10px', marginBottom: '6px', borderRadius: 999,
           textTransform: 'uppercase' as const,
+          boxShadow: '0 1px 4px rgba(234,88,12,0.35)',
         }}>
-          {isViewerNode ? 'YOU' : 'VIEWING'}
+          {isViewerNode ? 'You' : 'Viewing'}
         </div>
       )}
       {isViewerNode && !isSelf && (
         <div style={{
           background: 'transparent', color: '#EA580C',
           border: '1px solid #EA580C',
-          fontSize: '7px', fontWeight: 700, letterSpacing: '0.12em',
-          padding: '2px 8px', marginBottom: '5px',
+          fontSize: '7.5px', fontWeight: 700, letterSpacing: '0.16em',
+          padding: '2.5px 10px', marginBottom: '6px', borderRadius: 999,
           textTransform: 'uppercase' as const,
         }}>
-          YOU
+          You
         </div>
       )}
 
@@ -172,6 +185,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
         style={{
           width: `${W}px`,
           height: `${PHOTO_H + STRIP_H}px`,
@@ -200,25 +214,13 @@ function PersonNode({ id, data, selected }: NodeProps) {
             <img src={photoUrl} alt={fullName}
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           ) : (
-            <svg width="0" height="0" style={{ position: 'absolute' }}>
-              <defs>
-                <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor={avatarFrom} />
-                  <stop offset="100%" stopColor={avatarTo} />
-                </linearGradient>
-              </defs>
-            </svg>
-          )}
-          {!photoUrl && (
             <div style={{
               width: '64px', height: '64px',
               borderRadius: '50%',
-              background: `url(#${gradId})`,
-              // fallback inline gradient since SVG defs don't work in div bg
               backgroundImage: `linear-gradient(135deg, ${avatarFrom}, ${avatarTo})`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'white', fontSize: '22px', fontWeight: 500,
-              letterSpacing: '0.02em',
+              color: 'white', fontSize: '21px', fontWeight: 600,
+              letterSpacing: '0.04em',
             }}>
               {getInitials(fullName)}
             </div>
@@ -249,25 +251,13 @@ function PersonNode({ id, data, selected }: NodeProps) {
           gap: '1px',
         }}>
           <div style={{
-            fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em',
-            textTransform: 'uppercase' as const,
-            color: t.text, textAlign: 'center',
+            fontSize: '13px', fontWeight: 600, letterSpacing: '0.01em',
+            color: t.text, textAlign: 'center', lineHeight: 1.15,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             maxWidth: `${W - 10}px`,
           }}>
             {firstName}
           </div>
-          {lastName && (
-            <div style={{
-              fontSize: '10px', fontWeight: 400, letterSpacing: '0.06em',
-              textTransform: 'uppercase' as const,
-              color: lastNameColor, textAlign: 'center',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              maxWidth: `${W - 10}px`,
-            }}>
-              {lastName}
-            </div>
-          )}
         </div>
       </motion.div>
 
@@ -277,9 +267,9 @@ function PersonNode({ id, data, selected }: NodeProps) {
 
       {relationshipToSelf && (
         <div style={{
-          fontSize: '8.5px', letterSpacing: '0.06em',
-          color: isDark ? '#7A6A5A' : '#D97706',
-          fontStyle: 'italic', textAlign: 'center', marginTop: '7px',
+          fontSize: '8.5px', fontWeight: 600, letterSpacing: '0.16em',
+          color: isDark ? '#8A7660' : '#B45309',
+          textAlign: 'center', marginTop: '7px',
           textTransform: 'uppercase' as const,
         }}>
           {relationshipToSelf}

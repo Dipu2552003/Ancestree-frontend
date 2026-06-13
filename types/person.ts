@@ -5,7 +5,6 @@ export interface PersonData {
   firstName?: string
   middleName?: string
   lastName?: string
-  nameNative?: string
   nickname?: string
   gender?: string
   gotra?: string
@@ -42,6 +41,7 @@ export interface PersonData {
   bio?: string
 
   photoUrl?: string
+  photoThumbnailUrl?: string
   nodeState: NodeState
   isSelf: boolean
   isViewerNode?: boolean
@@ -99,7 +99,6 @@ export interface SavePayload {
   firstName?: string | null
   middleName?: string | null
   lastName?: string | null
-  nameNative?: string | null
   nickname?: string | null
   gender?: string | null
   gotra?: string | null
@@ -136,6 +135,7 @@ export interface SavePayload {
   bio?: string | null
 
   photoUrl?: string | null
+  photoThumbnailUrl?: string | null
 }
 
 export type SpouseSubType =
@@ -152,4 +152,7 @@ export interface EdgeData {
   /** Family-bracket member IDs (all parents in the couple group, left-to-right).
    *  When >2, the bracket renders a single horizontal bar under everyone. */
   members?: string[]
+  /** Gotra of the source (parent/anchor) node — stamped by buildDisplayEdges.
+   *  Used by SketchEdge / FamilyEdge when gotraMode === 'edge'. */
+  sourceGotra?: string | null
 }

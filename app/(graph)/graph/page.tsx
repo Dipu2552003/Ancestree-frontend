@@ -16,8 +16,9 @@
 //   • Viewport fit          → hooks/useFitViewportOnLoad
 //   • Overlay prop builder  → lib/graph/buildOverlayProps
 
-import { useCallback, useMemo, Suspense } from 'react'
+import { useCallback, useEffect, useMemo, useState, Suspense } from 'react'
 import { ReactFlowProvider, useReactFlow } from '@xyflow/react'
+import { AnimatePresence } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import DotField from '@/components/graph/DotField'
 import Navbar from '@/components/graph/Navbar'
@@ -37,11 +38,14 @@ import { useFitViewportOnLoad } from '@/hooks/useFitViewportOnLoad'
 import { getTheme } from '@/lib/theme'
 import { api, type MergeConflict } from '@/lib/api'
 import { isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
-import { isDupDismissed } from '@/lib/storage'
+import { checkDeletable } from '@/lib/graph/deleteRules'
+import { isDupDismissed, getCommunityId } from '@/lib/storage'
+import FamilyAdminsPanel from '@/components/graph/FamilyAdminsPanel'
 import { buildOverlayProps } from '@/lib/graph/buildOverlayProps'
 import type { PersonData } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 import type { WizardExtras } from '@/components/graph/AddNodeWizard'
+import type { SearchResult } from '@/lib/api'
 
 function asPersonData(data: unknown): PersonData {
   return data as PersonData
@@ -69,6 +73,12 @@ function GraphInner() {
 
   const s = useGraphPageState()
 
+  // Community mode — set after mount (JWT lives in localStorage). When set,
+  // the family badge becomes clickable and opens the admin list panel.
+  const [communityId, setCommunityId] = useState<string | null>(null)
+  useEffect(() => { setCommunityId(getCommunityId()) }, [])
+  const [adminsPanelOpen, setAdminsPanelOpen] = useState(false)
+
   const {
     nodes, edges, rawNodes, rawEdges,
     setNodes, setEdges,
@@ -91,7 +101,7 @@ function GraphInner() {
   )
 
   const { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation } = useNodeActions(
-    edges, setNodes, setEdges, fetchGraph, s.selectedNodeId, s.setSelectedNodeId,
+    rawNodes, rawEdges, setNodes, setEdges, fetchGraph, s.selectedNodeId, s.setSelectedNodeId,
     (newPersonId, matches, myInfo) => {
       if (isDupDismissed(newPersonId)) return
       s.setDuplicateInfo({ newPersonId, matches, myInfo })
@@ -128,7 +138,21 @@ function GraphInner() {
   const selectedNode      = s.selectedNodeId ? nodes.find(n => n.id === s.selectedNodeId) ?? null : null
   const selectedNodeName  = asPersonData(selectedNode?.data)?.fullName ?? ''
   const selectedIsSelf    = asPersonData(selectedNode?.data)?.isSelf ?? false
-  const canDeleteSelected = !!s.selectedNodeId && !selectedIsSelf
+  const selectedIsClaimed = asPersonData(selectedNode?.data)?.nodeState === 'claimed'
+  // Deletable = not you, not a claimed account, and an edge node — removing
+  // them must not split the tree (see lib/graph/deleteRules.ts).
+  const deleteCheck = useMemo(
+    () => s.selectedNodeId ? checkDeletable(s.selectedNodeId, rawNodes, rawEdges) : null,
+    [s.selectedNodeId, rawNodes, rawEdges],
+  )
+  const canDeleteSelected = !!s.selectedNodeId && !selectedIsSelf && !selectedIsClaimed
+    && (deleteCheck?.deletable ?? false)
+  const deleteDisabledReason = !s.selectedNodeId ? undefined
+    : selectedIsSelf            ? 'You cannot remove your own node'
+    : selectedIsClaimed         ? 'Claimed profiles cannot be removed'
+    : deleteCheck?.deletable === false
+      ? 'Connects other family members — remove the people beyond them first'
+      : undefined
 
   const canvasReady = useFitViewportOnLoad({
     graphLoading,
@@ -158,6 +182,16 @@ function GraphInner() {
     s.setPanelMode('edit')
   }, [onAddRelation, s])
 
+  const handleWizardAddForMerge = useCallback(async (action: RelAction, match: SearchResult) => {
+    const personId = await onAddRelation(action, match.full_name, {})
+    if (personId) {
+      try { await api.merges.create({ new_person_id: personId, canonical_person_id: match.id }) }
+      catch { /* merge request non-critical — proxy node already created */ }
+    }
+    s.setWizardAction(null)
+    s.setPanelMode('edit')
+  }, [onAddRelation, s])
+
   const onMergeAccepted = useCallback((conflicts: MergeConflict[]) => {
     // Use resetAndFetch so collapse state is recomputed to include the newly-added family unit.
     resetAndFetch()
@@ -181,11 +215,12 @@ function GraphInner() {
   const overlays = buildOverlayProps({
     s, selectedNode, selectedNodeName, matchHighlightNode, anchorRealId,
     nodes, edges, rawNodes, rawEdges,
-    router, fetchGraph, onUpdateNode, onSaveNode, handleWizardAdd, onMergeAccepted,
+    router, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
+    handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
   })
 
   return (
-    <div style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: t.pageBg, transition: 'background 0.4s' }}>
+    <div className="app-viewport" style={{ position: 'relative', overflow: 'hidden', background: t.pageBg, transition: 'background 0.4s' }}>
       <DotField isDark={isDark} />
 
       <GraphCanvasArea
@@ -230,9 +265,27 @@ function GraphInner() {
         isMobile={isMobile}
         hudOffset={hudOffset}
         onToggleTheme={() => setIsDark(!isDark)}
-        onToggleNotif={() => s.setNotifPanelOpen(v => !v)}
+        onToggleNotif={() => { s.setHistoryPanelOpen(false); setAdminsPanelOpen(false); s.setNotifPanelOpen(v => !v) }}
+        onToggleHistory={() => { s.setNotifPanelOpen(false); setAdminsPanelOpen(false); s.setHistoryPanelOpen(v => !v) }}
         onSelectPerson={handleSearchSelect}
+        onFamilyClick={communityId ? () => {
+          s.setNotifPanelOpen(false)
+          s.setHistoryPanelOpen(false)
+          setAdminsPanelOpen(v => !v)
+        } : undefined}
       />
+
+      {/* Family admin list — community mode only */}
+      <AnimatePresence>
+        {adminsPanelOpen && (
+          <FamilyAdminsPanel
+            isDark={isDark}
+            familyName={familyName}
+            rawNodes={rawNodes}
+            onClose={() => setAdminsPanelOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {perspectiveId && isExploration && s.pendingMatch && (
         <ExplorationBanner
@@ -251,6 +304,8 @@ function GraphInner() {
         selectedNodeId={s.selectedNodeId}
         selectedNodeName={selectedNodeName}
         canDeleteSelected={canDeleteSelected}
+        deleteDisabledReason={deleteDisabledReason}
+        deleteChildrenNote={deleteCheck?.childrenStayWith ?? null}
         panelMode={s.panelMode}
         onHome={onHome}
         onStartWizard={action => {

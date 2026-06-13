@@ -1,13 +1,15 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { IconArrowLeft, IconEdit } from '@tabler/icons-react'
+import {
+  IconArrowLeft, IconEdit, IconPhone, IconBrandWhatsapp, IconMail, IconMapPin,
+} from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Node } from '@xyflow/react'
 import type { PersonData } from '@/types'
-import { getTheme } from '@/lib/theme'
+import { getTheme, type Theme } from '@/lib/theme'
 import { Z } from '@/lib/zIndex'
 import { getInitials } from '@/lib/format/initials'
 
@@ -22,13 +24,25 @@ const EASE = [0.25, 0.1, 0.25, 1] as const
 
 const cap = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '')
 
+function fmtDate(iso?: string): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return null
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 export default function PersonProfileView({ node, onBack, onEdit }: PersonProfileViewProps) {
   const { isDark } = useGraphStore()
   const isMobile = useIsMobile()
   const d = node.data as unknown as PersonData
   const {
-    fullName, birthYear, deathYear, isDeceased, isSelf, relationshipToSelf,
-    photoUrl, nodeState, gender, gotra, religion, nativeVillage, currentCity, occupation,
+    fullName, nickname, birthDate, birthYear, birthPlace, deathDate, deathYear,
+    deathPlace, isDeceased, isSelf, relationshipToSelf, photoUrl,
+    photoThumbnailUrl, nodeState, gender, gotra, religion, bio,
+    phone, whatsapp, email,
+    currentAddress, currentCity, currentState, currentCountry, currentPincode,
+    nativeVillage, nativeTehsil, nativeDistrict, nativeState, nativeCountry,
+    occupation, occupationDetail, education,
   } = d
 
   // Move focus to the "Back" button after the entry animation settles.
@@ -38,7 +52,7 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
     return () => clearTimeout(id)
   }, [])
 
-  // Avatar / hero gradient (mirrors PersonNode logic)
+  // Avatar gradient (mirrors PersonNode state logic) — used for the initials fallback.
   let gFrom = '#C4A882', gTo = '#9A7B5A'
   if (isSelf)                       { gFrom = '#EA580C'; gTo = '#C2410C' }
   else if (isDeceased)              { gFrom = '#94A3B8'; gTo = '#64748B' }
@@ -47,32 +61,8 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
 
   const t        = getTheme(isDark)
   const labelCol = isDark ? '#7A6A52' : '#B5956A'
-
-  const age = !birthYear
-    ? '—'
-    : isDeceased && deathYear
-      ? `${deathYear - birthYear} yrs`
-      : `${CURRENT_YEAR - birthYear} yrs`
-
-  const lifespan = !birthYear
-    ? '—'
-    : isDeceased && deathYear
-      ? `${birthYear} – ${deathYear}`
-      : `${birthYear} – present`
-
-  // Build the details grid — only include fields that have a value.
-  const details = [
-    { label: 'Age',            value: age },
-    { label: 'Lifespan',       value: lifespan },
-    { label: 'Status',         value: isDeceased ? 'Deceased' : 'Alive' },
-    { label: 'Relation',       value: isSelf ? 'You' : (relationshipToSelf || '—') },
-    gotra         && { label: 'Gotra',          value: gotra },
-    nativeVillage && { label: 'Native village', value: nativeVillage },
-    gender        && { label: 'Gender',         value: cap(gender) },
-    religion      && { label: 'Religion',       value: cap(religion) },
-    occupation    && { label: 'Occupation',     value: occupation },
-    currentCity   && { label: 'City',           value: currentCity },
-  ].filter(Boolean) as { label: string; value: string }[]
+  const hairline = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+  const accent   = '#EA580C'
 
   // nodeState pill copy
   const statePill = isSelf
@@ -83,16 +73,73 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
         ? { text: 'Invite sent', bg: isDark ? 'rgba(234,179,8,0.16)' : '#FFFBEB', fg: isDark ? '#FCD34D' : '#B45309' }
         : { text: 'Not on Ancestree yet', bg: isDark ? 'rgba(255,255,255,0.06)' : '#F4F1EC', fg: t.textMuted }
 
-  // ── Responsive sizing ──
-  const heroH      = isMobile ? 210 : 300
-  const polaroidW  = isMobile ? 168 : 224
-  const photoH     = Math.round(polaroidW * 1.08)
-  const framePad   = isMobile ? 9 : 12
-  const captionH   = isMobile ? 38 : 46
-  const polaroidH  = photoH + framePad + captionH
-  const overlap    = Math.round(polaroidH * 0.52)
+  // ── Derived copy ──
+  const subtitle = [isSelf ? 'This is you' : relationshipToSelf, occupation]
+    .filter(Boolean).join('  ·  ')
 
-  const caption = isSelf ? 'You' : (relationshipToSelf || fullName.split(/\s+/)[0])
+  const vitals = birthYear
+    ? isDeceased
+      ? `${birthYear} – ${deathYear ?? '?'}${deathYear ? `  ·  lived ${deathYear - birthYear} years` : ''}`
+      : `${birthYear} – present  ·  ${CURRENT_YEAR - birthYear} years old`
+    : null
+
+  const address = [currentAddress, currentCity, currentState, currentPincode, currentCountry]
+    .filter(Boolean).join(', ')
+
+  const contacts = [
+    phone    && { icon: <IconPhone size={15} stroke={2.2} />,         text: phone,    href: `tel:${phone}` },
+    whatsapp && { icon: <IconBrandWhatsapp size={15} stroke={2.2} />, text: whatsapp, href: `https://wa.me/${whatsapp.replace(/\D/g, '')}` },
+    email    && { icon: <IconMail size={15} stroke={2.2} />,          text: email,    href: `mailto:${email}` },
+    address  && { icon: <IconMapPin size={15} stroke={2.2} />,        text: address },
+  ].filter(Boolean) as { icon: ReactNode; text: string; href?: string }[]
+
+  const born = [fmtDate(birthDate) ?? (birthYear ? String(birthYear) : null), birthPlace]
+    .filter(Boolean).join('  ·  ')
+  const passed = [fmtDate(deathDate) ?? (deathYear ? String(deathYear) : null), deathPlace]
+    .filter(Boolean).join('  ·  ')
+
+  const lifeRows = [
+    born   && { label: 'Born',        value: born },
+    isDeceased && passed && { label: 'Passed away', value: passed },
+    { label: 'Status', value: isDeceased ? 'Deceased' : 'Alive' },
+  ].filter(Boolean) as { label: string; value: string }[]
+
+  const workRows = [
+    occupation       && { label: 'Occupation', value: occupation },
+    occupationDetail && { label: 'Works at',   value: occupationDetail },
+    education        && { label: 'Education',  value: education },
+  ].filter(Boolean) as { label: string; value: string }[]
+
+  const identityRows = [
+    { label: 'Relation', value: isSelf ? 'You' : (relationshipToSelf || '—') },
+    nickname && { label: 'Nickname', value: nickname },
+    gender   && { label: 'Gender',   value: cap(gender) },
+    religion && { label: 'Religion', value: cap(religion) },
+    gotra    && { label: 'Gotra',    value: gotra },
+  ].filter(Boolean) as { label: string; value: string }[]
+
+  const nativeRows = [
+    nativeVillage  && { label: 'Village',  value: nativeVillage },
+    nativeTehsil   && { label: 'Tehsil',   value: nativeTehsil },
+    nativeDistrict && { label: 'District', value: nativeDistrict },
+    nativeState    && { label: 'State',    value: nativeState },
+    nativeCountry  && { label: 'Country',  value: nativeCountry },
+  ].filter(Boolean) as { label: string; value: string }[]
+
+  // ── Polaroid sizing — same proportions as the canvas node cards ──
+  const polaroidW = isMobile ? 184 : 236
+  const photoH    = Math.round(polaroidW * 1.12)
+  const framePad  = isMobile ? 10 : 12
+  const captionH  = isMobile ? 40 : 48
+  const photoSrc  = photoUrl || photoThumbnailUrl
+  const caption   = fullName.split(/\s+/)[0]
+
+  const sections = [
+    { title: 'Life', rows: lifeRows },
+    workRows.length     > 0 && { title: 'Work & Education', rows: workRows },
+    identityRows.length > 0 && { title: 'Identity',         rows: identityRows },
+    nativeRows.length   > 0 && { title: 'Native Place',     rows: nativeRows },
+  ].filter(Boolean) as { title: string; rows: { label: string; value: string }[] }[]
 
   return (
     <motion.div
@@ -103,217 +150,286 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
       transition={{ duration: 0.5, ease: EASE }}
       style={{
         position: 'fixed', inset: 0, zIndex: Z.fullscreen,
-        background: t.pageBg, overflowY: 'auto',
+        background: t.pageBg, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
       }}
     >
-      {/* ── Gradient hero band ── */}
-      <div style={{ position: 'relative', height: heroH, overflow: 'hidden', flexShrink: 0 }}>
-        <motion.div
-          initial={{ scale: 1.08 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.7, ease: EASE }}
-          style={{
-            position: 'absolute', inset: 0,
-            background: `linear-gradient(135deg, ${gFrom} 0%, ${gTo} 100%)`,
-          }}
-        >
-          {/* soft radial highlight for depth */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,0.28), transparent 55%)',
-          }} />
-          {/* oversized monogram watermark */}
-          <span style={{
-            position: 'absolute', right: isMobile ? -10 : 24, top: isMobile ? -28 : -48,
-            fontSize: isMobile ? 200 : 300, fontWeight: 800, lineHeight: 1,
-            color: 'rgba(255,255,255,0.12)', letterSpacing: '-0.04em',
-            userSelect: 'none', pointerEvents: 'none',
-          }}>
-            {getInitials(fullName).charAt(0)}
-          </span>
-        </motion.div>
-
-        {/* fade hero into page background */}
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, height: '55%',
-          background: `linear-gradient(to bottom, transparent, ${t.pageBg})`,
+      {/* Back + Edit — sticky so they're always reachable while reading */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.35 }}
+        style={{
+          position: 'sticky', top: 0, zIndex: 5,
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: isMobile ? '12px 14px' : '16px 20px',
           pointerEvents: 'none',
-        }} />
-
-        {/* Back + Edit */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.35 }}
-          style={{ position: 'absolute', top: isMobile ? 14 : 20, left: isMobile ? 14 : 20, right: isMobile ? 14 : 'auto', display: 'flex', alignItems: 'center', gap: 8 }}
-        >
-          <button
-            ref={backRef}
-            onClick={onBack}
-            style={glassBtn(t, isDark, t.text)}
-          >
-            <IconArrowLeft size={15} /> Back to tree
+        }}
+      >
+        <button ref={backRef} onClick={onBack} style={{ ...glassBtn(t, isDark, t.text), pointerEvents: 'auto' }}>
+          <IconArrowLeft size={15} /> Back to tree
+        </button>
+        {onEdit && (
+          <button onClick={onEdit} style={{ ...glassBtn(t, isDark, accent), pointerEvents: 'auto' }}>
+            <IconEdit size={15} /> Edit
           </button>
-          {onEdit && (
-            <button onClick={onEdit} style={glassBtn(t, isDark, '#EA580C')}>
-              <IconEdit size={15} /> Edit
-            </button>
-          )}
-        </motion.div>
-      </div>
+        )}
+      </motion.div>
 
-      {/* ── Polaroid + identity ── */}
       <div style={{
-        maxWidth: 720, margin: '0 auto',
-        padding: isMobile ? `0 16px ${48}px` : `0 28px 72px`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        maxWidth: 840, margin: '0 auto',
+        padding: isMobile ? '8px 20px 56px' : '24px 32px 88px',
       }}>
-        {/* Polaroid photo card */}
-        <motion.div
-          initial={{ opacity: 0, y: 24, rotate: -6, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, rotate: -1.6, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 220, damping: 20, delay: 0.12 }}
-          whileHover={{ rotate: 0, scale: 1.02 }}
-          style={{
-            marginTop: -overlap,
-            background: '#FFFFFF',
-            padding: `${framePad}px ${framePad}px 0`,
-            borderRadius: 4,
-            boxShadow: '0 18px 50px rgba(0,0,0,0.32), 0 4px 14px rgba(0,0,0,0.18)',
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ width: polaroidW, height: photoH, overflow: 'hidden', background: '#EDE6DC', position: 'relative' }}>
-            {photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={photoUrl} alt={fullName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            ) : (
-              <div style={{
-                width: '100%', height: '100%',
-                background: `linear-gradient(150deg, ${gFrom}, ${gTo})`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontSize: polaroidW * 0.32, fontWeight: 700, letterSpacing: '-0.02em',
-              }}>
-                {getInitials(fullName)}
-              </div>
-            )}
-            {isDeceased && (
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.18)', mixBlendMode: 'multiply' }} />
-            )}
-          </div>
-          {/* caption strip */}
-          <div style={{
-            height: captionH, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#3A2A1A', fontSize: isMobile ? 13 : 14.5, fontWeight: 600,
-            fontStyle: 'italic', letterSpacing: '0.01em',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: polaroidW,
-          }}>
-            {caption}
-          </div>
-        </motion.div>
-
-        {/* Name */}
-        <motion.h1
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.26, duration: 0.45, ease: EASE }}
-          style={{
-            margin: isMobile ? '20px 0 0' : '26px 0 0',
-            fontSize: isMobile ? 28 : 38, fontWeight: 800, color: t.text,
-            letterSpacing: '-0.025em', lineHeight: 1.1, textAlign: 'center',
-          }}
-        >
-          {fullName}
-        </motion.h1>
-
-        {/* state pill */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.32, duration: 0.4 }}
-          style={{ marginTop: 10 }}
-        >
-          <span style={{
-            display: 'inline-block', padding: '5px 14px', borderRadius: 999,
-            background: statePill.bg, color: statePill.fg,
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-          }}>
-            {statePill.text}
-          </span>
-        </motion.div>
-
-        {/* ── Details grid ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.34, duration: 0.5, ease: EASE }}
-          style={{ width: '100%', marginTop: isMobile ? 28 : 40 }}
-        >
-          <div style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: labelCol, marginBottom: 12, textAlign: 'center',
-          }}>
-            Details
-          </div>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
-            gap: isMobile ? 10 : 12,
-          }}>
-            {details.map(({ label, value }, i) => (
-              <motion.div
-                key={label}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.36 + i * 0.04 }}
-                style={{
-                  background: t.cardBg,
-                  border: `1px solid ${t.border}`,
-                  borderRadius: 12,
-                  padding: isMobile ? '13px 14px' : '15px 17px',
-                }}
-              >
+        {/* ── Header: polaroid + identity ── */}
+        <div style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: 'center',
+          gap: isMobile ? 24 : 48,
+        }}>
+          {/* Polaroid photo card — the same artifact as the node on the canvas */}
+          <motion.div
+            initial={{ opacity: 0, y: 24, rotate: -6, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, rotate: -2, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 20, delay: 0.12 }}
+            whileHover={{ rotate: 0, scale: 1.02 }}
+            style={{
+              background: '#FFFFFF',
+              padding: `${framePad}px ${framePad}px 0`,
+              borderRadius: 4,
+              boxShadow: '0 16px 44px rgba(0,0,0,0.22), 0 4px 12px rgba(0,0,0,0.12)',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ width: polaroidW, height: photoH, overflow: 'hidden', background: '#EDE6DC', position: 'relative' }}>
+              {photoSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photoSrc} alt={fullName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ) : (
                 <div style={{
-                  fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em',
-                  color: labelCol, marginBottom: 7, fontWeight: 600,
+                  width: '100%', height: '100%',
+                  background: `linear-gradient(150deg, ${gFrom}, ${gTo})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: polaroidW * 0.3, fontWeight: 700, letterSpacing: '-0.02em',
                 }}>
-                  {label}
+                  {getInitials(fullName)}
                 </div>
-                <div style={{
-                  fontSize: isMobile ? 14.5 : 15.5, fontWeight: 600, color: t.text,
-                  lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }} title={value}>
-                  {value}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Deceased memorial note */}
-          {isDeceased && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
+              )}
+              {isDeceased && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.18)', mixBlendMode: 'multiply' }} />
+              )}
+            </div>
+            {/* caption strip */}
+            <div
               style={{
-                marginTop: 14, padding: '14px 18px', borderRadius: 12,
-                background: isDark ? '#18100A' : '#FFF0E6',
-                border: `1px solid ${isDark ? 'rgba(160,80,30,0.18)' : '#FDDCBC'}`,
-                fontSize: 13, color: t.textMuted, fontStyle: 'italic',
-                textAlign: 'center', letterSpacing: '0.01em',
+                height: captionH, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#3A2A1A', fontSize: isMobile ? 14 : 15.5, fontWeight: 600, fontStyle: 'italic',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: polaroidW,
               }}
             >
+              {caption}
+            </div>
+          </motion.div>
+
+          {/* Name + vitals + contact */}
+          <div style={{
+            flex: 1, minWidth: 0,
+            display: 'flex', flexDirection: 'column',
+            alignItems: isMobile ? 'center' : 'flex-start',
+            textAlign: isMobile ? 'center' : 'left',
+          }}>
+            <Reveal i={0}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: isMobile ? 'clamp(28px, 8.5vw, 36px)' : 'clamp(32px, 4.6vw, 44px)',
+                  fontWeight: 900, color: t.text, lineHeight: 1.08, letterSpacing: '-0.02em',
+                  overflowWrap: 'break-word',
+                }}
+              >
+                {fullName}
+              </h1>
+            </Reveal>
+
+            {nickname && (
+              <Reveal i={1}>
+                <div style={{
+                  marginTop: 5, fontSize: isMobile ? 15 : 17, fontStyle: 'italic',
+                  fontWeight: 600, color: t.textMuted,
+                }}>
+                  “{nickname}”
+                </div>
+              </Reveal>
+            )}
+
+            {subtitle && (
+              <Reveal i={1}>
+                <div style={{
+                  marginTop: 9, fontSize: isMobile ? 14 : 15.5, fontWeight: 600,
+                  color: isDark ? '#C4946A' : '#9A5B2C', letterSpacing: '0.01em',
+                }}>
+                  {subtitle}
+                </div>
+              </Reveal>
+            )}
+
+            {vitals && (
+              <Reveal i={2}>
+                <div style={{ marginTop: 7, fontSize: isMobile ? 12.5 : 13.5, color: t.textMuted }}>
+                  {vitals}
+                </div>
+              </Reveal>
+            )}
+
+            <Reveal i={2}>
+              <span style={{
+                display: 'inline-block', marginTop: 14, padding: '5px 14px', borderRadius: 999,
+                background: statePill.bg, color: statePill.fg,
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+              }}>
+                {statePill.text}
+              </span>
+            </Reveal>
+
+            {contacts.length > 0 && (
+              <Reveal i={3}>
+                <div style={{
+                  marginTop: 18, display: 'flex', flexDirection: 'column', gap: 9,
+                  alignItems: isMobile ? 'center' : 'flex-start',
+                }}>
+                  {contacts.map(({ icon, text, href }) => {
+                    const row = (
+                      <span style={{ display: 'flex', alignItems: 'flex-start', gap: 9, minWidth: 0 }}>
+                        <span style={{ color: accent, flexShrink: 0, marginTop: 2 }}>{icon}</span>
+                        <span style={{
+                          fontSize: 13.5, fontWeight: 500, color: t.text,
+                          lineHeight: 1.45, overflowWrap: 'anywhere',
+                          textAlign: isMobile ? 'center' : 'left',
+                        }}>
+                          {text}
+                        </span>
+                      </span>
+                    )
+                    return href
+                      ? <a key={text} href={href} style={{ textDecoration: 'none' }}>{row}</a>
+                      : <div key={text}>{row}</div>
+                  })}
+                </div>
+              </Reveal>
+            )}
+          </div>
+        </div>
+
+        {/* ── About ── */}
+        {bio && (
+          <Reveal i={4}>
+            <div style={{ marginTop: isMobile ? 36 : 52 }}>
+              <SectionLabel text="About" color={labelCol} hairline={hairline} />
+              <p style={{
+                margin: 0, fontSize: isMobile ? 14 : 15, lineHeight: 1.7, color: t.text,
+                whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
+              }}>
+                {bio}
+              </p>
+            </div>
+          </Reveal>
+        )}
+
+        {/* ── Detail sections — two columns on desktop ── */}
+        <div style={{
+          marginTop: isMobile ? 36 : 52,
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+          columnGap: 56,
+          rowGap: isMobile ? 32 : 40,
+          alignItems: 'start',
+        }}>
+          {sections.map((s, i) => (
+            <Reveal key={s.title} i={5 + i}>
+              <section>
+                <SectionLabel text={s.title} color={labelCol} hairline={hairline} />
+                {s.rows.map((r) => (
+                  <InfoRow key={r.label} label={r.label} value={r.value} t={t} labelCol={labelCol} hairline={hairline} />
+                ))}
+              </section>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Deceased memorial note */}
+        {isDeceased && (
+          <Reveal i={9}>
+            <div style={{
+              marginTop: isMobile ? 32 : 44, padding: '14px 18px', borderRadius: 12,
+              background: isDark ? '#18100A' : '#FFF0E6',
+              border: `1px solid ${isDark ? 'rgba(160,80,30,0.18)' : '#FDDCBC'}`,
+              fontSize: 13, color: t.textMuted, fontStyle: 'italic',
+              textAlign: 'center', letterSpacing: '0.01em',
+            }}>
               In loving memory
-            </motion.div>
-          )}
-        </motion.div>
+            </div>
+          </Reveal>
+        )}
       </div>
     </motion.div>
   )
 }
 
-function glassBtn(t: ReturnType<typeof getTheme>, isDark: boolean, color: string): React.CSSProperties {
+/* ── Pieces ── */
+
+function Reveal({ i, children }: { i: number; children: ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.16 + i * 0.06, duration: 0.45, ease: EASE }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+function SectionLabel({ text, color, hairline }: { text: string; color: string; hairline: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10,
+    }}>
+      <span style={{
+        fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em',
+        textTransform: 'uppercase', color, flexShrink: 0,
+      }}>
+        {text}
+      </span>
+      <span style={{ height: 1, background: hairline, flex: 1 }} />
+    </div>
+  )
+}
+
+function InfoRow({ label, value, t, labelCol, hairline }: {
+  label: string
+  value: string
+  t: Theme
+  labelCol: string
+  hairline: string
+}) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      gap: 16, padding: '9px 0', borderBottom: `1px solid ${hairline}`,
+    }}>
+      <span style={{ fontSize: 12.5, fontWeight: 500, color: labelCol, flexShrink: 0 }}>
+        {label}
+      </span>
+      <span style={{
+        fontSize: 13.5, fontWeight: 600, color: t.text,
+        textAlign: 'right', overflowWrap: 'anywhere',
+      }}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function glassBtn(t: Theme, isDark: boolean, color: string): React.CSSProperties {
   return {
     display: 'flex', alignItems: 'center', gap: 7,
     background: isDark ? 'rgba(10,8,6,0.55)' : 'rgba(255,251,244,0.78)',

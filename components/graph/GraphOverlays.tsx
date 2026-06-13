@@ -19,6 +19,7 @@ import NodePanel from './NodePanel'
 import PersonProfileView from './PersonProfileView'
 import DuplicateFoundModal from './DuplicateFoundModal'
 import NotificationPanel from './NotificationPanel'
+import HistoryPanel from './HistoryPanel'
 import MergeConflictModal from './merge/MergeConflictModal'
 import MergeComparisonPanel from './merge/MergeComparisonPanel'
 import MergeSearchModal from './merge/MergeSearchModal'
@@ -27,7 +28,7 @@ import SecondSpouseWizard from './SecondSpouseWizard'
 import type { WizardExtras } from './AddNodeWizard'
 import type { ExistingSpouse, ExistingChild } from './SecondSpouseWizard'
 import type { PersonData, PendingMatchData, MyPersonInfo, SavePayload } from '@/types'
-import type { PotentialMatch, MergeConflict } from '@/lib/api'
+import type { PotentialMatch, MergeConflict, SearchResult } from '@/lib/api'
 import type { RelAction } from './Navbar'
 
 // ── Prop bundles ─────────────────────────────────────────────────────────────
@@ -75,6 +76,11 @@ export interface NotifOverlay {
   onMergeAccepted: (conflicts: MergeConflict[]) => void
 }
 
+export interface HistoryOverlay {
+  onClose:  () => void
+  onUndone: () => Promise<void> | void
+}
+
 export interface ConflictOverlay {
   conflicts: MergeConflict[]
   nodes:     Node[]
@@ -95,12 +101,13 @@ export interface ComparisonOverlay {
 }
 
 export interface WizardOverlay {
-  relAction:     RelAction
-  anchorName:    string
-  motherOptions: { id: string; name: string; gender?: string; photoUrl?: string }[]
-  fatherName:    string | undefined
-  onAdd:         (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
-  onClose:       () => void
+  relAction:      RelAction
+  anchorName:     string
+  motherOptions:  { id: string; name: string; gender?: string; photoUrl?: string }[]
+  fatherName:     string | undefined
+  onAdd:          (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
+  onAddForMerge?: (action: RelAction, match: SearchResult) => Promise<void>
+  onClose:        () => void
 }
 
 export interface SecondSpouseOverlay {
@@ -125,6 +132,7 @@ interface GraphOverlaysProps {
   viewPanel:      ViewPanelOverlay      | null
   duplicate:      DuplicateOverlay      | null
   notif:          NotifOverlay          | null
+  history:        HistoryOverlay        | null
   conflict:       ConflictOverlay       | null
   comparison:     ComparisonOverlay     | null
   wizard:         WizardOverlay         | null
@@ -133,7 +141,7 @@ interface GraphOverlaysProps {
 }
 
 export default function GraphOverlays({
-  isDark, contextMenu, editPanel, viewPanel, duplicate, notif,
+  isDark, contextMenu, editPanel, viewPanel, duplicate, notif, history,
   conflict, comparison, wizard, secondSpouse, mergeSearch,
 }: GraphOverlaysProps) {
   return (
@@ -213,6 +221,18 @@ export default function GraphOverlays({
         )}
       </AnimatePresence>
 
+      {/* History panel — operation log with undo, slides in from right */}
+      <AnimatePresence>
+        {history && (
+          <HistoryPanel
+            key="history-panel"
+            isDark={isDark}
+            onClose={history.onClose}
+            onUndone={history.onUndone}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Merge conflict modal — blocks until dismissed so user can't miss it */}
       {conflict && (
         <MergeConflictModal
@@ -255,6 +275,7 @@ export default function GraphOverlays({
             motherOptions={wizard.motherOptions}
             fatherName={wizard.fatherName}
             onAdd={wizard.onAdd}
+            onAddForMerge={wizard.onAddForMerge}
             onClose={wizard.onClose}
           />
         )}

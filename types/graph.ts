@@ -4,7 +4,6 @@ export type RelationshipType = 'PARENT_OF' | 'SPOUSE_OF' | 'SIBLING_OF'
 export interface Person {
   id: string
   fullName: string
-  nameNative?: string
   birthYear?: number
   deathYear?: number
   isAlive: boolean

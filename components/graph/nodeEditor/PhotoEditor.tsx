@@ -1,20 +1,20 @@
 'use client'
 
-// PhotoEditor — circular photo upload control + "Remove photo" button below.
-// Manages its own hover + uploading state; the parent only sees the resulting
-// data URL via `onChange`. Compression is done with the shared compressPhoto
-// helper (max 480px JPEG).
+// PhotoEditor — photo upload control + "Remove photo" button below. Picking a
+// file opens PhotoCropModal so the user can centre and resize before saving;
+// the parent receives the cropped photo + thumbnail data URLs via `onChange`.
 
 import { useRef, useState } from 'react'
-import { IconCamera, IconLoader2, IconTrash } from '@tabler/icons-react'
+import { IconCamera, IconTrash } from '@tabler/icons-react'
 import { getTheme } from '@/lib/theme'
-import { compressPhoto } from '@/lib/image'
+import PhotoCropModal from './PhotoCropModal'
 
 interface PhotoEditorProps {
   photoUrl?: string
   altName?:  string
   isDark:    boolean
-  onChange:  (dataUrl: string | undefined) => void
+  /** Called with the main photo and a small thumbnail; both undefined on remove. */
+  onChange:  (dataUrl: string | undefined, thumbUrl: string | undefined) => void
 }
 
 export default function PhotoEditor({ photoUrl, altName, isDark, onChange }: PhotoEditorProps) {
@@ -23,8 +23,13 @@ export default function PhotoEditor({ photoUrl, altName, isDark, onChange }: Pho
   const labelCol = isDark ? '#7A6A52' : '#9A3412'
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [photoHovered,   setPhotoHovered]   = useState(false)
-  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoHovered, setPhotoHovered] = useState(false)
+  const [cropSrc,      setCropSrc]      = useState<string | null>(null)
+
+  const closeCrop = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px 0' }}>
@@ -34,7 +39,6 @@ export default function PhotoEditor({ photoUrl, altName, isDark, onChange }: Pho
         onMouseEnter={() => setPhotoHovered(true)}
         onMouseLeave={() => setPhotoHovered(false)}
         aria-label={photoUrl ? 'Change photo' : 'Add photo'}
-        aria-busy={photoUploading}
         style={{
           width: '80px', height: '80px', borderRadius: '6px',
           background: btn1Bg, border: `2px dashed ${photoHovered ? '#FB923C' : t.border}`,
@@ -44,9 +48,7 @@ export default function PhotoEditor({ photoUrl, altName, isDark, onChange }: Pho
           padding: 0, fontFamily: 'inherit',
         }}
       >
-        {photoUploading ? (
-          <IconLoader2 size={20} color="#EA580C" style={{ animation: 'spin 0.8s linear infinite' }} />
-        ) : photoUrl ? (
+        {photoUrl ? (
           <>
             <img src={photoUrl} alt={`Photo of ${altName ?? ''}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <div style={{
@@ -69,22 +71,29 @@ export default function PhotoEditor({ photoUrl, altName, isDark, onChange }: Pho
         type="file"
         accept="image/*"
         style={{ display: 'none' }}
-        onChange={async e => {
+        onChange={e => {
           const file = e.target.files?.[0]
           if (!file) return
-          setPhotoUploading(true)
-          try {
-            const dataUrl = await compressPhoto(file)
-            onChange(dataUrl)
-          } finally {
-            setPhotoUploading(false)
-            e.target.value = ''
-          }
+          if (!file.type.startsWith('image/')) { e.target.value = ''; return }
+          setCropSrc(URL.createObjectURL(file))
+          e.target.value = ''
         }}
       />
+
+      {cropSrc && (
+        <PhotoCropModal
+          src={cropSrc}
+          isDark={isDark}
+          onCancel={closeCrop}
+          onApply={(photo, thumb) => {
+            onChange(photo, thumb)
+            closeCrop()
+          }}
+        />
+      )}
       {photoUrl && (
         <button
-          onClick={() => onChange(undefined)}
+          onClick={() => onChange(undefined, undefined)}
           style={{ marginTop: '5px', background: 'none', border: 'none', fontSize: '10px', color: labelCol, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}
         >
           <IconTrash size={10} /> Remove photo

@@ -15,6 +15,7 @@ import type { Draft } from './draft'
 export interface FieldOpts {
   type?: string
   half?: boolean
+  inputMode?: 'numeric' | 'tel' | 'email' | 'decimal' | 'text'
 }
 
 export interface FormApi {
@@ -54,7 +55,7 @@ export function buildFormApi({
 
   const inputStyle = (key: string): React.CSSProperties => ({
     width: '100%', height: '36px',
-    border: `1.5px solid ${nameError && key === 'fullName' ? '#EF4444' : focused === key ? '#FB923C' : t.border}`,
+    border: `1.5px solid ${nameError && key === 'firstName' ? '#EF4444' : focused === key ? '#FB923C' : t.border}`,
     borderRadius: '8px', padding: '0 10px', fontSize: '13px',
     color: t.text, background: t.inputBg, outline: 'none',
     fontFamily: 'inherit', boxSizing: 'border-box',
@@ -72,6 +73,7 @@ export function buildFormApi({
       <label style={labelStyle}>{label}</label>
       <input
         type={opts?.type ?? 'text'}
+        inputMode={opts?.inputMode}
         value={draft[key] as string}
         onChange={set(key)}
         onFocus={() => setFocused(key)} onBlur={() => setFocused(null)}

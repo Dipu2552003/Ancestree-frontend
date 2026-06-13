@@ -1,8 +1,8 @@
 'use client'
 
-// Birth & Death block — date / year / place inputs, plus a deceased toggle that
-// reveals the death-side fields. Birth/death date inputs auto-fill the year as
-// the user types a YYYY-prefix.
+// Birth & Death block — native date pickers (the year is derived from the
+// date, never asked) plus an Alive / Deceased selector that reveals the
+// death-side fields.
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { SectionHeader } from '../'
@@ -12,22 +12,13 @@ interface BirthDeathSectionProps {
   form: FormApi
 }
 
+const LIFE_STATES = [
+  { value: false, label: 'Alive' },
+  { value: true,  label: 'Deceased' },
+] as const
+
 export default function BirthDeathSection({ form }: BirthDeathSectionProps) {
-  const { draft, setDraft, setFocused, isDark, labelStyle, inputStyle, field, row } = form
-
-  const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    const yr = parseInt(val.slice(0, 4))
-    const autoYear = val.length >= 4 && !isNaN(yr) && yr >= 1800 && yr <= 2099 ? String(yr) : undefined
-    setDraft(p => ({ ...p, birthDate: val, ...(autoYear !== undefined ? { birthYear: autoYear } : {}) }))
-  }
-
-  const handleDeathDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    const yr = parseInt(val.slice(0, 4))
-    const autoYear = val.length >= 4 && !isNaN(yr) && yr >= 1800 && yr <= 2099 ? String(yr) : undefined
-    setDraft(p => ({ ...p, deathDate: val, ...(autoYear !== undefined ? { deathYear: autoYear } : {}) }))
-  }
+  const { draft, setDraft, setFocused, isDark, t, labelStyle, inputStyle, field, row } = form
 
   return (
     <>
@@ -38,40 +29,42 @@ export default function BirthDeathSection({ form }: BirthDeathSectionProps) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <label style={labelStyle}>Birth date</label>
             <input
-              type="text"
+              type="date"
               value={draft.birthDate}
-              onChange={handleBirthDateChange}
+              onChange={e => setDraft(p => ({ ...p, birthDate: e.target.value }))}
               onFocus={() => setFocused('birthDate')} onBlur={() => setFocused(null)}
-              placeholder="YYYY-MM-DD"
+              max={new Date().toISOString().slice(0, 10)}
               style={inputStyle('birthDate')}
             />
           </div>,
-          field('Birth year', 'birthYear', 'YYYY', { type: 'number', half: true }),
+          field('Birth place', 'birthPlace', 'City or village', { half: true }),
         )}
-        {field('Birth place', 'birthPlace', 'City or village')}
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {/* span is non-interactive; the button below has aria-label for AT */}
-          <span style={labelStyle}>Deceased</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={draft.isDeceased}
-            aria-label="Deceased"
-            onClick={() => setDraft(p => ({ ...p, isDeceased: !p.isDeceased, deathDate: '', deathYear: '', deathPlace: '' }))}
-            style={{
-              width: '36px', height: '20px', borderRadius: '10px',
-              background: draft.isDeceased ? '#EA580C' : (isDark ? '#2A2520' : '#E5E7EB'),
-              position: 'relative', cursor: 'pointer', transition: 'background 0.2s ease',
-              flexShrink: 0, border: 'none', padding: 0,
-            }}
-          >
-            <div style={{
-              position: 'absolute', top: '2px', left: draft.isDeceased ? '18px' : '2px',
-              width: '16px', height: '16px', borderRadius: '50%', background: 'white',
-              transition: 'left 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-            }} />
-          </button>
+        <div>
+          <label style={labelStyle}>Status</label>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {LIFE_STATES.map(s => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => setDraft(p => ({
+                  ...p, isDeceased: s.value,
+                  ...(s.value ? {} : { deathDate: '', deathYear: '', deathPlace: '' }),
+                }))}
+                style={{
+                  height: '30px', padding: '0 14px', borderRadius: '6px', border: 'none',
+                  fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
+                  background: draft.isDeceased === s.value
+                    ? '#EA580C'
+                    : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'),
+                  color: draft.isDeceased === s.value ? '#fff' : t.text,
+                  transition: 'background 0.15s, color 0.15s',
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <AnimatePresence>
@@ -84,17 +77,17 @@ export default function BirthDeathSection({ form }: BirthDeathSectionProps) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <label style={labelStyle}>Death date</label>
                   <input
-                    type="text"
+                    type="date"
                     value={draft.deathDate}
-                    onChange={handleDeathDateChange}
+                    onChange={e => setDraft(p => ({ ...p, deathDate: e.target.value }))}
                     onFocus={() => setFocused('deathDate')} onBlur={() => setFocused(null)}
-                    placeholder="YYYY-MM-DD"
+                    min={draft.birthDate || undefined}
+                    max={new Date().toISOString().slice(0, 10)}
                     style={inputStyle('deathDate')}
                   />
                 </div>,
-                field('Death year', 'deathYear', 'YYYY', { type: 'number', half: true }),
+                field('Death place', 'deathPlace', 'City or village', { half: true }),
               )}
-              {field('Death place', 'deathPlace', 'City or village')}
             </motion.div>
           )}
         </AnimatePresence>

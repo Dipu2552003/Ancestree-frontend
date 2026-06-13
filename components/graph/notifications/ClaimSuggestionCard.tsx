@@ -33,10 +33,12 @@ export default function ClaimSuggestionCard({ notification, isDark, onRequested 
   }
 
   async function handleRequest() {
-    const selfPersonId = getSelfPersonId()
-    if (!selfPersonId || !notification.related_person_id) return
+    if (!notification.related_person_id) return
     setState('loading'); setErr('')
     try {
+      // The JWT doesn't carry person_id, so resolve it from the API when the
+      // legacy localStorage record is absent.
+      const selfPersonId = getSelfPersonId() ?? (await api.auth.me()).person_id
       await api.merges.create({ new_person_id: selfPersonId, canonical_person_id: notification.related_person_id })
       await api.notifications.markRead(notification.id)
       markNotificationRead(notification.id)

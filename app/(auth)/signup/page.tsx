@@ -17,7 +17,8 @@ const GOTRAS   = familyOptions.gotras.map(g => g.name)
 const VILLAGES = familyOptions.villages
 
 // Capitalise the first letter of each word (for custom "Other" entries).
-const toTitleCase = (s: string) => s.replace(/\b\w/g, ch => ch.toUpperCase())
+// "rAm KUMAR" → "Ram Kumar" — shared with the node editor / wizards.
+import { titleCase as toTitleCase } from '@/lib/format/normalize'
 
 // Sentinel value used by the chip selectors for the free-text "Other" option.
 const OTHER = '__other__'
@@ -52,14 +53,24 @@ const COPY = {
     genderM:      'Male',
     genderF:      'Female',
     genderO:      'Other',
-    yearLabel:    'Birth year',
-    yearPh:       'e.g. 1998',
+    dobLabel:     'Date of birth',
     gotraLabel:   'Gotra',
+    gotraSelectPh: 'Select your gotra',
     gotraOtherPh: 'Type your gotra',
     villageLabel: 'Native village (optional)',
+    villageSelectPh: 'Select your village',
     villageOtherPh: 'Type your village',
+    locationLabel: 'Current location (optional)',
+    cityPh:       'City',
+    statePh:      'State',
     other:        'Other',
     create:       'Create account',
+
+    treeTypeLabel:       'Tree visibility',
+    treeTypePublic:      'Public',
+    treeTypePrivate:     'Private',
+    treeTypePublicHint:  'Anyone can discover and connect with your family.',
+    treeTypePrivateHint: 'Only people you invite can see your family tree.',
 
     haveAcct:     'Already have an account?',
     signin:       'Sign in',
@@ -70,7 +81,7 @@ const COPY = {
     errPwLen:     'Password must be at least 8 characters',
     errPwMatch:   'Passwords do not match',
     errName:      'Please enter your full name',
-    errYear:      'Enter a valid year between 1900 and today',
+    errDob:       'Enter a valid date of birth',
     errGotra:     'Please select or enter your gotra',
     errNetwork:   'Could not reach the server. Please try again.',
     signinCta:    'Sign in instead',
@@ -106,14 +117,24 @@ const COPY = {
     genderM:      'पुरुष',
     genderF:      'महिला',
     genderO:      'अन्य',
-    yearLabel:    'जन्म वर्ष',
-    yearPh:       'जैसे 1998',
+    dobLabel:     'जन्म तिथि',
     gotraLabel:   'गोत्र',
+    gotraSelectPh: 'अपना गोत्र चुनें',
     gotraOtherPh: 'अपना गोत्र लिखें',
     villageLabel: 'मूल गाँव (वैकल्पिक)',
+    villageSelectPh: 'अपना गाँव चुनें',
     villageOtherPh: 'अपना गाँव लिखें',
+    locationLabel: 'वर्तमान स्थान (वैकल्पिक)',
+    cityPh:       'शहर',
+    statePh:      'राज्य',
     other:        'अन्य',
     create:       'खाता बनाएँ',
+
+    treeTypeLabel:       'ट्री दृश्यता',
+    treeTypePublic:      'सार्वजनिक',
+    treeTypePrivate:     'निजी',
+    treeTypePublicHint:  'कोई भी आपके परिवार को खोज और जुड़ सकता है।',
+    treeTypePrivateHint: 'केवल आपके द्वारा आमंत्रित लोग ही आपका परिवार देख सकते हैं।',
 
     haveAcct:     'पहले से खाता है?',
     signin:       'साइन इन',
@@ -124,7 +145,7 @@ const COPY = {
     errPwLen:     'पासवर्ड कम से कम 8 अक्षर का होना चाहिए',
     errPwMatch:   'पासवर्ड मेल नहीं खाते',
     errName:      'कृपया अपना पूरा नाम दर्ज करें',
-    errYear:      '1900 और आज के बीच एक वैध वर्ष दर्ज करें',
+    errDob:       'एक वैध जन्म तिथि दर्ज करें',
     errGotra:     'कृपया अपना गोत्र चुनें या लिखें',
     errNetwork:   'सर्वर तक नहीं पहुँच सका। पुनः प्रयास करें।',
     signinCta:    'साइन इन करें',
@@ -143,43 +164,45 @@ const stepVariants = {
   exit:   (d: number) => ({ x: d * -28, opacity: 0 }),
 }
 
-// Wrapping pill selector (gotra / village). An extra "Other" pill lets the user
-// switch to a free-text entry handled by the parent.
-function Chips({ options, value, onChange, otherLabel, isDark }: {
+// Dropdown selector (gotra / village). A trailing "Other" option switches to
+// a free-text entry handled by the parent.
+function Select({ options, value, onChange, placeholder, otherLabel, isDark, err }: {
   options: readonly string[]
   value: string
   onChange: (v: string) => void
+  placeholder: string
   otherLabel: string
   isDark: boolean
+  err?: boolean
 }) {
   const t = getTheme(isDark)
-  const inputBorder = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)'
-  const inputBg     = isDark ? '#141210' : '#FDFAF6'
+  const [focused, setFocused] = useState(false)
+  const inputBorder  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)'
+  const inputBg      = isDark ? '#141210' : '#FDFAF6'
+  const inputBgFocus = isDark ? '#1C1A12' : '#FFFFFF'
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {[...options, OTHER].map(opt => {
-        const active = value === opt
-        return (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onChange(active ? '' : opt)}
-            style={{
-              height: 38, padding: '0 14px', borderRadius: 10,
-              border: `1.5px solid ${active ? '#EA580C' : inputBorder}`,
-              background: active ? 'rgba(234,88,12,0.10)' : inputBg,
-              color: active ? '#EA580C' : t.text,
-              fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-              boxShadow: active ? '0 0 0 3px rgba(234,88,12,0.10)' : 'none',
-              transition: 'border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s',
-            }}
-          >
-            {opt === OTHER ? otherLabel : opt}
-          </button>
-        )
-      })}
-    </div>
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        width: '100%', height: 50, padding: '0 12px',
+        fontSize: 15, fontFamily: 'inherit',
+        border: `1.5px solid ${err ? '#EF4444' : focused ? '#EA580C' : inputBorder}`,
+        borderRadius: 12,
+        background: focused ? inputBgFocus : inputBg,
+        color: value ? t.text : t.textMuted,
+        outline: 'none', boxSizing: 'border-box', cursor: 'pointer',
+        boxShadow: focused ? '0 0 0 3.5px rgba(234,88,12,0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
+        transition: 'border-color 0.15s, box-shadow 0.15s, background 0.35s ease',
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+      <option value={OTHER}>{otherLabel}</option>
+    </select>
   )
 }
 
@@ -209,7 +232,7 @@ function SignupInner() {
   // Step 3 — details
   const [fullName,    setFullName]    = useState('')
   const [gender,      setGender]      = useState<'male' | 'female' | 'other' | ''>('')
-  const [birthYear,   setBirthYear]   = useState('')
+  const [birthDate,   setBirthDate]   = useState('')   // YYYY-MM-DD from <input type="date">
   const [gotraSel,    setGotraSel]    = useState('')   // a gotra name, OTHER, or ''
   const [gotraOther,  setGotraOther]  = useState('')
   const [gotraErr,    setGotraErr]    = useState('')
@@ -217,13 +240,19 @@ function SignupInner() {
   const [villageSel,  setVillageSel]  = useState('')   // a village name, OTHER, or ''
   const [villageOther,setVillageOther]= useState('')
   const [villageFocus,setVillageFocus]= useState(false)
+  const [city,        setCity]        = useState('')
+  const [stateName,   setStateName]   = useState('')
+  const [cityFocus,   setCityFocus]   = useState(false)
+  const [stateFocus,  setStateFocus]  = useState(false)
   const [photoUrl,    setPhotoUrl]    = useState<string | null>(null)
   const [photoErr,    setPhotoErr]    = useState('')
   const [nameErr,     setNameErr]     = useState('')
-  const [yearErr,     setYearErr]     = useState('')
+  const [dobErr,      setDobErr]      = useState('')
   const [nameFocus,   setNameFocus]   = useState(false)
-  const [yearFocus,   setYearFocus]   = useState(false)
+  const [dobFocus,    setDobFocus]    = useState(false)
   const fileRef       = useRef<HTMLInputElement>(null)
+
+  const [treeType,    setTreeType]    = useState<'public' | 'private'>('public')
 
   const [loading,     setLoading]     = useState(false)
   const [topErr,      setTopErr]      = useState('')
@@ -302,7 +331,7 @@ function SignupInner() {
   const finalVillage = villageSel === OTHER ? toTitleCase(villageOther.trim()) : villageSel
 
   const handleCreate = async () => {
-    const name = fullName.trim()
+    const name = toTitleCase(fullName)
     if (!name) { setNameErr(c.errName); return }
     setNameErr('')
 
@@ -311,15 +340,15 @@ function SignupInner() {
     setGotraErr('')
 
     let yearNum: number | undefined
-    if (birthYear.trim()) {
-      const n = Number(birthYear)
-      const currentYear = new Date().getFullYear()
-      if (!Number.isInteger(n) || n < 1900 || n > currentYear) {
-        setYearErr(c.errYear); return
+    if (birthDate) {
+      const d  = new Date(birthDate)
+      const yr = Number(birthDate.slice(0, 4))
+      if (isNaN(d.getTime()) || yr < 1900 || d > new Date()) {
+        setDobErr(c.errDob); return
       }
-      yearNum = n
+      yearNum = yr
     }
-    setYearErr('')
+    setDobErr('')
 
     setLoading(true); setTopErr('')
     try {
@@ -327,16 +356,20 @@ function SignupInner() {
         email: email.trim(),
         password,
         display_name: name,
+        tree_type: treeType,
       })
       setToken(token)
 
       // Patch extras onto the auto-created self-person node if user filled them.
       const extras: Record<string, unknown> = {}
-      if (gender)          extras.gender          = gender
-      if (yearNum != null) extras.birth_year      = yearNum
-      if (finalGotra)      extras.gotra           = finalGotra
-      if (finalVillage)    extras.native_village  = finalVillage
-      if (photoUrl)        extras.photo_url       = photoUrl
+      if (gender)           extras.gender          = gender
+      if (birthDate)        extras.birth_date      = birthDate
+      if (yearNum != null)  extras.birth_year      = yearNum
+      if (finalGotra)       extras.gotra           = finalGotra
+      if (finalVillage)     extras.native_village  = finalVillage
+      if (city.trim())      extras.current_city    = toTitleCase(city.trim())
+      if (stateName.trim()) extras.current_state   = toTitleCase(stateName.trim())
+      if (photoUrl)         extras.photo_url       = photoUrl
 
       if (Object.keys(extras).length > 0 && user.person_id) {
         try { await api.persons.update(user.person_id, extras) } catch { /* non-fatal */ }
@@ -374,7 +407,7 @@ function SignupInner() {
     step === 'details' ? {
       fullName,
       gender:    gender || undefined,
-      birthYear: birthYear ? Number(birthYear) : undefined,
+      birthYear: birthDate ? Number(birthDate.slice(0, 4)) : undefined,
       photoUrl:  photoUrl,
       isSelf:    true,
       subtitle:  c.you,
@@ -515,6 +548,39 @@ function SignupInner() {
                     </motion.p>
                   )}
                 </AnimatePresence>
+              </div>
+
+              {/* Tree type toggle */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.treeTypeLabel}
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {(['public', 'private'] as const).map(type => {
+                    const active = treeType === type
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setTreeType(type)}
+                        style={{
+                          flex: 1, height: 44, borderRadius: 10,
+                          border: `1.5px solid ${active ? '#EA580C' : lv.inputBorder}`,
+                          background: active ? 'rgba(234,88,12,0.10)' : lv.inputBg,
+                          color: active ? '#EA580C' : t.text,
+                          fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                          boxShadow: active ? '0 0 0 3.5px rgba(234,88,12,0.11)' : 'none',
+                          transition: 'border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s',
+                        }}
+                      >
+                        {type === 'public' ? c.treeTypePublic : c.treeTypePrivate}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p style={{ margin: '6px 0 0', fontSize: 11.5, color: t.textMuted, lineHeight: 1.5, transition: 'color 0.35s ease' }}>
+                  {treeType === 'public' ? c.treeTypePublicHint : c.treeTypePrivateHint}
+                </p>
               </div>
 
               <motion.button
@@ -747,26 +813,26 @@ function SignupInner() {
                 </div>
               </div>
 
-              {/* Birth year */}
+              {/* Date of birth */}
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
-                  {c.yearLabel}
+                  {c.dobLabel}
                 </label>
                 <input
-                  value={birthYear}
-                  onChange={e => { setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4)); setYearErr('') }}
-                  onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
-                  onFocus={() => setYearFocus(true)}
-                  onBlur={() => setYearFocus(false)}
-                  placeholder={c.yearPh}
-                  inputMode="numeric"
-                  style={inputStyle(yearFocus, !!yearErr)}
+                  type="date"
+                  value={birthDate}
+                  min="1900-01-01"
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={e => { setBirthDate(e.target.value); setDobErr('') }}
+                  onFocus={() => setDobFocus(true)}
+                  onBlur={() => setDobFocus(false)}
+                  style={{ ...inputStyle(dobFocus, !!dobErr), colorScheme: isDark ? 'dark' : 'light' }}
                 />
                 <AnimatePresence>
-                  {yearErr && (
+                  {dobErr && (
                     <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                       style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
-                      {yearErr}
+                      {dobErr}
                     </motion.p>
                   )}
                 </AnimatePresence>
@@ -777,12 +843,14 @@ function SignupInner() {
                 <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
                   {c.gotraLabel} <span style={{ color: '#EA580C' }}>*</span>
                 </label>
-                <Chips
+                <Select
                   options={GOTRAS}
                   value={gotraSel}
                   onChange={v => { setGotraSel(v); setGotraErr('') }}
+                  placeholder={c.gotraSelectPh}
                   otherLabel={c.other}
                   isDark={isDark}
+                  err={!!gotraErr}
                 />
                 {gotraSel === OTHER && (
                   <input
@@ -811,10 +879,11 @@ function SignupInner() {
                 <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
                   {c.villageLabel}
                 </label>
-                <Chips
+                <Select
                   options={VILLAGES}
                   value={villageSel}
                   onChange={setVillageSel}
+                  placeholder={c.villageSelectPh}
                   otherLabel={c.other}
                   isDark={isDark}
                 />
@@ -830,6 +899,35 @@ function SignupInner() {
                     style={{ ...inputStyle(villageFocus, false), marginTop: 8 }}
                   />
                 )}
+              </div>
+
+              {/* Current location (optional) */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.locationLabel}
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    value={city}
+                    onChange={e => setCity(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+                    onFocus={() => setCityFocus(true)}
+                    onBlur={() => setCityFocus(false)}
+                    placeholder={c.cityPh}
+                    autoComplete="address-level2"
+                    style={{ ...inputStyle(cityFocus, false), flex: 1, width: 'auto', minWidth: 0 }}
+                  />
+                  <input
+                    value={stateName}
+                    onChange={e => setStateName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
+                    onFocus={() => setStateFocus(true)}
+                    onBlur={() => setStateFocus(false)}
+                    placeholder={c.statePh}
+                    autoComplete="address-level1"
+                    style={{ ...inputStyle(stateFocus, false), flex: 1, width: 'auto', minWidth: 0 }}
+                  />
+                </div>
               </div>
 
               <AnimatePresence>

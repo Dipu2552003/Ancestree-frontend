@@ -17,6 +17,7 @@ import { loadMoreNodeType } from './LoadMoreNode'
 import { edgeTypes } from './SketchEdge'
 import { familyEdgeType } from './FamilyEdge'
 import { useTiltEffect } from '@/hooks/useTiltEffect'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const allNodeTypes = { ...nodeTypes, ...collapsedCoupleNodeType, ...loadMoreNodeType }
 const allEdgeTypes = { ...edgeTypes, ...familyEdgeType }
@@ -34,6 +35,7 @@ interface GraphCanvasProps {
 
 export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick, onNodeContextMenu, onPaneClick }: GraphCanvasProps) {
   const { currentZoom } = useGraphStore()
+  const isMobile = useIsMobile()
   const { rotateX, rotateY, handleMouseMove, handleMouseLeave } = useTiltEffect()
 
   const handleNodeClick: NodeMouseHandler = (_event, node) => onNodeClick(node.id)
@@ -53,9 +55,12 @@ export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange
 
   return (
     <motion.div
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{
+      onMouseMove={isMobile ? undefined : handleMouseMove}
+      onMouseLeave={isMobile ? undefined : handleMouseLeave}
+      style={isMobile ? {
+        width: '100%',
+        height: '100%',
+      } : {
         width: '100%',
         height: '100%',
         rotateX,

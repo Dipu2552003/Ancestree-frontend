@@ -98,8 +98,11 @@ export function bfsDelays(nodes: Node[], edges: Edge[]): Map<string, number> {
 }
 
 export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
-  const posMap   = new Map(nodes.map(n => [n.id, n.position]))
-  const delayMap = new Map(nodes.map(n => [n.id, ((n.data as unknown as PersonData).animDelay ?? 0)]))
+  const posMap    = new Map(nodes.map(n => [n.id, n.position]))
+  const delayMap  = new Map(nodes.map(n => [n.id, ((n.data as unknown as PersonData).animDelay ?? 0)]))
+  // Gotra lookup — read once from node data; stamped onto each display edge so
+  // renderers can colorise without calling useNodes() themselves.
+  const gotraMap  = new Map(nodes.map(n => [n.id, (n.data as unknown as PersonData).gotra ?? null]))
   const parentsOf  = new Map<string, string[]>()
   const childrenOf = new Map<string, string[]>()
 
@@ -201,6 +204,7 @@ export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
         sharedChildren: sharedKids,
         members:        membersSorted,
         animDelay,
+        sourceGotra:    gotraMap.get(anchorId) ?? null,
       },
     } as Edge)
 
@@ -253,7 +257,11 @@ export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
       source: e.source,
       target: e.target,
       type: 'familyEdge',
-      data: { sharedChildren: sharedKids, animDelay: edgeDelay(e.source, e.target) },
+      data: {
+        sharedChildren: sharedKids,
+        animDelay:   edgeDelay(e.source, e.target),
+        sourceGotra: gotraMap.get(e.source) ?? gotraMap.get(e.target) ?? null,
+      },
     } as Edge)
 
     coveredSpouseIds.add(e.id)
@@ -276,20 +284,22 @@ export function buildDisplayEdges(nodes: Node[], edges: Edge[]): Edge[] {
     if (coveredSpouseIds.has(e.id))  continue
     if (coveredParentIds.has(e.id))  continue
 
-    const d = edgeDelay(e.source, e.target)
+    const d           = edgeDelay(e.source, e.target)
+    const sourceGotra = gotraMap.get(e.source) ?? null
+    const baseData    = { ...(e.data as unknown as EdgeData), animDelay: d, sourceGotra }
     if (rel === 'PARENT_OF') {
       // Hidden biological-to-adopted-child edge → drop (data lives in DB only).
       if (isHiddenBioEdge(e)) continue
-      result.push({ ...e, sourceHandle: 'bottom', targetHandle: 'top', data: { ...(e.data as unknown as EdgeData), animDelay: d } })
+      result.push({ ...e, sourceHandle: 'bottom', targetHandle: 'top', data: baseData })
     } else if (rel === 'SPOUSE_OF') {
       const sp = posMap.get(e.source)
       const tp = posMap.get(e.target)
       result.push(sp && tp && sp.x <= tp.x
-        ? { ...e, sourceHandle: 'right-s', targetHandle: 'left',  data: { ...(e.data as unknown as EdgeData), animDelay: d } }
-        : { ...e, sourceHandle: 'left-s',  targetHandle: 'right', data: { ...(e.data as unknown as EdgeData), animDelay: d } }
+        ? { ...e, sourceHandle: 'right-s', targetHandle: 'left',  data: baseData }
+        : { ...e, sourceHandle: 'left-s',  targetHandle: 'right', data: baseData }
       )
     } else {
-      result.push({ ...e, data: { ...(e.data as unknown as EdgeData), animDelay: d } })
+      result.push({ ...e, data: baseData })
     }
   }
 

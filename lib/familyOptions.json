@@ -1,11 +1,11 @@
 {
   "gotras": [
-    { "name": "Natani",   "color": "#EA580C" },
-    { "name": "Khuteta",  "color": "#D97706" },
-    { "name": "Kulwal",   "color": "#C2410C" },
-    { "name": "Kaythwal", "color": "#16A34A" },
-    { "name": "Mehrwal",  "color": "#7C3AED" },
-    { "name": "Dhokriya", "color": "#0E7490" }
+    { "name": "Natani",   "color": "#2563EB" },
+    { "name": "Khuteta",  "color": "#059669" },
+    { "name": "Kulwal",   "color": "#7C3AED" },
+    { "name": "Kaythwal", "color": "#DC2626" },
+    { "name": "Mehrwal",  "color": "#0891B2" },
+    { "name": "Dhokriya", "color": "#65A30D" }
   ],
   "villages": ["Sirohi", "Kailashnagar", "Jhalodi", "Munghtla", "Sirodi"]
 }

@@ -4,6 +4,41 @@
 body { background-color: #FFF7ED; margin: 0; padding: 0; }
 html[data-dark="1"] body { background-color: #0B0A09; }
 
+/* Kill pull-to-refresh and rubber-band overscroll so canvas drags are never
+   hijacked by the browser's page-scroll gestures. */
+html, body { overscroll-behavior: none; }
+
+/* Full-viewport app pages. 100dvh tracks the mobile URL bar so bottom-anchored
+   chrome (Navbar) is never hidden behind browser UI; 100vh is the fallback. */
+.app-viewport { height: 100vh; }
+@supports (height: 100dvh) { .app-viewport { height: 100dvh; } }
+
+/*
+ * Mobile touch support for the canvas.
+ * @xyflow/react v12 ships no touch-action rules at all, so on touch devices
+ * the browser claims drag gestures for page scrolling before d3-zoom ever
+ * sees them — panning and pinch-zoom appear dead. touch-action: none hands
+ * the full gesture to React Flow (pan, pinch, and drags that start on nodes).
+ */
+.react-flow,
+.react-flow__pane,
+.react-flow__node {
+  touch-action: none;
+}
+
+/* Long-press on a node opens our context menu — suppress the competing
+   native behaviors: text-selection/magnifier and the iOS save-image callout. */
+.react-flow__node {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.react-flow__node img {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
 /*
  * Keyboard focus rings.
  * :focus-visible fires only for keyboard navigation, not mouse clicks,

@@ -19,12 +19,13 @@ import {
 } from '@/components/graph/SecondSpouseWizard'
 import type {
   ContextMenuOverlay, EditPanelOverlay, ViewPanelOverlay, DuplicateOverlay,
-  NotifOverlay, ConflictOverlay, ComparisonOverlay, WizardOverlay,
+  NotifOverlay, HistoryOverlay, ConflictOverlay, ComparisonOverlay, WizardOverlay,
   SecondSpouseOverlay, MergeSearchOverlay,
 } from '@/components/graph/GraphOverlays'
 import type { PersonData, SavePayload } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 import type { WizardExtras } from '@/components/graph/AddNodeWizard'
+import type { SearchResult } from '@/lib/api'
 import type { useGraphPageState } from '@/hooks/useGraphPageState'
 
 type State = ReturnType<typeof useGraphPageState>
@@ -40,6 +41,7 @@ export interface OverlayBundles {
   viewPanel:    ViewPanelOverlay    | null
   duplicate:    DuplicateOverlay    | null
   notif:        NotifOverlay        | null
+  history:      HistoryOverlay      | null
   conflict:     ConflictOverlay     | null
   comparison:   ComparisonOverlay   | null
   wizard:       WizardOverlay       | null
@@ -59,16 +61,19 @@ interface BuildOverlayPropsArgs {
   rawEdges:           Edge[]
   router:             RouterLike
   fetchGraph:         () => Promise<void>
+  /** Full reset + refetch — used after undo, which can add/remove whole family units. */
+  resetAndFetch:      () => Promise<void>
   onUpdateNode:       (id: string, data: Partial<PersonData>) => void
   onSaveNode:         (id: string, data: SavePayload) => Promise<void>
-  handleWizardAdd:    (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
-  onMergeAccepted:    (conflicts: MergeConflict[]) => void
+  handleWizardAdd:        (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
+  handleWizardAddForMerge?: (action: RelAction, match: SearchResult) => Promise<void>
+  onMergeAccepted:        (conflicts: MergeConflict[]) => void
 }
 
 export function buildOverlayProps({
   s, selectedNode, selectedNodeName, matchHighlightNode, anchorRealId,
   nodes, edges, rawNodes, rawEdges,
-  router, fetchGraph, onUpdateNode, onSaveNode, handleWizardAdd, onMergeAccepted,
+  router, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode, handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
 }: BuildOverlayPropsArgs): OverlayBundles {
   return {
     contextMenu: s.contextMenu && {
@@ -126,6 +131,11 @@ export function buildOverlayProps({
       onMergeAccepted,
     } : null,
 
+    history: s.historyPanelOpen ? {
+      onClose:  () => s.setHistoryPanelOpen(false),
+      onUndone: resetAndFetch,
+    } : null,
+
     conflict: s.mergeConflicts.length > 0 ? {
       conflicts: s.mergeConflicts,
       nodes,
@@ -146,12 +156,13 @@ export function buildOverlayProps({
     } : null,
 
     wizard: s.wizardAction ? {
-      relAction:     s.wizardAction,
-      anchorName:    selectedNodeName,
-      motherOptions: computeMotherOptions(s.wizardAction, anchorRealId, rawEdges, rawNodes),
-      fatherName:    computeFatherName(s.wizardAction, anchorRealId, rawEdges, rawNodes),
-      onAdd:         handleWizardAdd,
-      onClose:       () => s.setWizardAction(null),
+      relAction:      s.wizardAction,
+      anchorName:     selectedNodeName,
+      motherOptions:  computeMotherOptions(s.wizardAction, anchorRealId, rawEdges, rawNodes),
+      fatherName:     computeFatherName(s.wizardAction, anchorRealId, rawEdges, rawNodes),
+      onAdd:          handleWizardAdd,
+      onAddForMerge:  handleWizardAddForMerge,
+      onClose:        () => s.setWizardAction(null),
     } : null,
 
     secondSpouse: s.secondSpouseAnchor ? {

@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Z } from '@/lib/zIndex'
 import { api } from '@/lib/api'
 import { compressPhoto } from '@/lib/image'
+import { titleCase } from '@/lib/format/normalize'
 import {
   WizardHeader, ResolvePhase, AddPhase, ReparentPhase,
   type ActiveChoice, type ExitStatus, type Phase,
@@ -99,7 +100,7 @@ export default function SecondSpouseWizard({
 
   // ── Phase 2: create new spouse + SPOUSE_OF ──────────────────────────────
   const handleAddNewSpouse = useCallback(async () => {
-    const name = newName.trim()
+    const name = titleCase(newName)
     if (!name) { setNewNameErr('Please enter a name'); return }
     setNewNameErr('')
 

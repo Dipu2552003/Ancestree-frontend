@@ -1,14 +1,54 @@
-// Session helpers that read the logged-in user record from localStorage.
+// Session helpers for the logged-in user's identity.
 //
-// The "user" key is set on login (see lib/api/auth.ts → setUser) and contains
-// the JSON-encoded user record. This module exists to keep raw localStorage
-// reads out of component code — there's no validation/refresh logic here, just
-// a typed read.
+// The source of truth is the JWT stored under the "at" key (set on login /
+// signup / refresh — see lib/api/client.ts → setToken). Its payload carries
+// `userId` and `familyId`, and it is re-issued with the new familyId after a
+// merge moves the user to another family (useGraphData's stale-JWT recovery),
+// so decoding it always reflects the user's *current* family.
+//
+// A legacy "user" record (JSON user object) is kept as a fallback read for
+// older sessions; nothing writes it anymore.
 
-export function getSelfPersonId(): string | null {
+interface JwtClaims {
+  userId?:      string
+  familyId?:    string
+  communityId?: string | null
+}
+
+function decodeJwtClaims(): JwtClaims | null {
+  try {
+    if (typeof window === 'undefined') return null
+    const token = localStorage.getItem('at')
+    const payload = token?.split('.')[1]
+    if (!payload) return null
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+    return JSON.parse(atob(padded)) as JwtClaims
+  } catch { return null }
+}
+
+function legacyUserField(key: 'person_id' | 'family_id'): string | null {
   try {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null
     if (!raw) return null
-    return (JSON.parse(raw) as { person_id?: string }).person_id ?? null
+    return (JSON.parse(raw) as Record<string, string | undefined>)[key] ?? null
   } catch { return null }
+}
+
+/** The user's current family — from the live JWT, falling back to the legacy
+ *  stored user record. */
+export function getFamilyId(): string | null {
+  return decodeJwtClaims()?.familyId ?? legacyUserField('family_id')
+}
+
+/** The user's own person node id. Not carried in the JWT — callers should
+ *  fall back to `api.auth.me()` when this returns null. */
+export function getSelfPersonId(): string | null {
+  return legacyUserField('person_id')
+}
+
+/** The community this session belongs to — null for normal (non-community)
+ *  logins. Set by community login/signup tokens. */
+export function getCommunityId(): string | null {
+  return decodeJwtClaims()?.communityId ?? null
 }

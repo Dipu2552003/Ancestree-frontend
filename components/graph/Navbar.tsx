@@ -23,6 +23,11 @@ interface NavbarProps {
   selectedNodeId: string | null
   selectedNodeName: string
   canDeleteSelected: boolean
+  /** Tooltip explaining why the trash button is disabled. */
+  deleteDisabledReason?: string
+  /** Other-parent name when the person's children stay linked through them —
+   *  shown as a note in the delete confirm popup. */
+  deleteChildrenNote?: string | null
   panelMode: 'none' | 'edit' | 'view'
   onHome: () => void
   onStartWizard: (action: RelAction) => void
@@ -55,7 +60,7 @@ type DeleteState = 'idle' | 'confirm' | 'deleting'
 
 export default function Navbar({
   familyName, timeline, selectedNodeId, selectedNodeName,
-  canDeleteSelected, panelMode,
+  canDeleteSelected, deleteDisabledReason, deleteChildrenNote, panelMode,
   onHome, onStartWizard, onDeleteSelected,
   onEdit, onView,
   isMarriedWoman, womanView, onWomanViewChange, isDark,
@@ -114,7 +119,7 @@ export default function Navbar({
     ? (isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.08)')
     : (isDark ? '#2A2520' : '#F5F0EA')
 
-  const delEnabled = !!selectedNodeId && canDeleteSelected
+  const delEnabled = canDeleteSelected
   const delColor   = delEnabled ? '#EF4444' : (isDark ? '#4A3F35' : '#C4A882')
   const delBg      = deleteState !== 'idle'
     ? (isDark ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.10)')
@@ -214,7 +219,7 @@ export default function Navbar({
         )}
       </AnimatePresence>
 
-      {/* ── Delete confirm popup ── */}
+      {/* ── Delete / Remove-from-tree confirm popup ── */}
       <AnimatePresence>
         {deleteState !== 'idle' && (
           <motion.div
@@ -245,8 +250,19 @@ export default function Navbar({
             </div>
 
             <p style={{ margin: '0 0 12px', fontSize: '13px', color: t.text, lineHeight: 1.45 }}>
-              Remove <strong>{selectedNodeName}</strong> and all their relationships? This cannot be undone.
+              Remove <strong>{selectedNodeName}</strong> and all their connections from the tree? This cannot be undone.
             </p>
+
+            {deleteChildrenNote && (
+              <p style={{
+                margin: '0 0 12px', padding: '8px 10px', borderRadius: '8px',
+                background: isDark ? 'rgba(217,119,6,0.12)' : '#FFFBEB',
+                border: `1px solid ${isDark ? 'rgba(217,119,6,0.25)' : '#FDE68A'}`,
+                fontSize: '12px', color: isDark ? '#FCD34D' : '#B45309', lineHeight: 1.45,
+              }}>
+                Their children will stay in the tree, linked to <strong>{deleteChildrenNote}</strong>.
+              </p>
+            )}
 
             {deleteError && (
               <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: '#EF4444' }}>{deleteError}</p>
@@ -274,7 +290,7 @@ export default function Navbar({
                     setDeleteState('idle')
                   } catch (err: unknown) {
                     setDeleteState('confirm')
-                    setDeleteError(err instanceof Error ? err.message : 'Delete failed')
+                    setDeleteError(err instanceof Error ? err.message : 'Action failed')
                   }
                 }}
                 disabled={deleteState === 'deleting'}
@@ -465,7 +481,11 @@ export default function Navbar({
               cursor: delEnabled ? 'pointer' : 'default',
               transition: 'background 0.2s, color 0.2s',
             }}
-            title={!selectedNodeId ? 'Select a person first' : `Remove ${selectedNodeName}`}
+            title={!selectedNodeId
+              ? 'Select a person first'
+              : !delEnabled
+                ? (deleteDisabledReason ?? 'This person cannot be removed')
+                : `Remove ${selectedNodeName}`}
           >
             <IconTrash size={16} strokeWidth={1.8} />
           </motion.button>

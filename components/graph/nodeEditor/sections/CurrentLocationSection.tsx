@@ -31,7 +31,7 @@ export default function CurrentLocationSection({ form, isOpen, onToggle }: Curre
           )}
           {row(
             field('Country', 'currentCountry', 'India', { half: true }),
-            field('Pincode', 'currentPincode', '000000', { half: true }),
+            field('Pincode', 'currentPincode', '000000', { half: true, inputMode: 'numeric' }),
           )}
         </div>
       )}

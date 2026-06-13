@@ -76,7 +76,7 @@ export function NodeCard({
               width: 64, height: 64, borderRadius: '50%',
               backgroundImage: `linear-gradient(135deg, ${from}, ${to})`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontSize: 22, fontWeight: 500, letterSpacing: '0.02em',
+              color: '#fff', fontSize: 21, fontWeight: 600, letterSpacing: '0.04em',
             }}>
               {cardInitials(fullName)}
             </div>
@@ -100,8 +100,8 @@ export function NodeCard({
         padding: '0 6px', gap: 2,
       }}>
         <div style={{
-          fontSize: 11.5, fontWeight: 600, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: t.text, textAlign: 'center',
+          fontSize: 14.5, fontWeight: 600, letterSpacing: '0.01em',
+          color: t.text, textAlign: 'center', lineHeight: 1.15,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           maxWidth: CARD_W - 12,
         }}>
@@ -109,10 +109,9 @@ export function NodeCard({
         </div>
         {lastName && (
           <div style={{
-            fontSize: 10, fontWeight: 400, letterSpacing: '0.06em',
-            textTransform: 'uppercase',
+            fontSize: 11.5, fontWeight: 600, letterSpacing: '0.02em',
             color: isDark ? 'rgba(237,232,227,0.55)' : 'rgba(26,10,0,0.45)',
-            textAlign: 'center',
+            textAlign: 'center', lineHeight: 1.15,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             maxWidth: CARD_W - 12,
           }}>
@@ -183,7 +182,7 @@ export function MiniNodeCard({
             width: 32, height: 32, borderRadius: '50%',
             backgroundImage: `linear-gradient(135deg, ${from}, ${to})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontSize: 11, fontWeight: 500, letterSpacing: '0.02em',
+            color: 'white', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
           }}>
             {cardInitials(fullName)}
           </div>
@@ -207,10 +206,9 @@ export function MiniNodeCard({
         padding: '0 4px',
       }}>
         <span style={{
-          fontSize: 8,
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: '0.02em',
           color: isDark ? '#EDE8E3' : '#1A0A00',
           whiteSpace: 'nowrap',
           overflow: 'hidden',

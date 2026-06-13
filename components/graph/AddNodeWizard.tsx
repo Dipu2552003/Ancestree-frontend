@@ -20,6 +20,7 @@ import {
   WizardHeader, WizardHero,
   StepName, StepGender, StepBirthdate, StepPhoto,
   StepMarriage, StepRelationship, StepMother, StepBioParents,
+  StepMergeSearch,
   getWizardStyles,
   REL_CONFIG, CURRENT_YEAR, MONTH_NAMES,
   type StepId, type MarriageStatus, type AdoptionStatus, type MotherChoice,
@@ -32,10 +33,11 @@ import {
 export type { WizardExtras, MarriageStatus, AdoptionStatus, MotherChoice } from './wizard'
 export { RELATION_LABELS } from './wizard'
 
-export default function AddNodeWizard({ relAction, anchorName, isDark, motherOptions, fatherName, onAdd, onClose }: AddNodeWizardProps) {
+export default function AddNodeWizard({ relAction, anchorName, isDark, motherOptions, fatherName, onAdd, onAddForMerge, onClose }: AddNodeWizardProps) {
   const t   = getTheme(isDark)
   const cfg = REL_CONFIG[relAction]
 
+  const [wizardMode,       setWizardMode]       = useState<'add' | 'search'>('add')
   const [stepIdx,          setStepIdx]          = useState(0)
   const [dir,              setDir]              = useState(1)
   const [fullName,         setFullName]         = useState('')
@@ -211,13 +213,14 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, motherOpt
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: '520px',
+          maxHeight: 'calc(100dvh - 32px)',
           background: isDark ? '#1C1410' : '#FFFAF5',
           border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(234,88,12,0.14)'}`,
           borderRadius: 22,
           boxShadow: isDark
             ? '0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04)'
             : '0 40px 100px rgba(0,0,0,0.20), 0 0 0 1px rgba(234,88,12,0.06)',
-          overflow: 'hidden',
+          overflowX: 'hidden', overflowY: 'auto',
         }}
       >
         <WizardHeader
@@ -226,8 +229,18 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, motherOpt
           anchorName={anchorName}
           stepIdx={stepIdx} steps={steps}
           onBack={goPrev} onClose={onClose}
+          isSearchMode={wizardMode === 'search'}
+          onToggleSearch={onAddForMerge ? () => setWizardMode(m => m === 'search' ? 'add' : 'search') : undefined}
         />
 
+        {wizardMode === 'search' && onAddForMerge ? (
+          <StepMergeSearch
+            isDark={isDark} t={t}
+            relAction={relAction}
+            onAddForMerge={onAddForMerge}
+          />
+        ) : (
+        <>
         <WizardHero
           isDark={isDark} currentStep={currentStep}
           relAction={relAction} direction={cfg.direction}
@@ -336,6 +349,8 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, motherOpt
 
           </AnimatePresence>
         </div>
+        </>
+        )}
       </motion.div>
     </motion.div>
   )

@@ -1,1 +1,1 @@
-export { compressPhoto } from './compressPhoto'
+export { compressPhoto, compressPhotoWithThumb } from './compressPhoto'

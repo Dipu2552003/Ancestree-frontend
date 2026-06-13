@@ -53,6 +53,9 @@ export function useGraphPageState() {
   const [notifPanelOpen, setNotifPanelOpen] = useState(false)
   const [mergeConflicts, setMergeConflicts] = useState<MergeConflict[]>([])
 
+  // History panel — operation log with undo.
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false)
+
   // Exploration / merge review — the pending match payload + whether the
   // comparison panel is open.
   const [pendingMatch,   setPendingMatch]   = useState<PendingMatchData | null>(null)
@@ -74,6 +77,7 @@ export function useGraphPageState() {
     duplicateInfo,     setDuplicateInfo,
     notifPanelOpen,    setNotifPanelOpen,
     mergeConflicts,    setMergeConflicts,
+    historyPanelOpen,  setHistoryPanelOpen,
     pendingMatch,      setPendingMatch,
     matchPanelOpen,    setMatchPanelOpen,
     mergeSearchNode,   setMergeSearchNode,

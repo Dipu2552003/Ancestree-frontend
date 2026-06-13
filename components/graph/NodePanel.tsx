@@ -24,7 +24,7 @@ import {
   IdentitySection, BirthDeathSection,
   ContactSection, CurrentLocationSection, NativeOriginSection, WorkEducationSection,
   buildFormApi,
-  initDraft, draftToPartialPersonData, draftToSavePayload, isDraftDirty,
+  initDraft, draftToPartialPersonData, draftToSavePayload, isDraftDirty, composeFullName,
   type SectionKey, type Draft, type SaveState, type ConnectionRow,
 } from './nodeEditor'
 
@@ -87,11 +87,18 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
       .filter(Boolean) as ConnectionRow[]
   }, [rawEdges, rawNodes, node.id])
 
+  // Marital status is derived, never stored: married when the person has a
+  // spouse connection or any child; single otherwise.
+  const maritalStatus: 'single' | 'married' = useMemo(
+    () => connections.some(c => c.relLabel === 'Spouse' || c.relLabel === 'Child') ? 'married' : 'single',
+    [connections],
+  )
+
   const nameInputRef = useRef<HTMLInputElement>(null)
 
-  // Auto-focus the name field if the person was created without one (the
-  // wizard skips the name step in some flows — this lets the user fill it
-  // in immediately).
+  // Auto-focus the first-name field if the person was created without a name
+  // (the wizard skips the name step in some flows — this lets the user fill
+  // it in immediately).
   useEffect(() => {
     if (d.fullName !== 'Unknown') return
     const id = setTimeout(() => { nameInputRef.current?.focus(); nameInputRef.current?.select() }, 120)
@@ -106,8 +113,8 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
   }, [draft, node.id, onUpdate])
 
   const handleSave = useCallback(async () => {
-    if (!draft.fullName.trim()) {
-      setNameError('Name is required')
+    if (!composeFullName(draft)) {
+      setNameError('First name is required')
       nameInputRef.current?.focus()
       return
     }
@@ -189,10 +196,10 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
           photoUrl={draft.photoUrl}
           altName={d.fullName}
           isDark={isDark}
-          onChange={dataUrl => setDraft(p => ({ ...p, photoUrl: dataUrl }))}
+          onChange={(dataUrl, thumbUrl) => setDraft(p => ({ ...p, photoUrl: dataUrl, photoThumbnailUrl: thumbUrl }))}
         />
 
-        <IdentitySection      form={form} nameInputRef={nameInputRef} />
+        <IdentitySection      form={form} nameInputRef={nameInputRef} maritalStatus={maritalStatus} />
         <BirthDeathSection    form={form} />
         <ContactSection         form={form} isOpen={sectionsOpen.contact}         onToggle={() => setSectionsOpen(p => ({ ...p, contact: !p.contact }))} />
         <CurrentLocationSection form={form} isOpen={sectionsOpen.currentLocation} onToggle={() => setSectionsOpen(p => ({ ...p, currentLocation: !p.currentLocation }))} />
@@ -218,7 +225,7 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
           onClick={() => {
             // Commit in-flight edits so they aren't lost when the wizard
             // takes over the screen.
-            if (isDirty && draft.fullName.trim()) commitDraft()
+            if (isDirty && composeFullName(draft)) commitDraft()
             onRequestAddRelation()
           }}
         />

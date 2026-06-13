@@ -7,6 +7,7 @@ export const persons = {
     gender?: string
     birth_year?: number
     is_alive?: boolean
+    gotra?: string
   }) => req<{ id: string; person_code: string; potential_matches: PotentialMatch[] }>('/api/persons', {
     method: 'POST', body: JSON.stringify(b),
   }),
@@ -16,7 +17,6 @@ export const persons = {
     first_name?: string | null
     middle_name?: string | null
     last_name?: string | null
-    name_native?: string | null
     nickname?: string | null
     gender?: string | null
     gotra?: string | null
@@ -46,6 +46,7 @@ export const persons = {
     education?: string | null
     bio?: string | null
     photo_url?: string | null
+    photo_thumbnail_url?: string | null
     bio_mother_name?: string | null
     bio_father_name?: string | null
   }) => req<{ id: string; potential_matches?: PotentialMatch[] }>(`/api/persons/${id}`, {

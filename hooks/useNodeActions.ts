@@ -4,10 +4,11 @@ import { useCallback } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import type { Dispatch, SetStateAction } from 'react'
 import { api, type PotentialMatch } from '@/lib/api'
-import type { PersonData, SavePayload, MyPersonInfo } from '@/types'
+import type { PersonData, SavePayload, MyPersonInfo, EdgeData } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 import { computeCascadeOps } from '@/lib/graph/relationshipRules'
 import { isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
+import { titleCase } from '@/lib/format/normalize'
 
 const GENDER_BY_RELATION: Partial<Record<RelAction, string>> = {
   father: 'male', mother: 'female',
@@ -34,10 +35,11 @@ interface NodeActionsReturn {
   onUpdateNode: (id: string, data: Partial<PersonData>) => void
   onSaveNode: (id: string, payload: SavePayload) => Promise<void>
   onDeleteNode: (id: string) => Promise<void>
-  onAddRelation: (action: RelAction, fullName: string, extras?: AddExtras) => Promise<void>
+  onAddRelation: (action: RelAction, fullName: string, extras?: AddExtras) => Promise<string | null>
 }
 
 export function useNodeActions(
+  nodes: Node[],
   edges: Edge[],
   setNodes: Dispatch<SetStateAction<Node[]>>,
   setEdges: Dispatch<SetStateAction<Edge[]>>,
@@ -71,7 +73,6 @@ export function useNodeActions(
       first_name:       payload.firstName ?? null,
       middle_name:      payload.middleName ?? null,
       last_name:        payload.lastName ?? null,
-      name_native:      payload.nameNative ?? null,
       nickname:         payload.nickname ?? null,
       gender:           payload.gender ?? null,
       gotra:            payload.gotra ?? null,
@@ -101,13 +102,13 @@ export function useNodeActions(
       education:        payload.education ?? null,
       bio:              payload.bio ?? null,
       photo_url:        payload.photoUrl ?? null,
+      photo_thumbnail_url: payload.photoThumbnailUrl ?? null,
     })
     onUpdateNode(id, {
       fullName:         payload.fullName,
       firstName:        payload.firstName ?? undefined,
       middleName:       payload.middleName ?? undefined,
       lastName:         payload.lastName ?? undefined,
-      nameNative:       payload.nameNative ?? undefined,
       nickname:         payload.nickname ?? undefined,
       gender:           payload.gender ?? undefined,
       gotra:            payload.gotra ?? undefined,
@@ -138,24 +139,67 @@ export function useNodeActions(
       education:        payload.education ?? undefined,
       bio:              payload.bio ?? undefined,
       photoUrl:         payload.photoUrl ?? undefined,
+      photoThumbnailUrl: payload.photoThumbnailUrl ?? undefined,
     })
     // Note: result.potential_matches is intentionally ignored on the edit
     // path. The "Possible match found" suggestion only fires when a person
     // is first created (see onAddRelation below).
   }, [onUpdateNode])
 
-  const onAddRelation = useCallback(async (action: RelAction, fullName: string, extras?: AddExtras) => {
-    if (!selectedNodeId) return
+  const onAddRelation = useCallback(async (action: RelAction, fullName: string, extras?: AddExtras): Promise<string | null> => {
+    if (!selectedNodeId) return null
     // Selecting a ghost (intra-family-marriage duplicate) must behave as if
     // the user clicked the real node — backend has no concept of ghosts.
     const realSelectedNodeId = toRealId(selectedNodeId)
 
+    const cleanName = titleCase(fullName) || 'Unknown'
+
+    // Ghost ids are a render-only abstraction (intra-family marriages) — the
+    // cascade rules and person lookups must reason about real ids.
+    const realEdges = edges.map(e => ({
+      ...e,
+      source: toRealId(e.source),
+      target: toRealId(e.target),
+    }))
+    const personOf = (pid: string) =>
+      nodes.find(n => toRealId(n.id) === pid)?.data as unknown as PersonData | undefined
+
+    const isChildAdd        = action === 'son'     || action === 'daughter'
+    const isSiblingAdd      = action === 'brother' || action === 'sister'
+    const needsParentChoice = isChildAdd || isSiblingAdd
+
+    // ── Gotra inheritance ──────────────────────────────────────────────────
+    // Gotra follows the paternal line: a new son/daughter starts with the
+    // father's gotra (the anchor if male, else the anchor's male spouse); a
+    // new brother/sister starts with the anchor's father's gotra. It's only a
+    // default — the field stays editable in the node panel.
+    let inheritedGotra: string | undefined
+    if (needsParentChoice) {
+      const anchor = personOf(realSelectedNodeId)
+      let father: PersonData | undefined
+      if (isChildAdd) {
+        father = anchor?.gender === 'male' ? anchor : realEdges
+          .filter(e => (e.data as unknown as EdgeData | undefined)?.relType === 'SPOUSE_OF'
+            && (e.source === realSelectedNodeId || e.target === realSelectedNodeId))
+          .map(e => personOf(e.source === realSelectedNodeId ? e.target : e.source))
+          .find(p => p?.gender === 'male')
+      } else {
+        father = realEdges
+          .filter(e => (e.data as unknown as EdgeData | undefined)?.relType === 'PARENT_OF'
+            && e.target === realSelectedNodeId)
+          .map(e => personOf(e.source))
+          .find(p => p?.gender === 'male')
+      }
+      inheritedGotra = father?.gotra || undefined
+    }
+
     try {
       const person = await api.persons.create({
-        full_name:  fullName.trim() || 'Unknown',
+        full_name:  cleanName,
         is_alive:   true,
         gender:     extras?.gender ?? GENDER_BY_RELATION[action] ?? undefined,
         birth_year: extras?.birthYear,
+        gotra:      inheritedGotra,
       })
 
       // photo_url is not accepted on create — patch it immediately after
@@ -167,17 +211,7 @@ export function useNodeActions(
       // All cascade logic (base edge + derived edges) lives in relationshipRules.ts.
       // For an "Add spouse" action, decorate the base SPOUSE_OF op with the
       // marriage metadata so it lands on that single edge (not the cascades).
-      // Ghost ids are a render-only abstraction (intra-family marriages) — the
-      // cascade rules must reason about real person ids, so normalize first.
-      const realEdges = edges.map(e => ({
-        ...e,
-        source: toRealId(e.source),
-        target: toRealId(e.target),
-      }))
       const ops = computeCascadeOps(action, realSelectedNodeId, person.id, realEdges)
-      const isChildAdd        = action === 'son'     || action === 'daughter'
-      const isSiblingAdd      = action === 'brother' || action === 'sister'
-      const needsParentChoice = isChildAdd || isSiblingAdd
       const adoptionSub = extras?.adoptionStatus === 'adopted' ? 'adopted' : 'biological'
 
       for (const op of ops) {
@@ -238,14 +272,17 @@ export function useNodeActions(
 
       if (person.potential_matches && person.potential_matches.length > 0) {
         onDuplicateFound(person.id, person.potential_matches, {
-          fullName: fullName.trim() || 'Unknown',
+          fullName: cleanName,
           gender:   GENDER_BY_RELATION[action] ?? null,
         })
       }
+
+      return person.id
     } catch (err) {
       console.error('Failed to add relation:', err)
+      return null
     }
-  }, [selectedNodeId, edges, fetchGraph, setSelectedNodeId, onDuplicateFound])
+  }, [selectedNodeId, nodes, edges, fetchGraph, setSelectedNodeId, onDuplicateFound])
 
   return { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation }
 }

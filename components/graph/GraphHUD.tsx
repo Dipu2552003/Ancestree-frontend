@@ -13,11 +13,12 @@
 // banner is present (so nothing overlaps it). Positioning is delegated to
 // HudSlot so every entry uses the same top/transition rules.
 
-import { IconSun, IconMoon, IconBell } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconBell, IconHistory } from '@tabler/icons-react'
 import ProfileMenu from './ProfileMenu'
 import SearchBar from './SearchBar'
 import HudSlot from './hud/HudSlot'
 import FamilyBadge from './hud/FamilyBadge'
+import GotraToggle from './GotraToggle'
 import { IconButton } from '@/components/ui'
 
 interface GraphHUDProps {
@@ -29,26 +30,46 @@ interface GraphHUDProps {
   hudOffset:         number
   onToggleTheme:     () => void
   onToggleNotif:     () => void
+  onToggleHistory:   () => void
   onSelectPerson:    (personId: string) => boolean
+  /** Community mode only — opens the family admin list. */
+  onFamilyClick?:    () => void
 }
 
 export default function GraphHUD({
   familyName, memberCount, unreadCount, isDark, isMobile, hudOffset,
-  onToggleTheme, onToggleNotif, onSelectPerson,
+  onToggleTheme, onToggleNotif, onToggleHistory, onSelectPerson, onFamilyClick,
 }: GraphHUDProps) {
   const iconSize = isMobile ? 'mobile' : 'desktop'
 
   return (
     <>
-      <HudSlot hudOffset={hudOffset} left="16px">
-        <FamilyBadge familyName={familyName} memberCount={memberCount} isDark={isDark} />
+      {/* On mobile the badge is bounded on the right so it can never slide
+          under the icon cluster — the family name truncates instead. */}
+      <HudSlot hudOffset={hudOffset} left="16px" right={isMobile ? '260px' : undefined}>
+        <FamilyBadge familyName={familyName} memberCount={memberCount} isDark={isDark} compact={isMobile} onClick={onFamilyClick} />
       </HudSlot>
 
-      <HudSlot hudOffset={hudOffset} right={isMobile ? '120px' : '112px'}>
+      <HudSlot hudOffset={hudOffset} right="208px">
         <ProfileMenu isDark={isDark} isMobile={isMobile} />
       </HudSlot>
 
-      <HudSlot hudOffset={hudOffset} right={isMobile ? '68px' : '64px'}>
+      <HudSlot hudOffset={hudOffset} right="160px">
+        <GotraToggle isDark={isDark} isMobile={isMobile} />
+      </HudSlot>
+
+      <HudSlot hudOffset={hudOffset} right="112px">
+        <IconButton
+          isDark={isDark}
+          size={iconSize}
+          title="History"
+          onClick={onToggleHistory}
+        >
+          <IconHistory size={17} />
+        </IconButton>
+      </HudSlot>
+
+      <HudSlot hudOffset={hudOffset} right="64px">
         <IconButton
           isDark={isDark}
           size={iconSize}

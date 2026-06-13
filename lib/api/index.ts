@@ -6,12 +6,15 @@ import { relationships } from './relationships'
 import { search }        from './search'
 import { merges }        from './merges'
 import { notifications } from './notifications'
+import { history }       from './history'
+import { community }     from './community'
+import { family }        from './family'
 
 /** Aggregate API surface — preserves the original `api.<domain>.<call>()`
  *  shape so all existing call sites (`import { api } from '@/lib/api'`)
  *  keep working unchanged. */
 export const api = {
-  auth, graph, persons, invite, relationships, search, merges, notifications,
+  auth, graph, persons, invite, relationships, search, merges, notifications, history, community, family,
 }
 
 // Token helpers + fetch wrapper + depth constants
@@ -25,3 +28,6 @@ export type {
   ConflictType, SearchResult, MergeConflict, PotentialMatch,
   PossibleMatchNotificationDetails, AppNotification, SentMergeRequest,
 } from './types'
+
+export type { HistoryOperation, UndoResult } from './history'
+export type { FamilyAdmin, FamilyAdminsResponse } from './family'

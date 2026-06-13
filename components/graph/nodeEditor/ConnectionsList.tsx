@@ -1,14 +1,9 @@
 'use client'
 
 // ConnectionsList — list of relationship cards rendered below the form.
-// Each card shows avatar / name / relation label and View + Remove buttons.
-// The list itself derives `connections` upstream from rawNodes/rawEdges;
-// this component is purely presentational + owns its per-row "removing"
-// spinner state.
+// Each card shows avatar / name / relation label and a View button.
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { IconEye, IconLoader2, IconScissors } from '@tabler/icons-react'
+import { IconEye } from '@tabler/icons-react'
 import { getTheme } from '@/lib/theme'
 
 export interface ConnectionRow {
@@ -31,7 +26,6 @@ export default function ConnectionsList({
   connections, isDark, onViewNode, onRemoveConnection,
 }: ConnectionsListProps) {
   const t = getTheme(isDark)
-  const [removingEdgeId, setRemovingEdgeId] = useState<string | null>(null)
 
   return (
     <div style={{ padding: '10px 16px 4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -40,7 +34,6 @@ export default function ConnectionsList({
         const avatarBg = conn.nodeState === 'claimed' ? '#C2410C'
           : conn.nodeState === 'proxy' || conn.nodeState === 'invited' ? '#D97706'
           : '#94A3B8'
-        const isRemoving = removingEdgeId === conn.edgeId
         return (
           <div
             key={conn.edgeId}
@@ -50,8 +43,6 @@ export default function ConnectionsList({
               borderRadius: '10px',
               background: isDark ? 'rgba(255,255,255,0.04)' : '#FFF7ED',
               border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : '#FDE8CC'}`,
-              opacity: isRemoving ? 0.5 : 1,
-              transition: 'opacity 0.2s',
             }}
           >
             {/* Avatar */}
@@ -77,7 +68,6 @@ export default function ConnectionsList({
             {/* View button */}
             <button
               onClick={() => onViewNode?.(conn.personId)}
-              disabled={isRemoving}
               title="View"
               style={{
                 width: '28px', height: '28px', borderRadius: '6px', border: 'none',
@@ -92,32 +82,6 @@ export default function ConnectionsList({
               <IconEye size={14} />
             </button>
 
-            {/* Remove button */}
-            <button
-              onClick={async () => {
-                if (!onRemoveConnection || isRemoving) return
-                setRemovingEdgeId(conn.edgeId)
-                try { await onRemoveConnection(conn.edgeId) }
-                finally { setRemovingEdgeId(null) }
-              }}
-              disabled={isRemoving}
-              title="Remove connection"
-              style={{
-                width: '28px', height: '28px', borderRadius: '6px', border: 'none',
-                background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
-                cursor: isRemoving ? 'default' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: t.textMuted, flexShrink: 0,
-                transition: 'background 0.15s, color 0.15s',
-              }}
-              onMouseEnter={e => { if (!isRemoving) { e.currentTarget.style.background = isDark ? 'rgba(239,68,68,0.18)' : '#FEE2E2'; e.currentTarget.style.color = '#EF4444' } }}
-              onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = t.textMuted }}
-            >
-              {isRemoving
-                ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={13} /></motion.div>
-                : <IconScissors size={13} />
-              }
-            </button>
           </div>
         )
       })}

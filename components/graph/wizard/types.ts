@@ -5,6 +5,7 @@
 // don't need to know about this folder.
 
 import type { RelAction } from '../Navbar'
+import type { SearchResult } from '@/lib/api'
 
 export type Direction = 'above' | 'below' | 'beside'
 
@@ -64,6 +65,7 @@ export interface AddNodeWizardProps {
    *  child-add, where the anchor IS the father). Pass explicitly for sibling-add
    *  where the father is the anchor's multi-spouse parent, not the anchor itself. */
   fatherName?: string
-  onAdd:      (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
-  onClose:    () => void
+  onAdd:           (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
+  onAddForMerge?:  (action: RelAction, match: SearchResult) => Promise<void>
+  onClose:         () => void
 }
