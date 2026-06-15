@@ -205,14 +205,13 @@ function CommunityPageInner() {
     if (!isValidEmail(email.trim())) { setFormErr(c.errEmail); return }
     if (signupPw.length < 8) { setFormErr(c.errPwLen); return }
     if (signupPw !== signupConfirm) { setFormErr(c.errPwMatch); return }
-    if (!inviteCode.trim()) { setFormErr(c.errInvite); return }
     setFormErr(''); setLoading(true)
     try {
       const { token } = await api.community.signup(slug, {
         email:        email.trim(),
         password:     signupPw,
         display_name: signupName.trim(),
-        invite_code:  inviteCode.trim(),
+        ...(inviteCode.trim() ? { invite_code: inviteCode.trim() } : {}),
       })
       setToken(token)
       router.push('/graph')
