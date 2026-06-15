@@ -7,6 +7,7 @@ import {
   type Node, type Edge, type NodeChange, type EdgeChange,
 } from '@xyflow/react'
 import type { Dispatch, SetStateAction } from 'react'
+import type { PersonData } from '@/types'
 import { api, getToken, setToken } from '@/lib/api'
 import { layoutEngine } from '@/lib/layouts/layoutEngine'
 import { filterGraphBySide, type WomanView } from '@/lib/layouts/familySideFilter'
@@ -35,6 +36,7 @@ interface GraphDataReturn {
   womanView: WomanView
   onWomanViewChange: (v: WomanView) => void
   familyName: string
+  updateRawNode: (id: string, data: Partial<PersonData>) => void
 }
 
 export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
@@ -235,6 +237,16 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     await fetchGraph()
   }, [fetchGraph])
 
+  // Optimistic update for a single person's data fields. Updating rawNodes
+  // propagates through the useMemo chain (filteredNodes → ghostedNodes →
+  // laidOutNodes → visibleNodes) so the canvas re-renders immediately without
+  // a full fetchGraph round-trip.
+  const updateRawNode = useCallback((id: string, data: Partial<PersonData>) => {
+    setRawNodes(prev => prev.map(n =>
+      n.id === id ? { ...n, data: { ...n.data, ...data } } : n
+    ))
+  }, [])
+
   const onWomanViewChange = useCallback((v: WomanView) => setWomanView(v), [])
 
   return {
@@ -245,5 +257,6 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     graphLoading, fetchGraph, resetAndFetch,
     isMarriedWoman, womanView, onWomanViewChange,
     familyName,
+    updateRawNode,
   }
 }

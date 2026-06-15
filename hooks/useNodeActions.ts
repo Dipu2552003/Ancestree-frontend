@@ -47,6 +47,7 @@ export function useNodeActions(
   selectedNodeId: string | null,
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>,
   onDuplicateFound: (newPersonId: string, matches: PotentialMatch[], myInfo: MyPersonInfo) => void,
+  updateRawNode: (id: string, data: Partial<PersonData>) => void,
 ): NodeActionsReturn {
   // Ghosts (intra-family-marriage duplicates) live only in the render layer
   // but share the underlying person row. API calls must always target the real
@@ -58,7 +59,10 @@ export function useNodeActions(
     setNodes(prev => prev.map(n =>
       toRealId(n.id) === realId ? { ...n, data: { ...n.data, ...data } } : n,
     ))
-  }, [setNodes])
+    // Also update rawNodes so the canvas (driven by visibleNodes ← rawNodes)
+    // re-renders immediately with the new name/photo/details.
+    updateRawNode(realId, data)
+  }, [setNodes, updateRawNode])
 
   const onDeleteNode = useCallback(async (id: string) => {
     await api.persons.delete(toRealId(id))

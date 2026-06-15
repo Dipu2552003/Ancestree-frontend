@@ -88,6 +88,7 @@ function GraphInner() {
     graphLoading, fetchGraph, resetAndFetch,
     isMarriedWoman, womanView, onWomanViewChange,
     familyName,
+    updateRawNode,
   } = useGraphData(perspectiveId)
 
   // Total real people in the current family. rawNodes is the backend person set
@@ -107,6 +108,7 @@ function GraphInner() {
       if (isDupDismissed(newPersonId)) return
       s.setDuplicateInfo({ newPersonId, matches, myInfo })
     },
+    updateRawNode,
   )
 
   // Exploration mode — true when we're viewing another tree to evaluate a merge.
