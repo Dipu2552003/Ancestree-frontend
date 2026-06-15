@@ -223,7 +223,7 @@ function CommunityPageInner() {
         email:        email.trim(),
         password:     signupPw,
         display_name: signupName.trim(),
-        ...(inviteCode.trim() ? { invite_code: inviteCode.trim() } : {}),
+        invite_code:  inviteCode.trim(),
       })
       setToken(token)
       if (typeof window !== 'undefined') {
