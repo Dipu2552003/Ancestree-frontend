@@ -43,7 +43,7 @@ export const community = {
   ) =>
     req<{
       token: string
-      community: { id: string; name: string; slug: string }
+      community: { id: string; name: string; slug: string; join_code: string }
       user: { id: string; email: string; display_name: string; person_id: string; family_id: string; community_id: string }
     }>('/api/community', {
       method: 'POST',
@@ -62,9 +62,20 @@ export const community = {
     }),
 
   signup: (slug: string, b: {
-    email: string; password: string; display_name: string; invite_code?: string
+    email: string; password: string; display_name: string; invite_code: string
   }) =>
     req<CommunitySession>(`/api/community/${encodeURIComponent(slug)}/signup`, {
       method: 'POST', body: JSON.stringify(b),
     }),
+
+  getJoinCode: (slug: string) =>
+    req<{ join_code: string; community_slug: string }>(
+      `/api/community/${encodeURIComponent(slug)}/join-code`,
+    ),
+
+  resetJoinCode: (slug: string) =>
+    req<{ join_code: string; community_slug: string }>(
+      `/api/community/${encodeURIComponent(slug)}/join-code/reset`,
+      { method: 'POST' },
+    ),
 }

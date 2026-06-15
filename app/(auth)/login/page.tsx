@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconLoader2, IconEye, IconEyeOff } from '@tabler/icons-react'
@@ -91,6 +91,16 @@ export default function LoginPage() {
   const isMobile = useIsMobile()
   const [lang,      setLang]      = useState<AuthLang>('en')
   const [[step, dir], setStepDir] = useState<[Step, number]>(['email', 1])
+
+  // Community users must log in from their community page, not here.
+  // If we find a stored community slug, redirect them back immediately.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const communitySlug = localStorage.getItem('community_slug')
+    if (communitySlug) {
+      router.replace(`/community/${communitySlug}`)
+    }
+  }, [router])
   const [email,     setEmail]     = useState('')
   const [emailErr,  setEmailErr]  = useState('')
   const [emailNotFound, setEmailNotFound] = useState(false)

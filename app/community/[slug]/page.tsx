@@ -127,6 +127,13 @@ function CommunityPageInner() {
   const [pw2Focus,     setPw2Focus]     = useState(false)
   const [inviteFocus,  setInviteFocus]  = useState(false)
 
+  // If the user already has a valid session, skip the login form entirely.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const token = localStorage.getItem('at')
+    if (token) router.replace('/graph')
+  }, [router])
+
   useEffect(() => {
     if (!slug) return
     api.community.getInfo(slug)
@@ -191,8 +198,12 @@ function CommunityPageInner() {
     if (!loginPw.trim()) { setFormErr(c.errPw); return }
     setFormErr(''); setLoading(true)
     try {
-      const { token } = await api.community.login(slug, { email: email.trim(), password: loginPw })
+      const { token, user } = await api.community.login(slug, { email: email.trim(), password: loginPw })
       setToken(token)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify({ person_id: user.person_id, family_id: user.family_id }))
+        localStorage.setItem('community_slug', slug)
+      }
       router.push('/graph')
     } catch (err) {
       setLoading(false)
@@ -205,15 +216,20 @@ function CommunityPageInner() {
     if (!isValidEmail(email.trim())) { setFormErr(c.errEmail); return }
     if (signupPw.length < 8) { setFormErr(c.errPwLen); return }
     if (signupPw !== signupConfirm) { setFormErr(c.errPwMatch); return }
+    if (!inviteCode.trim()) { setFormErr(c.errInvite); return }
     setFormErr(''); setLoading(true)
     try {
-      const { token } = await api.community.signup(slug, {
+      const { token, user } = await api.community.signup(slug, {
         email:        email.trim(),
         password:     signupPw,
         display_name: signupName.trim(),
         ...(inviteCode.trim() ? { invite_code: inviteCode.trim() } : {}),
       })
       setToken(token)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify({ person_id: user.person_id, family_id: user.family_id }))
+        localStorage.setItem('community_slug', slug)
+      }
       router.push('/graph')
     } catch (err) {
       setLoading(false)
@@ -497,31 +513,29 @@ function CommunityPageInner() {
                 />
               </div>
 
-              {inviteCode && (
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: th.textMuted, transition: 'color 0.35s ease' }}>
-                    {c.inviteLabel}
-                  </label>
-                  <input
-                    value={inviteCode}
-                    onChange={e => { setInviteCode(e.target.value); setFormErr(''); setInviteCheck('idle') }}
-                    onKeyDown={e => { if (e.key === 'Enter') handleSignup() }}
-                    onFocus={() => setInviteFocus(true)}
-                    onBlur={() => setInviteFocus(false)}
-                    placeholder={c.invitePh}
-                    style={inputStyle(inviteFocus, inviteCheck === 'invalid')}
-                  />
-                  {inviteCheck === 'valid' ? (
-                    <p style={{ margin: '7px 0 0', fontSize: 12, fontWeight: 600, color: '#15803D', display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <IconCircleCheck size={14} /> {c.inviteOk} {inviteRole}
-                    </p>
-                  ) : inviteCheck === 'invalid' ? (
-                    <p style={{ margin: '7px 0 0', fontSize: 12, fontWeight: 600, color: '#EF4444' }}>
-                      {c.inviteBad}
-                    </p>
-                  ) : null}
-                </div>
-              )}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: th.textMuted, transition: 'color 0.35s ease' }}>
+                  {c.inviteLabel}
+                </label>
+                <input
+                  value={inviteCode}
+                  onChange={e => { setInviteCode(e.target.value); setFormErr(''); setInviteCheck('idle') }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSignup() }}
+                  onFocus={() => setInviteFocus(true)}
+                  onBlur={() => setInviteFocus(false)}
+                  placeholder={c.invitePh}
+                  style={inputStyle(inviteFocus, inviteCheck === 'invalid')}
+                />
+                {inviteCheck === 'valid' ? (
+                  <p style={{ margin: '7px 0 0', fontSize: 12, fontWeight: 600, color: '#15803D', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <IconCircleCheck size={14} /> {c.inviteOk} {inviteRole}
+                  </p>
+                ) : inviteCheck === 'invalid' ? (
+                  <p style={{ margin: '7px 0 0', fontSize: 12, fontWeight: 600, color: '#EF4444' }}>
+                    {c.inviteBad}
+                  </p>
+                ) : null}
+              </div>
 
               <AnimatePresence>
                 {formErr && (

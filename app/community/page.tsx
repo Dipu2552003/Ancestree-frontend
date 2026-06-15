@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   IconArrowRight, IconBuilding, IconSun, IconMoon,
   IconPlus, IconX, IconArrowLeft, IconLoader2, IconEye, IconEyeOff,
+  IconCopy, IconCheck,
 } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
@@ -31,7 +32,10 @@ function CreateCommunityForm({
   const router = useRouter()
   const t = getTheme(isDark)
 
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [joinCode,   setJoinCode]   = useState('')
+  const [copyDone,   setCopyDone]   = useState(false)
+  const [createdSlug, setCreatedSlug] = useState('')
 
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -96,12 +100,15 @@ function CreateCommunityForm({
           person_id: result.user.person_id,
           family_id: result.user.family_id,
         }))
+        localStorage.setItem('community_slug', result.community.slug)
       }
       onCreated({
         id: result.community.id, name: result.community.name, slug: result.community.slug,
         description: description.trim() || null, member_count: 1,
       })
-      router.push(`/community/${result.community.slug}`)
+      setCreatedSlug(result.community.slug)
+      setJoinCode(result.community.join_code)
+      setStep(3)
     } catch (err) {
       setError((err as Error).message)
       setLoading(false)
@@ -147,10 +154,10 @@ function CreateCommunityForm({
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
             <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-primary)' }}>
-              Platform Admin · Step {step} of 2
+              {step === 3 ? 'All done!' : `Platform Admin · Step ${step} of 2`}
             </p>
             <div style={{ display: 'flex', gap: 4 }}>
-              {([1, 2] as const).map(s => (
+              {([1, 2, 3] as const).map(s => (
                 <div key={s} style={{
                   width: s <= step ? 16 : 6, height: 6, borderRadius: 3,
                   background: s <= step ? 'var(--c-primary)' : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)'),
@@ -160,19 +167,21 @@ function CreateCommunityForm({
             </div>
           </div>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: t.text }}>
-            {step === 1 ? 'Create Community' : 'Your Account'}
+            {step === 1 ? 'Create Community' : step === 2 ? 'Your Account' : 'Share Invite'}
           </h2>
         </div>
-        <button
-          onClick={onClose}
-          style={{
-            width: 32, height: 32, borderRadius: 8, border: 'none',
-            background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-            color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <IconX size={15} />
-        </button>
+        {step < 3 && (
+          <button
+            onClick={onClose}
+            style={{
+              width: 32, height: 32, borderRadius: 8, border: 'none',
+              background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+              color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <IconX size={15} />
+          </button>
+        )}
       </div>
 
       <div style={{ padding: '18px 20px 20px', overflow: 'hidden' }}>
@@ -395,6 +404,89 @@ function CreateCommunityForm({
             </motion.div>
           )}
 
+          {step === 3 && (
+            <motion.div
+              key="step3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+            >
+              <div style={{
+                padding: '12px 14px', borderRadius: 10,
+                background: isDark ? 'rgba(20,64,26,0.35)' : '#DCFCE7',
+                border: `1px solid ${isDark ? 'rgba(34,197,94,0.30)' : '#86EFAC'}`,
+              }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: isDark ? '#86EFAC' : '#15803D' }}>
+                  Community created! Share the invite link below with your family members.
+                </p>
+              </div>
+
+              <div>
+                <label style={{
+                  display: 'block', marginBottom: 6, fontSize: 11, fontWeight: 700,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: isDark ? '#7A6A52' : 'var(--c-primary-deep)',
+                }}>
+                  Invite link
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{
+                    flex: 1, padding: '0 12px', height: 42, borderRadius: 10,
+                    border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)'}`,
+                    background: isDark ? '#141210' : '#FDFAF6',
+                    display: 'flex', alignItems: 'center', overflow: 'hidden',
+                  }}>
+                    <span style={{
+                      fontSize: 12.5, fontFamily: 'monospace', color: t.text,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                      {typeof window !== 'undefined' ? window.location.origin : ''}/community/{createdSlug}?code={joinCode}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const link = `${window.location.origin}/community/${createdSlug}?code=${joinCode}`
+                      navigator.clipboard.writeText(link)
+                      setCopyDone(true)
+                      setTimeout(() => setCopyDone(false), 2000)
+                    }}
+                    style={{
+                      width: 42, height: 42, borderRadius: 10, border: 'none', flexShrink: 0,
+                      background: copyDone
+                        ? (isDark ? 'rgba(20,64,26,0.5)' : '#DCFCE7')
+                        : 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
+                      color: copyDone ? (isDark ? '#86EFAC' : '#15803D') : '#fff',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background 0.2s',
+                    }}
+                  >
+                    {copyDone ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                  </button>
+                </div>
+                <p style={{ margin: '6px 0 0', fontSize: 11, color: t.textMuted }}>
+                  Anyone with this link can create an account and join your community.
+                </p>
+              </div>
+
+              <motion.button
+                onClick={() => router.push('/graph')}
+                whileHover={{ scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' }}
+                whileTap={{ scale: 0.985 }}
+                style={{
+                  width: '100%', height: 48, borderRadius: 12, border: 'none',
+                  background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
+                  color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  boxShadow: '0 3px 14px rgb(var(--c-primary-rgb) / 0.40)',
+                }}
+              >
+                Go to your family tree <IconArrowRight size={16} />
+              </motion.button>
+            </motion.div>
+          )}
+
         </AnimatePresence>
       </div>
     </motion.div>
@@ -420,7 +512,8 @@ function CommunityLandingInner() {
   }
 
   const handleCreated = useCallback((_community: CommunityInfo) => {
-    setShowCreate(false)
+    // Step 3 (invite screen) shows inside the form — don't close yet.
+    // The form exits naturally when the user clicks "Go to your family tree".
   }, [])
 
   return (
