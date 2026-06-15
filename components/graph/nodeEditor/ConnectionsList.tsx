@@ -31,8 +31,8 @@ export default function ConnectionsList({
     <div style={{ padding: '10px 16px 4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
       {connections.map(conn => {
         const initials = conn.fullName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
-        const avatarBg = conn.nodeState === 'claimed' ? '#C2410C'
-          : conn.nodeState === 'proxy' || conn.nodeState === 'invited' ? '#D97706'
+        const avatarBg = conn.nodeState === 'claimed' ? 'var(--c-primary-strong)'
+          : conn.nodeState === 'proxy' || conn.nodeState === 'invited' ? 'var(--c-secondary)'
           : '#94A3B8'
         return (
           <div
@@ -41,8 +41,8 @@ export default function ConnectionsList({
               display: 'flex', alignItems: 'center', gap: '10px',
               padding: '9px 12px',
               borderRadius: '10px',
-              background: isDark ? 'rgba(255,255,255,0.04)' : '#FFF7ED',
-              border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : '#FDE8CC'}`,
+              background: isDark ? 'rgba(255,255,255,0.04)' : 'var(--c-page)',
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'var(--c-tint)'}`,
             }}
           >
             {/* Avatar */}
@@ -76,7 +76,7 @@ export default function ConnectionsList({
                 color: t.textMuted, flexShrink: 0,
                 transition: 'background 0.15s, color 0.15s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.13)' : 'rgba(0,0,0,0.10)'; e.currentTarget.style.color = '#EA580C' }}
+              onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.13)' : 'rgba(0,0,0,0.10)'; e.currentTarget.style.color = 'var(--c-primary)' }}
               onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = t.textMuted }}
             >
               <IconEye size={14} />

@@ -60,7 +60,7 @@ export default function TrioHero({
             )}
           </AnimatePresence>
           <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: motherName ? labelColor(motherGender ?? 'female') : (isDark ? 'rgba(234,88,12,0.55)' : 'rgba(234,88,12,0.50)') }}>
+            color: motherName ? labelColor(motherGender ?? 'female') : (isDark ? 'rgb(var(--c-primary-rgb) / 0.55)' : 'rgb(var(--c-primary-rgb) / 0.50)') }}>
             {motherName ? firstName(motherName) : vacantLabel}
           </span>
         </div>
@@ -69,7 +69,7 @@ export default function TrioHero({
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <AnchorNodeCard fullName={fatherName} isDark={isDark} compact />
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#EA580C' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c-primary)' }}>
             {firstName(fatherName) || 'Father'}
           </span>
         </div>

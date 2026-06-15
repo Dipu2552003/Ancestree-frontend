@@ -79,7 +79,7 @@ export default function IdentitySection({ form, nameInputRef, maritalStatus }: I
                   height: '30px', padding: '0 12px', borderRadius: '6px', border: 'none',
                   fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
                   background: draft.gender === g.value
-                    ? '#EA580C'
+                    ? 'var(--c-primary)'
                     : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'),
                   color: draft.gender === g.value ? '#fff' : t.text,
                   transition: 'background 0.15s, color 0.15s',

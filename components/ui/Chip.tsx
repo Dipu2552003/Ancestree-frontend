@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 
 const TONES = {
-  saffron: { fg: '#EA580C', bg: 'rgba(234,88,12,0.08)',  border: 'rgba(234,88,12,0.20)' },
+  saffron: { fg: 'var(--c-primary)', bg: 'rgb(var(--c-primary-rgb) / 0.08)',  border: 'rgb(var(--c-primary-rgb) / 0.20)' },
   success: { fg: '#15803D', bg: 'rgba(34,197,94,0.08)',  border: 'rgba(34,197,94,0.20)' },
   warning: { fg: '#B45309', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.20)' },
   danger:  { fg: '#B91C1C', bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.20)' },

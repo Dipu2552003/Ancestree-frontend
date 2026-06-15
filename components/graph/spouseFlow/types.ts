@@ -2,8 +2,11 @@
 
 export type Phase      = 'resolve' | 'add' | 'reparent'
 export type ExitStatus = 'widowed' | 'divorced' | 'separated' | 'unknown'
-/** Which of the two marriages is the currently-active one. */
-export type ActiveChoice = 'existing' | 'new'
+/** Which marriage(s) are currently active:
+ *  'existing' → only the first stays active (new spouse is the ex)
+ *  'new'      → only the new one is active (first becomes the ex)
+ *  'both'     → both remain active (more than one current spouse) */
+export type ActiveChoice = 'existing' | 'new' | 'both'
 
 export interface ExistingSpouse {
   relationshipId: string

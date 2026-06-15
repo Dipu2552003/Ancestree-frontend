@@ -29,7 +29,7 @@ export default function AnchorNodeCard({ fullName, isDark, compact = false }: An
     <div style={{
       width: W, height: H, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden',
       background: t.cardBg,
-      border: isDark ? '1.5px solid rgba(234,88,12,0.28)' : '1.5px solid rgba(234,88,12,0.22)',
+      border: isDark ? '1.5px solid rgb(var(--c-primary-rgb) / 0.28)' : '1.5px solid rgb(var(--c-primary-rgb) / 0.22)',
       boxShadow: isDark
         ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)'
         : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)',
@@ -41,7 +41,7 @@ export default function AnchorNodeCard({ fullName, isDark, compact = false }: An
       }}>
         <div style={{
           width: avatarSize, height: avatarSize, borderRadius: '50%',
-          backgroundImage: 'linear-gradient(135deg, #EA580C, #C2410C)',
+          backgroundImage: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: '#fff', fontSize: initSize, fontWeight: 500, letterSpacing: '0.02em',
         }}>

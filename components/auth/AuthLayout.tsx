@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { IconSun, IconMoon } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
+import { readVar } from '@/lib/theme/cssVar'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthPreviewCanvas from '@/components/auth/AuthPreviewCanvas'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
@@ -28,6 +29,7 @@ function PanelDotField({ isDark }: { isDark: boolean }) {
     const wrap = wrapRef.current, canvas = canvasRef.current
     if (!wrap || !canvas) return
     const ctx = canvas.getContext('2d')!
+    const dotLight = readVar('--c-dot', 'rgba(160,100,20,0.28)')
 
     const rebuild = () => {
       const { width, height } = wrap.getBoundingClientRect()
@@ -51,7 +53,7 @@ function PanelDotField({ isDark }: { isDark: boolean }) {
     const tick = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       const { x: mx, y: my } = mouse.current
-      const color = darkRef.current ? 'rgba(255,255,255,0.12)' : 'rgba(160,100,20,0.28)'
+      const color = darkRef.current ? 'rgba(255,255,255,0.12)' : dotLight
       for (const d of dots.current) {
         const dx = d.x - mx, dy = d.y - my, dist = Math.sqrt(dx*dx + dy*dy)
         if (dist < REPEL_R && dist > 0) {
@@ -102,11 +104,11 @@ export default function AuthLayout({ lang, onLangChange, preview = null, childre
   const isMobile = useIsMobile()
 
   const lv = {
-    navBg:        isDark ? 'rgba(11,10,9,0.88)'      : 'rgba(255,247,237,0.88)',
-    navBorder:    isDark ? 'rgba(255,255,255,0.06)'   : 'rgba(234,88,12,0.10)',
-    panelBorder:  isDark ? 'rgba(255,255,255,0.06)'   : 'rgba(234,88,12,0.09)',
-    toggleBg:     isDark ? 'rgba(234,88,12,0.10)'     : 'rgba(234,88,12,0.07)',
-    toggleBorder: isDark ? 'rgba(234,88,12,0.25)'     : 'rgba(234,88,12,0.18)',
+    navBg:        isDark ? 'rgba(11,10,9,0.88)'      : 'rgb(var(--c-page-rgb) / 0.88)',
+    navBorder:    isDark ? 'rgba(255,255,255,0.06)'   : 'rgb(var(--c-primary-rgb) / 0.10)',
+    panelBorder:  isDark ? 'rgba(255,255,255,0.06)'   : 'rgb(var(--c-primary-rgb) / 0.09)',
+    toggleBg:     isDark ? 'rgb(var(--c-primary-rgb) / 0.10)'     : 'rgb(var(--c-primary-rgb) / 0.07)',
+    toggleBorder: isDark ? 'rgb(var(--c-primary-rgb) / 0.25)'     : 'rgb(var(--c-primary-rgb) / 0.18)',
     langInactFg:  isDark ? '#B87B4A'                  : '#9A6C3C',
   }
 
@@ -130,7 +132,7 @@ export default function AuthLayout({ lang, onLangChange, preview = null, childre
       >
         {/* Wordmark */}
         <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg, #EA580C, #C2410C)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgba(234,88,12,0.34)' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgb(var(--c-primary-rgb) / 0.34)' }}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
               <circle cx="10" cy="5"  r="2.4" fill="white" />
               <circle cx="4"  cy="15" r="2"   fill="white" opacity="0.85" />
@@ -152,7 +154,7 @@ export default function AuthLayout({ lang, onLangChange, preview = null, childre
               <motion.button
                 key={l}
                 onClick={() => onLangChange(l)}
-                animate={{ background: lang === l ? '#EA580C' : 'rgba(0,0,0,0)', color: lang === l ? '#fff' : lv.langInactFg, boxShadow: lang === l ? '0 1px 6px rgba(234,88,12,0.38)' : '0 0 0 rgba(0,0,0,0)' }}
+                animate={{ background: lang === l ? 'var(--c-primary)' : 'rgba(0,0,0,0)', color: lang === l ? '#fff' : lv.langInactFg, boxShadow: lang === l ? '0 1px 6px rgb(var(--c-primary-rgb) / 0.38)' : '0 0 0 rgba(0,0,0,0)' }}
                 transition={{ duration: 0.2 }}
                 whileTap={{ scale: 0.94 }}
                 style={{ minWidth: 48, height: 30, borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: l === 'hi' ? 13.5 : 12, fontWeight: 700, letterSpacing: l === 'en' ? '0.05em' : 0 }}

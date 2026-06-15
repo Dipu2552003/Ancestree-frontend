@@ -55,7 +55,7 @@ export default function BirthDeathSection({ form }: BirthDeathSectionProps) {
                   height: '30px', padding: '0 14px', borderRadius: '6px', border: 'none',
                   fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit',
                   background: draft.isDeceased === s.value
-                    ? '#EA580C'
+                    ? 'var(--c-primary)'
                     : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'),
                   color: draft.isDeceased === s.value ? '#fff' : t.text,
                   transition: 'background 0.15s, color 0.15s',

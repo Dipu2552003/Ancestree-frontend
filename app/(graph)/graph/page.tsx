@@ -37,6 +37,7 @@ import { useGraphPageEffects } from '@/hooks/useGraphPageEffects'
 import { useFitViewportOnLoad } from '@/hooks/useFitViewportOnLoad'
 import { getTheme } from '@/lib/theme'
 import { api, type MergeConflict } from '@/lib/api'
+import { getToken } from '@/lib/api/client'
 import { isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
 import { checkDeletable } from '@/lib/graph/deleteRules'
 import { isDupDismissed, getCommunityId } from '@/lib/storage'
@@ -160,6 +161,16 @@ function GraphInner() {
     perspectiveId,
   })
 
+  // Open the 3D family-graph view (familygraph app, a separate Vite app on its
+  // own origin). localStorage can't be shared across origins, so we hand the
+  // session over in the URL hash — familygraph persists it and skips its login.
+  const onOpen3D = useCallback(() => {
+    const base = process.env.NEXT_PUBLIC_FAMILYGRAPH_URL ?? 'http://localhost:5173'
+    const token = getToken()
+    const url = token ? `${base}/#token=${encodeURIComponent(token)}` : base
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }, [])
+
   const onHome = useCallback(() => {
     const self = getNodes().find(n => asPersonData(n.data)?.isSelf)
     if (self) setCenter(self.position.x + 64, self.position.y + 70, { zoom: 1, duration: 600 })
@@ -215,7 +226,11 @@ function GraphInner() {
   const overlays = buildOverlayProps({
     s, selectedNode, selectedNodeName, matchHighlightNode, anchorRealId,
     nodes, edges, rawNodes, rawEdges,
-    router, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
+    router,
+    // Merge requests start only from the user's own tree — not while viewing
+    // another person's tree (perspective mode).
+    canMerge: !perspectiveId,
+    fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
     handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
   })
 
@@ -267,7 +282,9 @@ function GraphInner() {
         onToggleTheme={() => setIsDark(!isDark)}
         onToggleNotif={() => { s.setHistoryPanelOpen(false); setAdminsPanelOpen(false); s.setNotifPanelOpen(v => !v) }}
         onToggleHistory={() => { s.setNotifPanelOpen(false); setAdminsPanelOpen(false); s.setHistoryPanelOpen(v => !v) }}
+        onOpen3D={onOpen3D}
         onSelectPerson={handleSearchSelect}
+        isCommunity={!!communityId}
         onFamilyClick={communityId ? () => {
           s.setNotifPanelOpen(false)
           s.setHistoryPanelOpen(false)

@@ -17,15 +17,15 @@ export default function AddRelationButton({ isDark, onClick }: AddRelationButton
       <button
         onClick={onClick}
         style={{
-          width: '100%', height: '38px', borderRadius: '8px', border: '1px solid rgba(234,88,12,0.30)',
+          width: '100%', height: '38px', borderRadius: '8px', border: '1px solid rgb(var(--c-primary-rgb) / 0.30)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
           cursor: 'pointer', fontSize: '13px', fontWeight: 500, fontFamily: 'inherit',
-          background: isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)',
-          color: '#EA580C',
+          background: isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.07)',
+          color: 'var(--c-primary)',
           transition: 'background 0.15s, border-color 0.15s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(234,88,12,0.20)' : 'rgba(234,88,12,0.12)'; e.currentTarget.style.borderColor = 'rgba(234,88,12,0.55)' }}
-        onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)'; e.currentTarget.style.borderColor = 'rgba(234,88,12,0.30)' }}
+        onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgb(var(--c-primary-rgb) / 0.20)' : 'rgb(var(--c-primary-rgb) / 0.12)'; e.currentTarget.style.borderColor = 'rgb(var(--c-primary-rgb) / 0.55)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.07)'; e.currentTarget.style.borderColor = 'rgb(var(--c-primary-rgb) / 0.30)' }}
       >
         <IconPlus size={15} strokeWidth={2.5} />
         Add relation

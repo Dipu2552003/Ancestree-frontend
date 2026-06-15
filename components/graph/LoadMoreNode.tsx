@@ -58,16 +58,16 @@ function LoadMoreNode({ data }: NodeProps) {
           gap: 8,
           padding: '0 18px',
           borderRadius: 999,
-          border: `1.5px dashed ${isDark ? '#D97706' : '#EA580C'}`,
-          background: isDark ? 'rgba(217, 119, 6, 0.12)' : '#FFF7ED',
-          color: isDark ? '#FBBF24' : '#C2410C',
+          border: `1.5px dashed ${isDark ? 'var(--c-secondary)' : 'var(--c-primary)'}`,
+          background: isDark ? 'rgb(var(--c-secondary-rgb) / 0.12)' : 'var(--c-page)',
+          color: isDark ? '#FBBF24' : 'var(--c-primary-strong)',
           fontSize: 13,
           fontWeight: 600,
           letterSpacing: '0.01em',
           cursor: stillAvailable ? 'pointer' : 'default',
           boxShadow: isDark
             ? '0 2px 10px rgba(0,0,0,0.35)'
-            : '0 2px 8px rgba(234, 88, 12, 0.12)',
+            : '0 2px 8px rgb(var(--c-primary-rgb) / 0.12)',
           userSelect: 'none',
           opacity: stillAvailable ? 1 : 0.55,
         }}

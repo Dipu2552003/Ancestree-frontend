@@ -35,6 +35,9 @@ export type { ExistingSpouse, ExistingChild } from './spouseFlow'
 interface SecondSpouseWizardProps {
   anchorId:         string
   anchorName:       string
+  /** Anchor's gender — a new spouse is the opposite, so when this is
+   *  'male'/'female' we pre-fill it and hide the gender picker. */
+  anchorGender?:    string
   /** All active SPOUSE_OF rels on the anchor — the one we'll resolve in Phase 1 */
   existingSpouses:  ExistingSpouse[]
   /** All of anchor's children — re-mother in Phase 3 */
@@ -45,8 +48,11 @@ interface SecondSpouseWizardProps {
 }
 
 export default function SecondSpouseWizard({
-  anchorId, anchorName, existingSpouses, existingChildren, isDark, onComplete, onClose,
+  anchorId, anchorName, anchorGender, existingSpouses, existingChildren, isDark, onComplete, onClose,
 }: SecondSpouseWizardProps) {
+  // The new spouse is the opposite gender to the anchor (when known).
+  const impliedGender =
+    anchorGender === 'male' ? 'female' : anchorGender === 'female' ? 'male' : ''
   const [phase,   setPhase]   = useState<Phase>('resolve')
   const [saving,  setSaving]  = useState(false)
   const [error,   setError]   = useState('')
@@ -61,7 +67,7 @@ export default function SecondSpouseWizard({
   // ── Phase 2 state — new spouse profile ──────────────────────────────────
   const [newName,        setNewName]        = useState('')
   const [newNameErr,     setNewNameErr]     = useState('')
-  const [newGender,      setNewGender]      = useState<'male' | 'female' | 'other' | ''>('')
+  const [newGender,      setNewGender]      = useState<'male' | 'female' | 'other' | ''>(impliedGender)
   const [newBirthYear,   setNewBirthYear]   = useState('')
   const [newPhotoUrl,    setNewPhotoUrl]    = useState<string | undefined>()
   const [newPhotoBusy,   setNewPhotoBusy]   = useState(false)
@@ -120,8 +126,9 @@ export default function SecondSpouseWizard({
       }
       // Determine the new SPOUSE_OF's status based on which marriage is active.
       //   active = 'new'      → this marriage is current → 'married'
-      //   active = 'existing' → new spouse is the *ex* → use exitStatus from Phase 1
-      const subType = activeChoice === 'new' ? 'married' : exitStatus
+      //   active = 'both'     → both marriages current   → 'married'
+      //   active = 'existing' → new spouse is the *ex*   → use exitStatus from Phase 1
+      const subType = activeChoice === 'existing' ? exitStatus : 'married'
       const sepYear = activeChoice === 'existing' && ey && !isNaN(ey) ? ey : undefined
 
       // ONLY the SPOUSE_OF edge — no child cascade (Phase 3 handles it).
@@ -181,7 +188,7 @@ export default function SecondSpouseWizard({
   }
 
   const cardBg     = isDark ? '#1C1410' : '#FFFAF5'
-  const cardBorder = isDark ? '1.5px solid rgba(255,255,255,0.08)' : '1.5px solid rgba(234,88,12,0.14)'
+  const cardBorder = isDark ? '1.5px solid rgba(255,255,255,0.08)' : '1.5px solid rgb(var(--c-primary-rgb) / 0.14)'
 
   const phaseIndex = phase === 'resolve' ? 0 : phase === 'add' ? 1 : 2
   const totalPhases = existingChildren.length > 0 ? 3 : 2
@@ -220,7 +227,7 @@ export default function SecondSpouseWizard({
           background: cardBg, border: cardBorder, borderRadius: 22,
           boxShadow: isDark
             ? '0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04)'
-            : '0 40px 100px rgba(0,0,0,0.20), 0 0 0 1px rgba(234,88,12,0.06)',
+            : '0 40px 100px rgba(0,0,0,0.20), 0 0 0 1px rgb(var(--c-primary-rgb) / 0.06)',
         }}
       >
         <WizardHeader
@@ -261,6 +268,7 @@ export default function SecondSpouseWizard({
               hasChildren={existingChildren.length > 0}
               activeChoice={activeChoice}
               exitStatus={exitStatus}
+              hideGender={impliedGender !== ''}
               newName={newName}            setNewName={setNewName}
               newNameErr={newNameErr}      setNewNameErr={setNewNameErr}
               newGender={newGender}        setNewGender={setNewGender}

@@ -33,16 +33,24 @@ import {
 export type { WizardExtras, MarriageStatus, AdoptionStatus, MotherChoice } from './wizard'
 export { RELATION_LABELS } from './wizard'
 
-export default function AddNodeWizard({ relAction, anchorName, isDark, motherOptions, fatherName, onAdd, onAddForMerge, onClose }: AddNodeWizardProps) {
+export default function AddNodeWizard({ relAction, anchorName, anchorGender, isDark, motherOptions, fatherName, onAdd, onAddForMerge, onClose }: AddNodeWizardProps) {
   const t   = getTheme(isDark)
   const cfg = REL_CONFIG[relAction]
+
+  // A spouse's gender is the opposite of the anchor's — so when we know the
+  // anchor is male/female we infer it and skip the 'gender' step entirely.
+  // ('other'/unknown anchor → can't infer → fall back to asking.)
+  const impliedSpouseGender =
+    relAction === 'spouse'
+      ? (anchorGender === 'male' ? 'female' : anchorGender === 'female' ? 'male' : null)
+      : null
 
   const [wizardMode,       setWizardMode]       = useState<'add' | 'search'>('add')
   const [stepIdx,          setStepIdx]          = useState(0)
   const [dir,              setDir]              = useState(1)
   const [fullName,         setFullName]         = useState('')
   const [nameError,        setNameError]        = useState('')
-  const [gender,           setGender]           = useState<string>(cfg.impliedGender ?? '')
+  const [gender,           setGender]           = useState<string>(cfg.impliedGender ?? impliedSpouseGender ?? '')
   const [birthDay,         setBirthDay]         = useState('')
   const [birthMonth,       setBirthMonth]       = useState('')
   const [birthYear,        setBirthYear]        = useState('')
@@ -80,6 +88,8 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, motherOpt
   const isSiblingAdd       = relAction === 'brother' || relAction === 'sister'
   const needsParentChoice  = isChildAdd || isSiblingAdd
   const multiSpouse        = (motherOptions?.length ?? 0) >= 2
+  // When the spouse's gender is inferred from the anchor, drop the 'gender' step.
+  const baseSteps: StepId[] = impliedSpouseGender ? cfg.steps.filter(s => s !== 'gender') : cfg.steps
   const steps: StepId[] = needsParentChoice
     ? (() => {
         const out: StepId[] = ['name', 'birthdate', 'photo', 'relationship']
@@ -87,7 +97,7 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, motherOpt
         if (adoptionStatus === 'adopted')    out.push('bio-parents')
         return out
       })()
-    : cfg.steps
+    : baseSteps
 
   const nameRef  = useRef<HTMLInputElement>(null)
   const dayRef   = useRef<HTMLInputElement>(null)
@@ -215,11 +225,11 @@ export default function AddNodeWizard({ relAction, anchorName, isDark, motherOpt
           width: '100%', maxWidth: '520px',
           maxHeight: 'calc(100dvh - 32px)',
           background: isDark ? '#1C1410' : '#FFFAF5',
-          border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(234,88,12,0.14)'}`,
+          border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgb(var(--c-primary-rgb) / 0.14)'}`,
           borderRadius: 22,
           boxShadow: isDark
             ? '0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04)'
-            : '0 40px 100px rgba(0,0,0,0.20), 0 0 0 1px rgba(234,88,12,0.06)',
+            : '0 40px 100px rgba(0,0,0,0.20), 0 0 0 1px rgb(var(--c-primary-rgb) / 0.06)',
           overflowX: 'hidden', overflowY: 'auto',
         }}
       >

@@ -48,14 +48,14 @@ export function buildFormApi({
   draft, setDraft, focused, setFocused, nameError, setNameError, isDark,
 }: BuildFormApiArgs): FormApi {
   const t        = getTheme(isDark)
-  const labelCol = isDark ? '#7A6A52' : '#9A3412'
+  const labelCol = isDark ? '#7A6A52' : 'var(--c-primary-deep)'
 
   const set = (key: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setDraft(p => ({ ...p, [key]: e.target.value }))
 
   const inputStyle = (key: string): React.CSSProperties => ({
     width: '100%', height: '36px',
-    border: `1.5px solid ${nameError && key === 'firstName' ? '#EF4444' : focused === key ? '#FB923C' : t.border}`,
+    border: `1.5px solid ${nameError && key === 'firstName' ? '#EF4444' : focused === key ? 'var(--c-primary-light)' : t.border}`,
     borderRadius: '8px', padding: '0 10px', fontSize: '13px',
     color: t.text, background: t.inputBg, outline: 'none',
     fontFamily: 'inherit', boxSizing: 'border-box',

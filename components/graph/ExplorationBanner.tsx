@@ -15,9 +15,9 @@ interface ExplorationBannerProps {
 }
 
 export default function ExplorationBanner({ mode, canonicalPersonName, personName, isDark }: ExplorationBannerProps) {
-  const bg     = isDark ? 'rgba(26,20,16,0.95)' : 'rgba(255,247,237,0.95)'
-  const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(234,88,12,0.18)'
-  const accent = '#EA580C'
+  const bg     = isDark ? 'rgba(26,20,16,0.95)' : 'rgb(var(--c-page-rgb) / 0.95)'
+  const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgb(var(--c-primary-rgb) / 0.18)'
+  const accent = 'var(--c-primary)'
   const text   = isDark ? '#E8DDD4' : '#7C3100'
 
   const Icon = mode === 'review' ? IconGitMerge : IconEye
@@ -38,7 +38,7 @@ export default function ExplorationBanner({ mode, canonicalPersonName, personNam
       borderBottom: `1px solid ${border}`,
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
-      boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.35)' : '0 2px 10px rgba(234,88,12,0.08)',
+      boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.35)' : '0 2px 10px rgb(var(--c-primary-rgb) / 0.08)',
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: '9px',
@@ -46,7 +46,7 @@ export default function ExplorationBanner({ mode, canonicalPersonName, personNam
       }}>
         <div style={{
           width: '26px', height: '26px', borderRadius: '7px', flexShrink: 0,
-          background: 'rgba(234,88,12,0.12)',
+          background: 'rgb(var(--c-primary-rgb) / 0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Icon size={13} color={accent} />

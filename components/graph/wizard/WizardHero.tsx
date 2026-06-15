@@ -50,8 +50,8 @@ export default function WizardHero({
   return (
     <div style={{
       padding: currentStep === 'name' ? '24px 28px 20px' : '18px 28px 14px',
-      borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(234,88,12,0.09)'}`,
-      background: isDark ? 'rgba(255,255,255,0.015)' : 'rgba(234,88,12,0.025)',
+      borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgb(var(--c-primary-rgb) / 0.09)'}`,
+      background: isDark ? 'rgba(255,255,255,0.015)' : 'rgb(var(--c-primary-rgb) / 0.025)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       minHeight: triadHeroHeight,
     }}>

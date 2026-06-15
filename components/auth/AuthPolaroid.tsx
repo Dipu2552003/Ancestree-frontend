@@ -46,15 +46,15 @@ export default function AuthPolaroid({
 
   // ── Avatar gradient (matches PersonNode rules) ─────────────────────────────
   let avatarFrom = '#C4A882', avatarTo = '#9A7B5A'
-  if (isSelf)                       { avatarFrom = '#EA580C'; avatarTo = '#C2410C' }
-  else if (nodeState === 'claimed') { avatarFrom = '#C2410C'; avatarTo = '#9A3412' }
-  else if (nodeState === 'proxy')   { avatarFrom = '#D97706'; avatarTo = '#B45309' }
+  if (isSelf)                       { avatarFrom = 'var(--c-primary)'; avatarTo = 'var(--c-primary-strong)' }
+  else if (nodeState === 'claimed') { avatarFrom = 'var(--c-primary-strong)'; avatarTo = 'var(--c-primary-deep)' }
+  else if (nodeState === 'proxy')   { avatarFrom = 'var(--c-secondary)'; avatarTo = '#B45309' }
 
   const stripBg       = isDark ? '#141210' : '#FFFFFF'
   const stripBorder   = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'
   const lastNameColor = isDark ? 'rgba(237,232,227,0.55)' : 'rgba(26,10,0,0.45)'
   const cardBorder    = isSelf
-    ? '2.5px solid #EA580C'
+    ? '2.5px solid var(--c-primary)'
     : isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.09)'
   const cardShadow    = isDark
     ? '0 14px 50px rgba(0,0,0,0.62), 0 4px 14px rgba(0,0,0,0.40)'
@@ -74,8 +74,8 @@ export default function AuthPolaroid({
       <div style={{
         position: 'absolute', width: 460, height: 460,
         background: isDark
-          ? 'radial-gradient(circle, rgba(234,88,12,0.18) 0%, rgba(234,88,12,0) 65%)'
-          : 'radial-gradient(circle, rgba(234,88,12,0.22) 0%, rgba(234,88,12,0) 65%)',
+          ? 'radial-gradient(circle, rgb(var(--c-primary-rgb) / 0.18) 0%, rgb(var(--c-primary-rgb) / 0) 65%)'
+          : 'radial-gradient(circle, rgb(var(--c-primary-rgb) / 0.22) 0%, rgb(var(--c-primary-rgb) / 0) 65%)',
         pointerEvents: 'none', zIndex: 0,
       }} />
 
@@ -86,11 +86,11 @@ export default function AuthPolaroid({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18, duration: 0.32 }}
           style={{
-            background: '#EA580C', color: '#fff',
+            background: 'var(--c-primary)', color: '#fff',
             fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
             padding: '4px 14px', marginBottom: 10,
             textTransform: 'uppercase',
-            boxShadow: '0 3px 14px rgba(234,88,12,0.45)',
+            boxShadow: '0 3px 14px rgb(var(--c-primary-rgb) / 0.45)',
             zIndex: 2, position: 'relative',
           }}
         >
@@ -242,9 +242,9 @@ export default function AuthPolaroid({
           style={{
             marginTop: 12,
             padding: '6px 14px', borderRadius: 999,
-            background: isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.08)',
-            border: `1px solid ${isDark ? 'rgba(234,88,12,0.30)' : 'rgba(234,88,12,0.22)'}`,
-            color: '#EA580C',
+            background: isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.08)',
+            border: `1px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.30)' : 'rgb(var(--c-primary-rgb) / 0.22)'}`,
+            color: 'var(--c-primary)',
             fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em',
             zIndex: 2, position: 'relative',
           }}

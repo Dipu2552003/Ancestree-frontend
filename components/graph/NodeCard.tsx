@@ -22,10 +22,10 @@ function splitName(full: string): [string, string] {
 }
 
 function avatarGrad(nodeState: string, isSelf: boolean, isDeceased: boolean): [string, string] {
-  if (isSelf)                    return ['#EA580C', '#C2410C']
+  if (isSelf)                    return ['var(--c-primary)', 'var(--c-primary-strong)']
   if (isDeceased)                return ['#94A3B8', '#64748B']
-  if (nodeState === 'claimed')   return ['#C2410C', '#9A3412']
-  return                                ['#D97706', '#B45309']
+  if (nodeState === 'claimed')   return ['var(--c-primary-strong)', 'var(--c-primary-deep)']
+  return                                ['var(--c-secondary)', '#B45309']
 }
 
 // ── Main card ─────────────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ export function NodeCard({
       flexShrink: 0,
       background: t.cardBg,
       border: isSelf
-        ? '2px solid #EA580C'
+        ? '2px solid var(--c-primary)'
         : isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)',
       boxShadow: isDark
         ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)'
@@ -246,8 +246,8 @@ export function GhostCard({ isDark }: { isDark: boolean }) {
   return (
     <div style={{
       width: CARD_W, height: CARD_H, flexShrink: 0,
-      border: `2px dashed ${isDark ? 'rgba(234,88,12,0.22)' : 'rgba(234,88,12,0.2)'}`,
-      background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(234,88,12,0.03)',
+      border: `2px dashed ${isDark ? 'rgb(var(--c-primary-rgb) / 0.22)' : 'rgb(var(--c-primary-rgb) / 0.2)'}`,
+      background: isDark ? 'rgba(255,255,255,0.02)' : 'rgb(var(--c-primary-rgb) / 0.03)',
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
       <div style={{
@@ -256,21 +256,21 @@ export function GhostCard({ isDark }: { isDark: boolean }) {
       }}>
         <div style={{
           width: 64, height: 64, borderRadius: '50%',
-          border: `2px dashed ${isDark ? 'rgba(234,88,12,0.22)' : 'rgba(234,88,12,0.18)'}`,
+          border: `2px dashed ${isDark ? 'rgb(var(--c-primary-rgb) / 0.22)' : 'rgb(var(--c-primary-rgb) / 0.18)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <span style={{ fontSize: 26, fontWeight: 200, color: isDark ? 'rgba(234,88,12,0.28)' : 'rgba(234,88,12,0.25)' }}>?</span>
+          <span style={{ fontSize: 26, fontWeight: 200, color: isDark ? 'rgb(var(--c-primary-rgb) / 0.28)' : 'rgb(var(--c-primary-rgb) / 0.25)' }}>?</span>
         </div>
       </div>
       <div style={{
         flex: `0 0 ${CARD_SH}px`,
-        borderTop: `1px dashed ${isDark ? 'rgba(234,88,12,0.14)' : 'rgba(234,88,12,0.12)'}`,
+        borderTop: `1px dashed ${isDark ? 'rgb(var(--c-primary-rgb) / 0.14)' : 'rgb(var(--c-primary-rgb) / 0.12)'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <span style={{
           fontSize: 9, fontWeight: 600, letterSpacing: '0.1em',
           textTransform: 'uppercase',
-          color: isDark ? 'rgba(234,88,12,0.3)' : 'rgba(234,88,12,0.28)',
+          color: isDark ? 'rgb(var(--c-primary-rgb) / 0.3)' : 'rgb(var(--c-primary-rgb) / 0.28)',
         }}>
           Select
         </span>

@@ -15,8 +15,8 @@ export default function ReadOnlyNotice({ fullName, isDark }: ReadOnlyNoticeProps
   return (
     <div style={{
       margin: '14px 16px 0', padding: '10px 14px', borderRadius: '10px',
-      background: isDark ? 'rgba(255,255,255,0.04)' : '#FFF7ED',
-      border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#FDE8CC'}`,
+      background: isDark ? 'rgba(255,255,255,0.04)' : 'var(--c-page)',
+      border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'var(--c-tint)'}`,
     }}>
       <p style={{ margin: 0, fontSize: '12px', color: isDark ? '#7A6A52' : '#9A6C3C', lineHeight: 1.55 }}>
         Only <strong>{fullName?.split(' ')[0] ?? 'this person'}</strong> can edit their profile.

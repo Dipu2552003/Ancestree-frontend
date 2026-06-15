@@ -23,6 +23,8 @@ interface AddPhaseProps {
   hasChildren:      boolean
   activeChoice:     ActiveChoice
   exitStatus:       ExitStatus
+  /** When the spouse's gender is inferred from the anchor, hide the picker. */
+  hideGender:       boolean
   // controlled fields
   newName:          string
   setNewName:       (s: string) => void
@@ -43,7 +45,7 @@ interface AddPhaseProps {
 }
 
 export default function AddPhase({
-  isDark, saving, error, hasChildren, activeChoice, exitStatus,
+  isDark, saving, error, hasChildren, activeChoice, exitStatus, hideGender,
   newName, setNewName, newNameErr, setNewNameErr,
   newGender, setNewGender, newBirthYear, setNewBirthYear,
   newUnionYear, setNewUnionYear, exitYear, setExitYear,
@@ -69,7 +71,7 @@ export default function AddPhase({
           style={{
             width: 64, height: 64, borderRadius: '50%',
             border: newPhotoUrl ? 'none' : `1.5px dashed ${COLORS.saffron}`,
-            background: newPhotoUrl ? 'transparent' : (isDark ? 'rgba(234,88,12,0.08)' : 'rgba(234,88,12,0.06)'),
+            background: newPhotoUrl ? 'transparent' : (isDark ? 'rgb(var(--c-primary-rgb) / 0.08)' : 'rgb(var(--c-primary-rgb) / 0.06)'),
             cursor: newPhotoBusy ? 'default' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 0, flexShrink: 0,
           }}>
@@ -103,8 +105,9 @@ export default function AddPhase({
         {newNameErr && <p style={{ margin: '4px 0 0', fontSize: 11.5, color: COLORS.error }}>{newNameErr}</p>}
       </div>
 
-      {/* Gender + birth year row */}
+      {/* Gender + birth year row. Gender is hidden when inferred from the anchor. */}
       <div style={{ display: 'flex', gap: 10 }}>
+        {!hideGender && (
         <div style={{ flex: 1.4 }}>
           <label style={{ display: 'block', marginBottom: 6, fontSize: 11.5, fontWeight: 600, color: t.textMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
             Gender
@@ -118,7 +121,7 @@ export default function AddPhase({
                   style={{
                     flex: 1, height: 44, borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit',
                     border: `1.5px solid ${active ? COLORS.saffron : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'}`,
-                    background: active ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
+                    background: active ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
                     color: active ? COLORS.saffron : t.text,
                     fontSize: 12.5, fontWeight: 600,
                   }}>
@@ -128,6 +131,7 @@ export default function AddPhase({
             })}
           </div>
         </div>
+        )}
         <div style={{ flex: 1 }}>
           <label style={{ display: 'block', marginBottom: 6, fontSize: 11.5, fontWeight: 600, color: t.textMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
             Birth year
@@ -148,13 +152,15 @@ export default function AddPhase({
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '9px 12px', borderRadius: 10,
-        background: isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)',
-        border: `1px solid ${isDark ? 'rgba(234,88,12,0.22)' : 'rgba(234,88,12,0.18)'}`,
+        background: isDark ? 'rgb(var(--c-primary-rgb) / 0.10)' : 'rgb(var(--c-primary-rgb) / 0.06)',
+        border: `1px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.22)' : 'rgb(var(--c-primary-rgb) / 0.18)'}`,
       }}>
         <span style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.saffron, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
           {activeChoice === 'new'
             ? 'New active marriage'
-            : `Recorded as ${exitStatus}`}
+            : activeChoice === 'both'
+              ? 'Additional active marriage'
+              : `Recorded as ${exitStatus}`}
         </span>
       </div>
 

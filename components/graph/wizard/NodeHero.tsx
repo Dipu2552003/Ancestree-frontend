@@ -29,7 +29,7 @@ export default function NodeHero({
   const anchorCard = (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
       <AnchorNodeCard fullName={anchorName} isDark={isDark} compact={compact} />
-      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#EA580C' }}>
+      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c-primary)' }}>
         {firstName(anchorName) || 'You'}
       </span>
     </div>

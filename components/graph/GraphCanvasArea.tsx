@@ -55,7 +55,7 @@ export default function GraphCanvasArea({
         {!isMobile && (
           <MiniMap
             style={{ pointerEvents: 'all', background: t.mapBg, border: `1.5px solid ${t.controlBorder}`, borderRadius: '6px' }}
-            nodeColor={n => n.data?.isSelf ? '#EA580C' : n.data?.nodeState === 'claimed' ? '#22C55E' : isDark ? '#4A3F35' : '#D97706'}
+            nodeColor={n => n.data?.isSelf ? 'var(--c-primary)' : n.data?.nodeState === 'claimed' ? '#22C55E' : isDark ? '#4A3F35' : 'var(--c-secondary)'}
           />
         )}
       </div>

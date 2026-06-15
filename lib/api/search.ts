@@ -8,4 +8,10 @@ export const search = {
     req<{ results: SearchResult[] }>(
       `/api/search?q=${encodeURIComponent(q)}&scope=${scope}`,
     ),
+
+  /** Public, unauthenticated search of public family trees (landing page). */
+  publicPersons: (q: string) =>
+    req<{ results: SearchResult[] }>(
+      `/api/search/public?q=${encodeURIComponent(q)}`,
+    ),
 }

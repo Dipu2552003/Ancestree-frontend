@@ -7,9 +7,9 @@ import { Spinner } from './Spinner'
  *  need to pull theme tokens at the call site, so they take a `style`
  *  override rather than baking colours in here. */
 const VARIANTS = {
-  primary: { bg: 'linear-gradient(135deg, #EA580C, #C2410C)', fg: '#fff', shadow: '0 2px 8px rgba(234,88,12,0.30)', border: 'none' },
+  primary: { bg: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))', fg: '#fff', shadow: '0 2px 8px rgb(var(--c-primary-rgb) / 0.30)', border: 'none' },
   success: { bg: 'linear-gradient(135deg, #22C55E, #16A34A)', fg: '#fff', shadow: '0 2px 8px rgba(34,197,94,0.30)', border: 'none' },
-  warning: { bg: 'linear-gradient(135deg, #F59E0B, #D97706)', fg: '#fff', shadow: '0 2px 8px rgba(245,158,11,0.30)', border: 'none' },
+  warning: { bg: 'linear-gradient(135deg, #F59E0B, var(--c-secondary))', fg: '#fff', shadow: '0 2px 8px rgba(245,158,11,0.30)', border: 'none' },
   danger:  { bg: 'linear-gradient(135deg, #EF4444, #DC2626)', fg: '#fff', shadow: '0 2px 8px rgba(239,68,68,0.30)', border: 'none' },
   /** Border + transparent bg — caller overrides borderColor / color via style
    *  to pick up the active theme. */

@@ -37,12 +37,12 @@ export default function InboxRow({ n, isDark, onMergeAccepted, onMarkOne, onRequ
   }
 
   const accentMap: Record<AppNotification['type'], string> = {
-    merge_request_received: 'rgba(234,88,12,0.06)',
+    merge_request_received: 'rgb(var(--c-primary-rgb) / 0.06)',
     merge_request_accepted: 'rgba(34,197,94,0.06)',
     merge_request_rejected: 'rgba(239,68,68,0.06)',
     family_name_changed:    'transparent',
     claim_suggestion:       'rgba(99,102,241,0.06)',
-    possible_match_found:   'rgba(234,88,12,0.04)',
+    possible_match_found:   'rgb(var(--c-primary-rgb) / 0.04)',
   }
 
   return (
@@ -76,7 +76,7 @@ export default function InboxRow({ n, isDark, onMergeAccepted, onMarkOne, onRequ
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '10.5px', color: t.textMuted }}>{timeAgo(n.created_at)}</span>
             {!n.is_read && (
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EA580C', display: 'inline-block' }} />
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--c-primary)', display: 'inline-block' }} />
             )}
           </div>
 

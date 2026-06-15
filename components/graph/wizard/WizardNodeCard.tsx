@@ -40,7 +40,7 @@ export default function WizardNodeCard({
       background: t.cardBg,
       border: hasName
         ? (isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(0,0,0,0.09)')
-        : `2px dashed ${isDark ? 'rgba(234,88,12,0.30)' : 'rgba(234,88,12,0.25)'}`,
+        : `2px dashed ${isDark ? 'rgb(var(--c-primary-rgb) / 0.30)' : 'rgb(var(--c-primary-rgb) / 0.25)'}`,
       boxShadow: isDark
         ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)'
         : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)',
@@ -79,8 +79,8 @@ export default function WizardNodeCard({
         <div style={{
           position: 'absolute', top: 7, right: 7,
           fontSize: compact ? 7 : 7.5, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase',
-          color: '#EA580C', background: isDark ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.12)',
-          border: '1px solid rgba(234,88,12,0.28)', padding: '2px 5px', borderRadius: 4,
+          color: 'var(--c-primary)', background: isDark ? 'rgb(var(--c-primary-rgb) / 0.18)' : 'rgb(var(--c-primary-rgb) / 0.12)',
+          border: '1px solid rgb(var(--c-primary-rgb) / 0.28)', padding: '2px 5px', borderRadius: 4,
         }}>
           NEW
         </div>
@@ -118,7 +118,7 @@ export default function WizardNodeCard({
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{
                 fontSize: compact ? 7.5 : 8.5, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase',
-                color: isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)',
+                color: isDark ? 'rgb(var(--c-primary-rgb) / 0.35)' : 'rgb(var(--c-primary-rgb) / 0.28)',
               }}>
               type name…
             </motion.span>

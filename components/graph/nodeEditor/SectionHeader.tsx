@@ -47,7 +47,7 @@ export default function SectionHeader({
     <>
       <div style={{
         width: '2px', height: '12px', borderRadius: '1px', flexShrink: 0,
-        background: isDark ? 'rgba(234,88,12,0.45)' : 'rgba(234,88,12,0.35)',
+        background: isDark ? 'rgb(var(--c-primary-rgb) / 0.45)' : 'rgb(var(--c-primary-rgb) / 0.35)',
       }} />
       <span style={{
         flex: 1, fontSize: '10px', fontWeight: 700,
@@ -58,8 +58,8 @@ export default function SectionHeader({
       </span>
       {sectionKey && !isOpen && filled > 0 && (
         <span style={{
-          fontSize: '9px', fontWeight: 700, color: '#EA580C',
-          background: isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.10)',
+          fontSize: '9px', fontWeight: 700, color: 'var(--c-primary)',
+          background: isDark ? 'rgb(var(--c-primary-rgb) / 0.15)' : 'rgb(var(--c-primary-rgb) / 0.10)',
           padding: '1px 7px', borderRadius: '10px',
         }}>
           {filled}

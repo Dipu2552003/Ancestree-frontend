@@ -12,10 +12,10 @@ interface PerspectiveBannerProps {
 export default function PerspectiveBanner({ personName, onBack, isDark }: PerspectiveBannerProps) {
   const t = getTheme(isDark)
 
-  const bg     = isDark ? 'rgba(26,20,16,0.92)' : 'rgba(255,247,237,0.92)'
-  const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(234,88,12,0.18)'
+  const bg     = isDark ? 'rgba(26,20,16,0.92)' : 'rgb(var(--c-page-rgb) / 0.92)'
+  const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgb(var(--c-primary-rgb) / 0.18)'
   const text   = isDark ? '#E8DDD4' : '#7C3100'
-  const accent = '#EA580C'
+  const accent = 'var(--c-primary)'
 
   return (
     <div style={{
@@ -41,13 +41,13 @@ export default function PerspectiveBanner({ personName, onBack, isDark }: Perspe
         style={{
           display: 'flex', alignItems: 'center', gap: '6px',
           padding: '5px 12px', borderRadius: '6px',
-          background: isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.10)',
-          border: `1px solid ${isDark ? 'rgba(234,88,12,0.3)' : 'rgba(234,88,12,0.25)'}`,
+          background: isDark ? 'rgb(var(--c-primary-rgb) / 0.15)' : 'rgb(var(--c-primary-rgb) / 0.10)',
+          border: `1px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.3)' : 'rgb(var(--c-primary-rgb) / 0.25)'}`,
           color: accent, fontSize: '12px', fontWeight: 600,
           cursor: 'pointer', transition: 'background 0.15s',
         }}
-        onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(234,88,12,0.25)' : 'rgba(234,88,12,0.18)')}
-        onMouseLeave={e => (e.currentTarget.style.background = isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.10)')}
+        onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgb(var(--c-primary-rgb) / 0.25)' : 'rgb(var(--c-primary-rgb) / 0.18)')}
+        onMouseLeave={e => (e.currentTarget.style.background = isDark ? 'rgb(var(--c-primary-rgb) / 0.15)' : 'rgb(var(--c-primary-rgb) / 0.10)')}
       >
         <IconArrowLeft size={13} />
         Back to my tree

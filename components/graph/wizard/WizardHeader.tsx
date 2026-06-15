@@ -41,7 +41,7 @@ export default function WizardHeader({
   const leftIcon   = isSearchMode || stepIdx > 0 ? <IconArrowLeft size={14} /> : <IconX size={14} />
 
   const searchBtnBg = isSearchMode
-    ? isDark ? 'rgba(234,88,12,0.25)' : 'rgba(234,88,12,0.14)'
+    ? isDark ? 'rgb(var(--c-primary-rgb) / 0.25)' : 'rgb(var(--c-primary-rgb) / 0.14)'
     : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'
 
   return (

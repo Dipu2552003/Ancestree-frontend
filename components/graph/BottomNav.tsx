@@ -36,7 +36,7 @@ export default function BottomNav({
   const bg      = isDark ? '#18160F' : '#FFFFFF'
   const border  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
   const ic      = isDark ? '#7A6A52' : '#9A6C3C'
-  const addBg   = addEnabled ? '#EA580C' : (isDark ? '#2A2520' : '#EDD8C0')
+  const addBg   = addEnabled ? 'var(--c-primary)' : (isDark ? '#2A2520' : '#EDD8C0')
   const addGlyph = addEnabled ? '#FFFFFF' : (isDark ? '#4A4038' : '#C4A882')
 
   const navBtn: React.CSSProperties = {
@@ -87,7 +87,7 @@ export default function BottomNav({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: 'none',
             cursor: addEnabled ? 'pointer' : 'default',
-            boxShadow: addEnabled ? '0 4px 16px rgba(234,88,12,0.38)' : 'none',
+            boxShadow: addEnabled ? '0 4px 16px rgb(var(--c-primary-rgb) / 0.38)' : 'none',
             transition: 'background 0.2s, box-shadow 0.2s',
             flexShrink: 0,
           }}

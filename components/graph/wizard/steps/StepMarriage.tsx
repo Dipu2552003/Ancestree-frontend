@@ -69,7 +69,7 @@ export default function StepMarriage({
               style={{
                 padding: '11px 12px', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit',
                 border: `1.5px solid ${active ? COLORS.saffron : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'}`,
-                background: active ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
+                background: active ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
                 color: active ? COLORS.saffron : t.text,
                 fontSize: 13, fontWeight: 600, letterSpacing: 0,
                 textAlign: 'left',

@@ -12,10 +12,10 @@ const PHOTO_H = 100
 const STRIP_H = 48
 
 function avatarBg(person: PersonData): [string, string] {
-  if (person.isSelf)                   return ['#EA580C', '#C2410C']
+  if (person.isSelf)                   return ['var(--c-primary)', 'var(--c-primary-strong)']
   if (person.isDeceased)               return ['#94A3B8', '#64748B']
-  if (person.nodeState === 'claimed')  return ['#C2410C', '#9A3412']
-  return ['#D97706', '#B45309']
+  if (person.nodeState === 'claimed')  return ['var(--c-primary-strong)', 'var(--c-primary-deep)']
+  return ['var(--c-secondary)', '#B45309']
 }
 
 interface CollapsedCoupleData {
@@ -145,7 +145,7 @@ export function CollapsedCoupleNode({ data }: NodeProps) {
           </div>
           {person1.relationshipToSelf && (
             <div style={{
-              fontSize: '7px', color: isDark ? '#7A6A5A' : '#D97706',
+              fontSize: '7px', color: isDark ? '#7A6A5A' : 'var(--c-secondary)',
               fontStyle: 'italic',
             }}>
               {person1.relationshipToSelf}

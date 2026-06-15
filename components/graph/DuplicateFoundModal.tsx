@@ -24,8 +24,8 @@ interface DuplicateFoundModalProps {
 }
 
 function confidence(score: number) {
-  if (score >= 70) return { label: 'Strong match',   color: '#EA580C' }
-  if (score >= 40) return { label: 'Possible match', color: '#D97706' }
+  if (score >= 70) return { label: 'Strong match',   color: 'var(--c-primary)' }
+  if (score >= 40) return { label: 'Possible match', color: 'var(--c-secondary)' }
   return               { label: 'Weak match',        color: '#64748B' }
 }
 
@@ -110,10 +110,10 @@ export default function DuplicateFoundModal({
           }}>
             <div style={{
               width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-              background: 'rgba(234,88,12,0.10)',
+              background: 'rgb(var(--c-primary-rgb) / 0.10)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <IconSearch size={16} color="#EA580C" />
+              <IconSearch size={16} color="var(--c-primary)" />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '14px', fontWeight: 700, color: t.text, marginBottom: '3px' }}>
@@ -176,7 +176,7 @@ export default function DuplicateFoundModal({
                       style={{
                         display: 'flex', alignItems: 'center', gap: '5px',
                         padding: '8px 13px', borderRadius: '10px', border: 'none',
-                        background: '#EA580C', color: '#fff',
+                        background: 'var(--c-primary)', color: '#fff',
                         fontSize: '12px', fontWeight: 600, fontFamily: 'inherit',
                         cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
                       }}
@@ -194,7 +194,7 @@ export default function DuplicateFoundModal({
                 width: CARD_W + 32,
                 flexShrink: 0,
                 borderLeft: `1px solid ${t.borderNeutral}`,
-                background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(234,88,12,0.025)',
+                background: isDark ? 'rgba(255,255,255,0.02)' : 'rgb(var(--c-primary-rgb) / 0.025)',
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
                 gap: 10,
@@ -208,7 +208,7 @@ export default function DuplicateFoundModal({
                 />
                 <div style={{
                   fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
-                  textTransform: 'uppercase', color: '#EA580C',
+                  textTransform: 'uppercase', color: 'var(--c-primary)',
                   textAlign: 'center',
                 }}>
                   Your node

@@ -91,7 +91,7 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-          <IconShieldStar size={17} color="#EA580C" />
+          <IconShieldStar size={17} color="var(--c-primary)" />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: '15px', fontWeight: 700, color: t.text }}>
               {picking ? 'Choose new admin' : 'Family admins'}
@@ -141,8 +141,8 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
                 trailing={
                   <span style={{
                     fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em',
-                    textTransform: 'uppercase', color: '#EA580C',
-                    background: isDark ? 'rgba(234,88,12,0.14)' : 'rgba(234,88,12,0.08)',
+                    textTransform: 'uppercase', color: 'var(--c-primary)',
+                    background: isDark ? 'rgb(var(--c-primary-rgb) / 0.14)' : 'rgb(var(--c-primary-rgb) / 0.08)',
                     borderRadius: '999px', padding: '3px 10px', flexShrink: 0,
                   }}>
                     Admin
@@ -163,8 +163,8 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
                   onClick={() => { setPicking(true); setError('') }}
                   style={{
                     width: '100%', height: '38px', borderRadius: '10px',
-                    border: `1.5px dashed ${isDark ? 'rgba(234,88,12,0.4)' : 'rgba(234,88,12,0.45)'}`,
-                    background: 'transparent', color: '#EA580C',
+                    border: `1.5px dashed ${isDark ? 'rgb(var(--c-primary-rgb) / 0.4)' : 'rgb(var(--c-primary-rgb) / 0.45)'}`,
+                    background: 'transparent', color: 'var(--c-primary)',
                     fontSize: '13px', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                   }}
@@ -203,8 +203,8 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
                 isDark={isDark}
                 onClick={addingId === null ? () => handleAdd(id) : undefined}
                 trailing={addingId === id
-                  ? <IconLoader2 size={15} color="#EA580C" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                  : <span style={{ fontSize: '11px', fontWeight: 600, color: '#EA580C', flexShrink: 0 }}>Make admin</span>}
+                  ? <IconLoader2 size={15} color="var(--c-primary)" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                  : <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--c-primary)', flexShrink: 0 }}>Make admin</span>}
               />
             ))}
 
@@ -256,7 +256,7 @@ function PersonRow({ name, photoUrl, isDark, trailing, onClick }: {
       ) : (
         <div style={{
           width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #D97706, #B45309)',
+          background: 'linear-gradient(135deg, var(--c-secondary), #B45309)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: '#fff', fontSize: '12px', fontWeight: 600,
         }}>

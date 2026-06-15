@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Fraunces } from 'next/font/google'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
+// Warm heritage serif, exposed as a CSS variable so individual pages (e.g. the
+// landing page) can opt into it without changing the app-wide Inter default.
+const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-serif' })
 
 export const metadata: Metadata = {
   title: 'Ancestree',
@@ -20,7 +23,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={inter.className}>
+    // suppressHydrationWarning: the inline <head> script below sets data-dark on
+    // <html> before hydration to avoid a dark-mode flash, so the server markup
+    // (no data-dark) intentionally differs from the client. This suppresses the
+    // mismatch warning for <html>'s own attributes only — not its subtree.
+    <html lang="en" className={`${inter.className} ${fraunces.variable}`} suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         {/* Runs synchronously before first paint — prevents dark-mode flash */}
@@ -34,7 +41,7 @@ export default function RootLayout({
         `}} />
       </head>
       <body>
-        <div className="min-h-screen" style={{ backgroundColor: '#FFF7ED' }}>
+        <div className="min-h-screen" style={{ backgroundColor: 'var(--c-page)' }}>
           {children}
         </div>
       </body>

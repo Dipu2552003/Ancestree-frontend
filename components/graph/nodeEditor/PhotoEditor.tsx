@@ -20,7 +20,7 @@ interface PhotoEditorProps {
 export default function PhotoEditor({ photoUrl, altName, isDark, onChange }: PhotoEditorProps) {
   const t        = getTheme(isDark)
   const btn1Bg   = isDark ? '#2A1A12' : '#FFF3E8'
-  const labelCol = isDark ? '#7A6A52' : '#9A3412'
+  const labelCol = isDark ? '#7A6A52' : 'var(--c-primary-deep)'
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [photoHovered, setPhotoHovered] = useState(false)
@@ -41,7 +41,7 @@ export default function PhotoEditor({ photoUrl, altName, isDark, onChange }: Pho
         aria-label={photoUrl ? 'Change photo' : 'Add photo'}
         style={{
           width: '80px', height: '80px', borderRadius: '6px',
-          background: btn1Bg, border: `2px dashed ${photoHovered ? '#FB923C' : t.border}`,
+          background: btn1Bg, border: `2px dashed ${photoHovered ? 'var(--c-primary-light)' : t.border}`,
           overflow: 'hidden', cursor: 'pointer', position: 'relative',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           transition: 'border-color 0.15s ease',
@@ -61,8 +61,8 @@ export default function PhotoEditor({ photoUrl, altName, isDark, onChange }: Pho
           </>
         ) : (
           <>
-            <IconCamera size={20} color={photoHovered ? '#FB923C' : '#D97706'} style={{ transition: 'color 0.15s' }} />
-            <span style={{ fontSize: '9px', color: photoHovered ? '#FB923C' : '#D97706', marginTop: '3px', transition: 'color 0.15s' }}>Add photo</span>
+            <IconCamera size={20} color={photoHovered ? 'var(--c-primary-light)' : 'var(--c-secondary)'} style={{ transition: 'color 0.15s' }} />
+            <span style={{ fontSize: '9px', color: photoHovered ? 'var(--c-primary-light)' : 'var(--c-secondary)', marginTop: '3px', transition: 'color 0.15s' }}>Add photo</span>
           </>
         )}
       </button>

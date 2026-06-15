@@ -221,9 +221,9 @@ function ConflictDiagram({
 
         {/* Spouse nodes + × */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <MiniNode name={s1} role="Wife / Husband" color="#D97706" isDark={isDark} />
+          <MiniNode name={s1} role="Wife / Husband" color="var(--c-secondary)" isDark={isDark} />
           <ForbiddenBadge label={`${spouseNames.length} Spouses!`} />
-          <MiniNode name={s2} role="Wife / Husband" color="#D97706" isDark={isDark} />
+          <MiniNode name={s2} role="Wife / Husband" color="var(--c-secondary)" isDark={isDark} />
         </div>
 
         {/* Arrow down */}
@@ -232,7 +232,7 @@ function ConflictDiagram({
         </div>
 
         {/* Person */}
-        <MiniNode name={personName0} role="Person" color="#EA580C" isDark={isDark} />
+        <MiniNode name={personName0} role="Person" color="var(--c-primary)" isDark={isDark} />
       </div>
     )
   }
@@ -314,12 +314,12 @@ function ConflictDiagram({
           ⚠️ Same name appears twice in the tree
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <MiniNode name={nameA} role="Existing" color="#D97706" isDark={isDark} />
+          <MiniNode name={nameA} role="Existing" color="var(--c-secondary)" isDark={isDark} />
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-            <span style={{ fontSize: '22px', fontWeight: 900, color: '#D97706', lineHeight: 1 }}>≈</span>
-            <span style={{ fontSize: '9px', fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Same Name</span>
+            <span style={{ fontSize: '22px', fontWeight: 900, color: 'var(--c-secondary)', lineHeight: 1 }}>≈</span>
+            <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--c-secondary)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Same Name</span>
           </div>
-          <MiniNode name={nameB} role="Transferred" color="#D97706" isDark={isDark} />
+          <MiniNode name={nameB} role="Transferred" color="var(--c-secondary)" isDark={isDark} />
         </div>
       </div>
     )
@@ -516,7 +516,7 @@ export default function MergeConflictModal({
                 height:         '44px',
                 borderRadius:   '12px',
                 border:         'none',
-                background:     'linear-gradient(135deg, #EA580C, #C2410C)',
+                background:     'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
                 color:          '#fff',
                 fontSize:       '13.5px',
                 fontWeight:     600,
@@ -526,7 +526,7 @@ export default function MergeConflictModal({
                 alignItems:     'center',
                 justifyContent: 'center',
                 gap:            '7px',
-                boxShadow:      '0 4px 14px rgba(234,88,12,0.35)',
+                boxShadow:      '0 4px 14px rgb(var(--c-primary-rgb) / 0.35)',
               }}
             >
               <IconCheck size={16} />

@@ -63,13 +63,13 @@ export default function ReparentPhase({
           <div key={child.personId} style={{
             padding: 12, borderRadius: 13,
             background: isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
-            border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(234,88,12,0.10)'}`,
+            border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.10)'}`,
             display: 'flex', flexDirection: 'column', gap: 10,
           }}>
             {/* Child header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
-                background: 'linear-gradient(135deg, #EA580C, #C2410C)',
+                background: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#fff', fontSize: 14, fontWeight: 600 }}>
                 {child.photoUrl
@@ -93,7 +93,7 @@ export default function ReparentPhase({
                       padding: '9px 11px', borderRadius: 9, cursor: 'pointer',
                       fontFamily: 'inherit', textAlign: 'left',
                       border: `1.5px solid ${active ? COLORS.saffron : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)'}`,
-                      background: active ? (isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)') : 'transparent',
+                      background: active ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.10)' : 'rgb(var(--c-primary-rgb) / 0.06)') : 'transparent',
                       color: active ? COLORS.saffron : t.text,
                       fontSize: 12.5, fontWeight: 600,
                     }}>

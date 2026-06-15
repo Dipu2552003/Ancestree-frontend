@@ -72,10 +72,10 @@ export default function ProfileMenu({ isDark, isMobile }: Props) {
   const initials = me ? getInitials(me.display_name || me.email) : '··'
   const panelW   = 304
   const panelBg  = isDark ? '#1C1A12' : '#FFFFFF'
-  const panelBd  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(234,88,12,0.13)'
+  const panelBd  = isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.13)'
   const shadow   = isDark
     ? '0 14px 38px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04)'
-    : '0 14px 38px rgba(0,0,0,0.16), 0 0 0 1px rgba(234,88,12,0.06)'
+    : '0 14px 38px rgba(0,0,0,0.16), 0 0 0 1px rgb(var(--c-primary-rgb) / 0.06)'
 
   return (
     <>
@@ -88,9 +88,9 @@ export default function ProfileMenu({ isDark, isMobile }: Props) {
           width:           isMobile ? 44 : 38,
           height:          isMobile ? 44 : 38,
           borderRadius:    8,
-          background:      open ? '#EA580C' : t.toggleBg,
+          background:      open ? 'var(--c-primary)' : t.toggleBg,
           color:           open ? '#fff' : t.toggleColor,
-          border:          `1.5px solid ${open ? '#EA580C' : t.toggleBorder}`,
+          border:          `1.5px solid ${open ? 'var(--c-primary)' : t.toggleBorder}`,
           display:         'flex',
           alignItems:      'center',
           justifyContent:  'center',
@@ -138,7 +138,7 @@ export default function ProfileMenu({ isDark, isMobile }: Props) {
               }}>
                 <div style={{
                   width: 38, height: 38, borderRadius: '50%',
-                  backgroundImage: 'linear-gradient(135deg, #EA580C, #C2410C)',
+                  backgroundImage: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: '0.02em',
                   flexShrink: 0,
@@ -218,7 +218,7 @@ function MenuRow({
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 12px',
         background: hover
-          ? (isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)')
+          ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.10)' : 'rgb(var(--c-primary-rgb) / 0.06)')
           : 'transparent',
         border: 'none', borderRadius: 8,
         color, fontSize: 13, fontWeight: 500,
@@ -227,7 +227,7 @@ function MenuRow({
         transition: 'background 0.12s',
       }}
     >
-      <span style={{ display: 'flex', color: danger ? '#EF4444' : (hover ? '#EA580C' : t.textMuted), transition: 'color 0.12s' }}>
+      <span style={{ display: 'flex', color: danger ? '#EF4444' : (hover ? 'var(--c-primary)' : t.textMuted), transition: 'color 0.12s' }}>
         {icon}
       </span>
       {label}
@@ -267,7 +267,7 @@ function fieldStyle(isDark: boolean, focused: boolean, hasError: boolean): React
     width: '100%', height: 38,
     padding: '0 12px',
     fontSize: 13, fontFamily: 'inherit',
-    border: `1.5px solid ${hasError ? '#EF4444' : focused ? '#EA580C' : isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)'}`,
+    border: `1.5px solid ${hasError ? '#EF4444' : focused ? 'var(--c-primary)' : isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)'}`,
     borderRadius: 8,
     background: isDark ? '#141210' : '#FDFAF6',
     color: isDark ? '#EDE8E3' : '#1A0A00',
@@ -280,19 +280,19 @@ function labelStyle(isDark: boolean): React.CSSProperties {
   return {
     display: 'block', marginBottom: 5,
     fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-    color: isDark ? '#7A6A52' : '#9A3412',
+    color: isDark ? '#7A6A52' : 'var(--c-primary-deep)',
   }
 }
 
 function submitStyle(disabled: boolean, busy: boolean): React.CSSProperties {
   return {
     width: '100%', height: 38, borderRadius: 8, border: 'none',
-    background: disabled ? 'rgba(234,88,12,0.45)' : 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)',
+    background: disabled ? 'rgb(var(--c-primary-rgb) / 0.45)' : 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
     color: '#fff', fontSize: 13, fontWeight: 700,
     fontFamily: 'inherit',
     cursor: disabled || busy ? 'default' : 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    boxShadow: disabled ? 'none' : '0 3px 12px rgba(234,88,12,0.32)',
+    boxShadow: disabled ? 'none' : '0 3px 12px rgb(var(--c-primary-rgb) / 0.32)',
     transition: 'background 0.2s',
   }
 }

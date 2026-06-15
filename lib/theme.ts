@@ -1,13 +1,13 @@
 /** Fixed design tokens — independent of dark/light mode */
 export const COLORS = {
   /** Primary accent — self node, CTAs, active states, focus rings */
-  saffron:     '#EA580C',
+  saffron:     'var(--c-primary)',
   /** Darker variant — claimed nodes, pressed states */
-  terracotta:  '#C2410C',
+  terracotta:  'var(--c-primary-strong)',
   /** Secondary warm accent — proxy nodes, amber states */
-  marigold:    '#D97706',
+  marigold:    'var(--c-secondary)',
   /** Lightest accent tint — subtle borders and backgrounds */
-  goldLight:   '#FDE8CC',
+  goldLight:   'var(--c-tint)',
   /** Page background in light mode */
   cream:       '#f8f8f6',
   /** Destructive / error */
@@ -64,24 +64,25 @@ export function getTheme(isDark: boolean): Theme {
     toggleBorder:  'rgba(255,255,255,0.10)',
     itemHoverBg:   'rgba(255,255,255,0.05)',
   } : {
-    pageBg:        COLORS.cream,
-    cardBg:        '#FFFBF4',
-    panelBg:       '#FFFFFF',
-    inputBg:       '#FFFBF4',
-    sectionBg:     '#F5E8D8',
-    photoBg:       '#F0E6D8',
-    controlBg:     'white',
-    mapBg:         '#FFFBF4',
-    border:        COLORS.goldLight,
-    borderNeutral: 'rgba(0,0,0,0.08)',
-    text:          '#1A0A00',
-    textMuted:     '#9A6C3C',
-    stroke:        '#B5956A',
-    controlBorder: COLORS.goldLight,
-    shadow:        '0 -2px 24px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.10)',
-    toggleBg:      '#1A0A00',
-    toggleColor:   COLORS.cream,
-    toggleBorder:  'rgba(0,0,0,0.15)',
-    itemHoverBg:   'rgba(0,0,0,0.03)',
+    // Light theme — warm-neutral palette, sourced from the tokens in globals.css.
+    pageBg:        'var(--c-page)',      // Vanilla
+    cardBg:        'var(--c-surface)',   // white card
+    panelBg:       'var(--c-surface)',
+    inputBg:       '#FBF9F4',            // faintly warm white for inputs
+    sectionBg:     'var(--c-tint)',      // Soft Dune
+    photoBg:       'var(--c-tint)',
+    controlBg:     'var(--c-surface)',
+    mapBg:         'var(--c-surface)',
+    border:        'var(--c-tint)',      // Soft Dune hairline
+    borderNeutral: 'rgba(37,37,37,0.10)',
+    text:          'var(--c-text)',      // near-black
+    textMuted:     'var(--c-text-muted)',
+    stroke:        'var(--c-stroke)',    // Classic Taupe — graph edges
+    controlBorder: 'var(--c-tint)',
+    shadow:        '0 -2px 24px rgba(37,37,37,0.06), 0 4px 16px rgba(37,37,37,0.10)',
+    toggleBg:      'var(--c-primary)',   // Umber dark/light switch
+    toggleColor:   'var(--c-page)',
+    toggleBorder:  'rgba(37,37,37,0.15)',
+    itemHoverBg:   'rgba(37,37,37,0.04)',
   }
 }

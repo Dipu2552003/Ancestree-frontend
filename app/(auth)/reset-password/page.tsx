@@ -82,10 +82,10 @@ function ResetPasswordInner() {
 
   const lv = {
     cardBg:     isDark ? '#1C1A12' : '#FFFFFF',
-    cardBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(234,88,12,0.11)',
+    cardBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.11)',
     cardShadow: isDark
       ? '0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 4px rgba(0,0,0,0.30), 0 8px 28px rgba(0,0,0,0.45)'
-      : '0 1px 0 rgba(255,255,255,0.85) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.08), 0 28px 64px rgba(234,88,12,0.06)',
+      : '0 1px 0 rgba(255,255,255,0.85) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.08), 0 28px 64px rgb(var(--c-primary-rgb) / 0.06)',
     inputBg:      isDark ? '#141210' : '#FDFAF6',
     inputBgFocus: isDark ? '#1C1A12' : '#FFFFFF',
     inputBorder:  isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)',
@@ -94,22 +94,22 @@ function ResetPasswordInner() {
   const inputStyle = (focused: boolean, hasError: boolean) => ({
     width: '100%', height: 50, padding: '0 48px 0 16px',
     fontSize: 15, fontFamily: 'inherit',
-    border: `1.5px solid ${hasError ? '#EF4444' : focused ? '#EA580C' : lv.inputBorder}`,
+    border: `1.5px solid ${hasError ? '#EF4444' : focused ? 'var(--c-primary)' : lv.inputBorder}`,
     borderRadius: 12,
     background: focused ? lv.inputBgFocus : lv.inputBg,
     color: t.text, outline: 'none',
     boxSizing: 'border-box' as const,
-    boxShadow: focused ? '0 0 0 3.5px rgba(234,88,12,0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
+    boxShadow: focused ? '0 0 0 3.5px rgb(var(--c-primary-rgb) / 0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
     transition: 'border-color 0.15s, box-shadow 0.15s, background 0.35s ease',
   })
 
   const ctaStyle = (dis: boolean) => ({
     width: '100%', height: 50, borderRadius: 12, border: 'none',
-    background: dis ? 'rgba(234,88,12,0.48)' : 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)',
+    background: dis ? 'rgb(var(--c-primary-rgb) / 0.48)' : 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
     color: '#fff', fontSize: 15, fontWeight: 700 as const,
     fontFamily: 'inherit', cursor: dis ? 'default' as const : 'pointer' as const,
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-    boxShadow: dis ? 'none' : '0 3px 14px rgba(234,88,12,0.40)',
+    boxShadow: dis ? 'none' : '0 3px 14px rgb(var(--c-primary-rgb) / 0.40)',
     letterSpacing: '0.01em',
     transition: 'background 0.2s',
   })
@@ -149,7 +149,7 @@ function ResetPasswordInner() {
                     style={{
                       display: 'inline-block', marginRight: '0.22em',
                       fontSize: lang === 'hi' ? 46 : 52, fontWeight: 800, letterSpacing: '-0.03em',
-                      color: li === 1 ? '#EA580C' : t.text,
+                      color: li === 1 ? 'var(--c-primary)' : t.text,
                       transition: 'color 0.35s ease',
                     }}
                   >
@@ -202,7 +202,7 @@ function ResetPasswordInner() {
             </p>
             <motion.button
               onClick={() => router.push('/login')}
-              whileHover={{ scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' }}
+              whileHover={{ scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' }}
               whileTap={{ scale: 0.985 }}
               style={ctaStyle(false)}
             >
@@ -272,7 +272,7 @@ function ResetPasswordInner() {
 
             <motion.button
               onClick={submit} disabled={!isValid || loading}
-              whileHover={isValid && !loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+              whileHover={isValid && !loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
               whileTap={isValid && !loading ? { scale: 0.985 } : {}}
               style={ctaStyle(!isValid || loading)}
             >
@@ -291,7 +291,7 @@ function ResetPasswordInner() {
               style={{
                 marginTop: 14, width: '100%',
                 background: 'none', border: 'none', padding: 0,
-                fontSize: 13, fontWeight: 600, color: '#EA580C',
+                fontSize: 13, fontWeight: 600, color: 'var(--c-primary)',
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
             >

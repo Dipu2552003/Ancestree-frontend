@@ -47,7 +47,7 @@ export function IconButton({ children, isDark, size = 'desktop', title, onClick,
       {badge > 0 && (
         <span style={{
           position: 'absolute', top: -4, right: -4,
-          background: '#EA580C', color: '#fff',
+          background: 'var(--c-primary)', color: '#fff',
           borderRadius: 999, fontSize: 9, fontWeight: 700,
           minWidth: 16, height: 16,
           display: 'flex', alignItems: 'center', justifyContent: 'center',

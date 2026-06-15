@@ -60,7 +60,7 @@ type Rel = 'father' | 'mother' | 'spouse' | 'son' | 'daughter' | 'brother' | 'si
 const RELATIONS: { rel: Rel; label: string; gender?: 'male' | 'female'; color: string; icon: React.ReactNode }[] = [
   { rel: 'father',   label: 'Father',   gender: 'male',   color: '#4F86C6', icon: <IconArrowUp size={15} /> },
   { rel: 'mother',   label: 'Mother',   gender: 'female', color: '#C06FAE', icon: <IconArrowUp size={15} /> },
-  { rel: 'spouse',   label: 'Spouse',                     color: '#EA580C', icon: <IconHeart size={15} /> },
+  { rel: 'spouse',   label: 'Spouse',                     color: 'var(--c-primary)', icon: <IconHeart size={15} /> },
   { rel: 'son',      label: 'Son',      gender: 'male',   color: '#2EAA7C', icon: <IconArrowDown size={15} /> },
   { rel: 'daughter', label: 'Daughter', gender: 'female', color: '#9C6FD6', icon: <IconArrowDown size={15} /> },
   { rel: 'brother',  label: 'Brother',  gender: 'male',   color: '#0E9F78', icon: <IconUsers size={15} /> },
@@ -229,7 +229,7 @@ function LoginTreeInner() {
           showInteractive={false}
           style={{
             background:   isDark ? '#1C1A18' : 'white',
-            border:       `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#FDE8CC'}`,
+            border:       `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'var(--c-tint)'}`,
             borderRadius: 6,
             boxShadow:    isDark ? '0 2px 12px rgba(0,0,0,0.40)' : '0 2px 8px rgba(0,0,0,0.06)',
           }}
@@ -247,7 +247,7 @@ function LoginTreeInner() {
                 initial={{ opacity: 0.55, scale: 0.2 }}
                 animate={{ opacity: 0, scale: 1 }}
                 transition={{ duration: 0.6, ease: 'easeOut' }}
-                style={{ position: 'absolute', left: -28, top: -20, width: 56, height: 56, borderRadius: '50%', border: '2px solid #EA580C' }}
+                style={{ position: 'absolute', left: -28, top: -20, width: 56, height: 56, borderRadius: '50%', border: '2px solid var(--c-primary)' }}
               />
             )}
           </AnimatePresence>
@@ -273,7 +273,7 @@ function LoginTreeInner() {
                 </div>
                 <div style={{ padding: 4 }}>
                   <MenuRow icon={<IconArrowUp size={15} />}  color="#4F86C6" label="Add parent" isDark={isDark} />
-                  <MenuRow icon={<IconHeart size={15} />}    color="#EA580C" label="Add spouse" isDark={isDark} highlight />
+                  <MenuRow icon={<IconHeart size={15} />}    color="var(--c-primary)" label="Add spouse" isDark={isDark} highlight />
                   <MenuRow icon={<IconArrowDown size={15} />} color="#2EAA7C" label="Add child" isDark={isDark} />
                 </div>
               </motion.div>
@@ -299,7 +299,7 @@ function LoginTreeInner() {
                 {(demoPhase === 2 || demoPhase === 3) && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-                    style={{ position: 'absolute', left: -2, top: -16, background: '#EA580C', color: '#fff', fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', padding: '2px 6px', borderRadius: 999, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(234,88,12,0.45)' }}
+                    style={{ position: 'absolute', left: -2, top: -16, background: 'var(--c-primary)', color: '#fff', fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', padding: '2px 6px', borderRadius: 999, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgb(var(--c-primary-rgb) / 0.45)' }}
                   >
                     RIGHT-CLICK
                   </motion.div>
@@ -395,10 +395,10 @@ function MenuRow({ icon, label, color, isDark, highlight = false }: {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 7,
       fontSize: 12, fontWeight: highlight ? 700 : 500,
-      color: highlight ? '#EA580C' : t.text,
-      background: highlight ? (isDark ? 'rgba(234,88,12,0.16)' : 'rgba(234,88,12,0.10)') : 'transparent',
+      color: highlight ? 'var(--c-primary)' : t.text,
+      background: highlight ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.16)' : 'rgb(var(--c-primary-rgb) / 0.10)') : 'transparent',
     }}>
-      <span style={{ color: highlight ? '#EA580C' : color, display: 'flex' }}>{icon}</span>
+      <span style={{ color: highlight ? 'var(--c-primary)' : color, display: 'flex' }}>{icon}</span>
       {label}
     </div>
   )

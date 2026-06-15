@@ -1,27 +1,19 @@
 'use client'
 
-import { useState, useRef, Suspense } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconArrowRight, IconLoader2, IconArrowLeft, IconEye, IconEyeOff, IconCamera, IconX } from '@tabler/icons-react'
+import { IconArrowRight, IconLoader2, IconArrowLeft, IconEye, IconEyeOff, IconBuilding, IconPlus, IconSearch } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, setToken } from '@/lib/api'
-import { compressPhoto } from '@/lib/image'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
-import familyOptions from '@/lib/familyOptions.json'
-
-const GOTRAS   = familyOptions.gotras.map(g => g.name)
-const VILLAGES = familyOptions.villages
-
-// Capitalise the first letter of each word (for custom "Other" entries).
-// "rAm KUMAR" → "Ram Kumar" — shared with the node editor / wizards.
-import { titleCase as toTitleCase } from '@/lib/format/normalize'
-
-// Sentinel value used by the chip selectors for the free-text "Other" option.
-const OTHER = '__other__'
+import { DynamicFields } from '@/components/forms/DynamicField'
+import {
+  SIGNUP_FIELD_SETS, fieldsFor, buildPayload, validateFields, composeFullName,
+} from '@/lib/forms/personFields'
 
 // ── Bilingual copy ────────────────────────────────────────────────────────────
 const COPY = {
@@ -66,11 +58,17 @@ const COPY = {
     other:        'Other',
     create:       'Create account',
 
-    treeTypeLabel:       'Tree visibility',
-    treeTypePublic:      'Public',
-    treeTypePrivate:     'Private',
-    treeTypePublicHint:  'Anyone can discover and connect with your family.',
-    treeTypePrivateHint: 'Only people you invite can see your family tree.',
+    treeTypeLabel:          'Tree visibility',
+    treeTypePublic:         'Public',
+    treeTypePrivate:        'Private',
+    treeTypeCommunity:      'Community',
+    treeTypePublicHint:     'Anyone can discover and connect with your family.',
+    treeTypePrivateHint:    'Only people you invite can see your family tree.',
+    treeTypeCommunityHint:  'Join an existing community or create a new one for your group.',
+    communityCreate:        'Create Community',
+    communityCreateDesc:    'Start a walled-garden for your family group (requires admin key).',
+    communityBrowse:        'Browse Communities',
+    communityBrowseDesc:    'See all communities and join one via invite.',
 
     haveAcct:     'Already have an account?',
     signin:       'Sign in',
@@ -130,11 +128,17 @@ const COPY = {
     other:        'अन्य',
     create:       'खाता बनाएँ',
 
-    treeTypeLabel:       'ट्री दृश्यता',
-    treeTypePublic:      'सार्वजनिक',
-    treeTypePrivate:     'निजी',
-    treeTypePublicHint:  'कोई भी आपके परिवार को खोज और जुड़ सकता है।',
-    treeTypePrivateHint: 'केवल आपके द्वारा आमंत्रित लोग ही आपका परिवार देख सकते हैं।',
+    treeTypeLabel:          'ट्री दृश्यता',
+    treeTypePublic:         'सार्वजनिक',
+    treeTypePrivate:        'निजी',
+    treeTypeCommunity:      'समुदाय',
+    treeTypePublicHint:     'कोई भी आपके परिवार को खोज और जुड़ सकता है।',
+    treeTypePrivateHint:    'केवल आपके द्वारा आमंत्रित लोग ही आपका परिवार देख सकते हैं।',
+    treeTypeCommunityHint:  'किसी मौजूदा समुदाय में शामिल हों या नया बनाएँ।',
+    communityCreate:        'समुदाय बनाएँ',
+    communityCreateDesc:    'अपने परिवार समूह के लिए एक बंद-बगीचा शुरू करें।',
+    communityBrowse:        'समुदाय देखें',
+    communityBrowseDesc:    'सभी समुदाय देखें और किसी में शामिल हों।',
 
     haveAcct:     'पहले से खाता है?',
     signin:       'साइन इन',
@@ -164,48 +168,6 @@ const stepVariants = {
   exit:   (d: number) => ({ x: d * -28, opacity: 0 }),
 }
 
-// Dropdown selector (gotra / village). A trailing "Other" option switches to
-// a free-text entry handled by the parent.
-function Select({ options, value, onChange, placeholder, otherLabel, isDark, err }: {
-  options: readonly string[]
-  value: string
-  onChange: (v: string) => void
-  placeholder: string
-  otherLabel: string
-  isDark: boolean
-  err?: boolean
-}) {
-  const t = getTheme(isDark)
-  const [focused, setFocused] = useState(false)
-  const inputBorder  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)'
-  const inputBg      = isDark ? '#141210' : '#FDFAF6'
-  const inputBgFocus = isDark ? '#1C1A12' : '#FFFFFF'
-
-  return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={{
-        width: '100%', height: 50, padding: '0 12px',
-        fontSize: 15, fontFamily: 'inherit',
-        border: `1.5px solid ${err ? '#EF4444' : focused ? '#EA580C' : inputBorder}`,
-        borderRadius: 12,
-        background: focused ? inputBgFocus : inputBg,
-        color: value ? t.text : t.textMuted,
-        outline: 'none', boxSizing: 'border-box', cursor: 'pointer',
-        boxShadow: focused ? '0 0 0 3.5px rgba(234,88,12,0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
-        transition: 'border-color 0.15s, box-shadow 0.15s, background 0.35s ease',
-      }}
-    >
-      <option value="">{placeholder}</option>
-      {options.map(o => <option key={o} value={o}>{o}</option>)}
-      <option value={OTHER}>{otherLabel}</option>
-    </select>
-  )
-}
-
 function SignupInner() {
   const router = useRouter()
   const search = useSearchParams()
@@ -229,30 +191,22 @@ function SignupInner() {
   const [pw2Focus,    setPw2Focus]    = useState(false)
   const [showPw,      setShowPw]      = useState(false)
 
-  // Step 3 — details
-  const [fullName,    setFullName]    = useState('')
-  const [gender,      setGender]      = useState<'male' | 'female' | 'other' | ''>('')
-  const [birthDate,   setBirthDate]   = useState('')   // YYYY-MM-DD from <input type="date">
-  const [gotraSel,    setGotraSel]    = useState('')   // a gotra name, OTHER, or ''
-  const [gotraOther,  setGotraOther]  = useState('')
-  const [gotraErr,    setGotraErr]    = useState('')
-  const [gotraFocus,  setGotraFocus]  = useState(false)
-  const [villageSel,  setVillageSel]  = useState('')   // a village name, OTHER, or ''
-  const [villageOther,setVillageOther]= useState('')
-  const [villageFocus,setVillageFocus]= useState(false)
-  const [city,        setCity]        = useState('')
-  const [stateName,   setStateName]   = useState('')
-  const [cityFocus,   setCityFocus]   = useState(false)
-  const [stateFocus,  setStateFocus]  = useState(false)
-  const [photoUrl,    setPhotoUrl]    = useState<string | null>(null)
-  const [photoErr,    setPhotoErr]    = useState('')
-  const [nameErr,     setNameErr]     = useState('')
-  const [dobErr,      setDobErr]      = useState('')
-  const [nameFocus,   setNameFocus]   = useState(false)
-  const [dobFocus,    setDobFocus]    = useState(false)
-  const fileRef       = useRef<HTMLInputElement>(null)
+  // Step 3 — details (config-driven). All field state lives in one map keyed by
+  // field id; which fields render is decided by SIGNUP_FIELD_SETS[treeType].
+  const [values,      setValues]      = useState<Record<string, string>>({})
+  const [fieldErrs,   setFieldErrs]   = useState<Record<string, string>>({})
 
-  const [treeType,    setTreeType]    = useState<'public' | 'private'>('public')
+  const [treeType,    setTreeType]    = useState<'public' | 'private' | 'community'>('public')
+  const fieldSet      = SIGNUP_FIELD_SETS[treeType]
+
+  // Update one field; clear its error as the user edits.
+  const setValue = (id: string, v: string) => {
+    setValues(p => ({ ...p, [id]: v }))
+    setFieldErrs(p => {
+      if (!p[id]) return p
+      const n = { ...p }; delete n[id]; return n
+    })
+  }
 
   const [loading,     setLoading]     = useState(false)
   const [topErr,      setTopErr]      = useState('')
@@ -262,10 +216,10 @@ function SignupInner() {
 
   const lv = {
     cardBg:     isDark ? '#1C1A12' : '#FFFFFF',
-    cardBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(234,88,12,0.11)',
+    cardBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.11)',
     cardShadow: isDark
       ? '0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 4px rgba(0,0,0,0.30), 0 8px 28px rgba(0,0,0,0.45)'
-      : '0 1px 0 rgba(255,255,255,0.85) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.08), 0 28px 64px rgba(234,88,12,0.06)',
+      : '0 1px 0 rgba(255,255,255,0.85) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.08), 0 28px 64px rgb(var(--c-primary-rgb) / 0.06)',
     inputBg:      isDark ? '#141210' : '#FDFAF6',
     inputBgFocus: isDark ? '#1C1A12' : '#FFFFFF',
     inputBorder:  isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)',
@@ -274,22 +228,22 @@ function SignupInner() {
   const inputStyle = (focused: boolean, err: boolean): React.CSSProperties => ({
     width: '100%', height: 50, padding: '0 16px',
     fontSize: 15, fontFamily: 'inherit',
-    border: `1.5px solid ${err ? '#EF4444' : focused ? '#EA580C' : lv.inputBorder}`,
+    border: `1.5px solid ${err ? '#EF4444' : focused ? 'var(--c-primary)' : lv.inputBorder}`,
     borderRadius: 12,
     background: focused ? lv.inputBgFocus : lv.inputBg,
     color: t.text, outline: 'none',
     boxSizing: 'border-box',
-    boxShadow: focused ? '0 0 0 3.5px rgba(234,88,12,0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
+    boxShadow: focused ? '0 0 0 3.5px rgb(var(--c-primary-rgb) / 0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
     transition: 'border-color 0.15s, box-shadow 0.15s, background 0.35s ease',
   })
 
   const ctaStyle = (dis: boolean): React.CSSProperties => ({
     width: '100%', height: 50, borderRadius: 12, border: 'none',
-    background: dis ? 'rgba(234,88,12,0.48)' : 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)',
+    background: dis ? 'rgb(var(--c-primary-rgb) / 0.48)' : 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
     color: '#fff', fontSize: 15, fontWeight: 700,
     fontFamily: 'inherit', cursor: dis ? 'default' : 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-    boxShadow: dis ? 'none' : '0 3px 14px rgba(234,88,12,0.40)',
+    boxShadow: dis ? 'none' : '0 3px 14px rgb(var(--c-primary-rgb) / 0.40)',
     letterSpacing: '0.01em',
     transition: 'background 0.2s',
   })
@@ -326,29 +280,14 @@ function SignupInner() {
   }
 
   // ── Step 3: details + final submit ──────────────────────────────────────────
-  // Resolved free-text values for the chip selectors.
-  const finalGotra   = gotraSel === OTHER   ? toTitleCase(gotraOther.trim())   : gotraSel
-  const finalVillage = villageSel === OTHER ? toTitleCase(villageOther.trim()) : villageSel
-
   const handleCreate = async () => {
-    const name = toTitleCase(fullName)
-    if (!name) { setNameErr(c.errName); return }
-    setNameErr('')
-
-    // Gotra is required.
-    if (!finalGotra) { setGotraErr(c.errGotra); return }
-    setGotraErr('')
-
-    let yearNum: number | undefined
-    if (birthDate) {
-      const d  = new Date(birthDate)
-      const yr = Number(birthDate.slice(0, 4))
-      if (isNaN(d.getTime()) || yr < 1900 || d > new Date()) {
-        setDobErr(c.errDob); return
-      }
-      yearNum = yr
+    const name = composeFullName(values)
+    const errs = validateFields(fieldSet, values, lang)
+    if (!name) {
+      errs.first_name = errs.first_name ?? c.errName
     }
-    setDobErr('')
+    if (Object.keys(errs).length > 0) { setFieldErrs(errs); return }
+    setFieldErrs({})
 
     setLoading(true); setTopErr('')
     try {
@@ -356,21 +295,12 @@ function SignupInner() {
         email: email.trim(),
         password,
         display_name: name,
-        tree_type: treeType,
+        tree_type: treeType === 'community' ? undefined : treeType,
       })
       setToken(token)
 
-      // Patch extras onto the auto-created self-person node if user filled them.
-      const extras: Record<string, unknown> = {}
-      if (gender)           extras.gender          = gender
-      if (birthDate)        extras.birth_date      = birthDate
-      if (yearNum != null)  extras.birth_year      = yearNum
-      if (finalGotra)       extras.gotra           = finalGotra
-      if (finalVillage)     extras.native_village  = finalVillage
-      if (city.trim())      extras.current_city    = toTitleCase(city.trim())
-      if (stateName.trim()) extras.current_state   = toTitleCase(stateName.trim())
-      if (photoUrl)         extras.photo_url       = photoUrl
-
+      // Patch the collected fields onto the auto-created self-person node.
+      const extras = buildPayload(fieldSet, values)
       if (Object.keys(extras).length > 0 && user.person_id) {
         try { await api.persons.update(user.person_id, extras) } catch { /* non-fatal */ }
       }
@@ -388,27 +318,15 @@ function SignupInner() {
     if (step === 'details')  setStepDir(['password', -1])
   }
 
-  const handlePhotoSelect = async (file: File | undefined) => {
-    if (!file) return
-    setPhotoErr('')
-    try {
-      const dataUrl = await compressPhoto(file)
-      setPhotoUrl(dataUrl)
-    } catch {
-      setPhotoErr(c.errPhoto)
-    }
-  }
-
   // ── Right-panel preview ────────────────────────────────────────────────────
   const preview: AuthPolaroidData | null =
     step === 'password' ? {
       fullName: '', isSelf: true, subtitle: c.yourNode,
     } :
     step === 'details' ? {
-      fullName,
-      gender:    gender || undefined,
-      birthYear: birthDate ? Number(birthDate.slice(0, 4)) : undefined,
-      photoUrl:  photoUrl,
+      fullName:  composeFullName(values),
+      gender:    (values.gender as 'male' | 'female' | 'other') || undefined,
+      birthYear: values.birth_date ? Number(values.birth_date.slice(0, 4)) : undefined,
       isSelf:    true,
       subtitle:  c.you,
     } :
@@ -440,7 +358,7 @@ function SignupInner() {
                         style={{
                           display: 'inline-block', marginRight: '0.22em',
                           fontSize: lang === 'hi' ? (isMobile ? 32 : 46) : (isMobile ? 36 : 52), fontWeight: 800, letterSpacing: '-0.03em',
-                          color: li === c.accentLine ? '#EA580C' : t.text,
+                          color: li === c.accentLine ? 'var(--c-primary)' : t.text,
                           transition: 'color 0.35s ease',
                         }}
                       >
@@ -539,7 +457,7 @@ function SignupInner() {
                           {' '}
                           <a
                             href={`/login?email=${encodeURIComponent(email.trim())}`}
-                            style={{ color: '#EA580C', fontWeight: 700, textDecoration: 'none' }}
+                            style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}
                           >
                             {c.signinCta}
                           </a>
@@ -555,8 +473,8 @@ function SignupInner() {
                 <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
                   {c.treeTypeLabel}
                 </label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {(['public', 'private'] as const).map(type => {
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(['public', 'private', 'community'] as const).map(type => {
                     const active = treeType === type
                     return (
                       <button
@@ -565,27 +483,109 @@ function SignupInner() {
                         onClick={() => setTreeType(type)}
                         style={{
                           flex: 1, height: 44, borderRadius: 10,
-                          border: `1.5px solid ${active ? '#EA580C' : lv.inputBorder}`,
-                          background: active ? 'rgba(234,88,12,0.10)' : lv.inputBg,
-                          color: active ? '#EA580C' : t.text,
-                          fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-                          boxShadow: active ? '0 0 0 3.5px rgba(234,88,12,0.11)' : 'none',
+                          border: `1.5px solid ${active ? 'var(--c-primary)' : lv.inputBorder}`,
+                          background: active ? 'rgb(var(--c-primary-rgb) / 0.10)' : lv.inputBg,
+                          color: active ? 'var(--c-primary)' : t.text,
+                          fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                          boxShadow: active ? '0 0 0 3.5px rgb(var(--c-primary-rgb) / 0.11)' : 'none',
                           transition: 'border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                         }}
                       >
-                        {type === 'public' ? c.treeTypePublic : c.treeTypePrivate}
+                        {type === 'community' && <IconBuilding size={13} />}
+                        {type === 'public' ? c.treeTypePublic : type === 'private' ? c.treeTypePrivate : c.treeTypeCommunity}
                       </button>
                     )
                   })}
                 </div>
                 <p style={{ margin: '6px 0 0', fontSize: 11.5, color: t.textMuted, lineHeight: 1.5, transition: 'color 0.35s ease' }}>
-                  {treeType === 'public' ? c.treeTypePublicHint : c.treeTypePrivateHint}
+                  {treeType === 'public' ? c.treeTypePublicHint : treeType === 'private' ? c.treeTypePrivateHint : c.treeTypeCommunityHint}
                 </p>
+
+                {/* Community sub-options */}
+                <AnimatePresence>
+                  {treeType === 'community' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                      animate={{ opacity: 1, height: 'auto', marginTop: 10 }}
+                      exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                      transition={{ duration: 0.22 }}
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {/* Create Community */}
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => router.push('/community?action=create')}
+                          style={{
+                            width: '100%', padding: '12px 14px', borderRadius: 12,
+                            border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgb(var(--c-primary-rgb) / 0.15)'}`,
+                            background: isDark ? '#1C1A12' : '#FFFBF4',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
+                            textAlign: 'left',
+                          }}
+                        >
+                          <div style={{
+                            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                            background: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <IconPlus size={17} color="#fff" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text, marginBottom: 2 }}>
+                              {c.communityCreate}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: t.textMuted, lineHeight: 1.4 }}>
+                              {c.communityCreateDesc}
+                            </div>
+                          </div>
+                          <IconArrowRight size={14} style={{ color: 'var(--c-primary)', flexShrink: 0 }} />
+                        </motion.button>
+
+                        {/* Browse Communities */}
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => router.push('/community')}
+                          style={{
+                            width: '100%', padding: '12px 14px', borderRadius: 12,
+                            border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgb(var(--c-primary-rgb) / 0.15)'}`,
+                            background: isDark ? '#1C1A12' : '#FFFBF4',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
+                            textAlign: 'left',
+                          }}
+                        >
+                          <div style={{
+                            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                            background: isDark ? 'rgb(var(--c-secondary-rgb) / 0.18)' : 'rgb(var(--c-secondary-rgb) / 0.12)',
+                            border: `1.5px solid rgb(var(--c-secondary-rgb) / 0.35)`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <IconSearch size={16} style={{ color: 'var(--c-secondary)' }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text, marginBottom: 2 }}>
+                              {c.communityBrowse}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: t.textMuted, lineHeight: 1.4 }}>
+                              {c.communityBrowseDesc}
+                            </div>
+                          </div>
+                          <IconArrowRight size={14} style={{ color: t.textMuted, flexShrink: 0 }} />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <motion.button
                 onClick={handleEmailContinue} disabled={loading}
-                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                 whileTap={!loading ? { scale: 0.985 } : {}}
                 style={ctaStyle(loading)}
               >
@@ -616,7 +616,7 @@ function SignupInner() {
               {/* Email pill */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, padding: '9px 13px', borderRadius: 10, background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)'}` }}>
                 <span style={{ fontSize: 13, color: t.text, fontWeight: 500 }}>{email}</span>
-                <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#EA580C', fontWeight: 700, fontFamily: 'inherit', padding: 0 }}>
+                <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--c-primary)', fontWeight: 700, fontFamily: 'inherit', padding: 0 }}>
                   {c.back}
                 </button>
               </div>
@@ -678,7 +678,7 @@ function SignupInner() {
 
               <motion.button
                 onClick={handlePasswordNext} disabled={loading}
-                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                 whileTap={!loading ? { scale: 0.985 } : {}}
                 style={ctaStyle(loading)}
               >
@@ -698,237 +698,16 @@ function SignupInner() {
             <motion.div key="details" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit"
               transition={{ duration: 0.22, ease: EASE }}>
 
-              {/* Photo picker */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  style={{
-                    width: 64, height: 64, borderRadius: '50%',
-                    border: `1.5px dashed ${photoUrl ? 'transparent' : '#EA580C'}`,
-                    background: photoUrl
-                      ? 'transparent'
-                      : isDark ? 'rgba(234,88,12,0.08)' : 'rgba(234,88,12,0.06)',
-                    cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    overflow: 'hidden', padding: 0, flexShrink: 0,
-                    transition: 'background 0.2s, border-color 0.2s',
-                  }}
-                  title={photoUrl ? c.photoChange : c.photoAdd}
-                >
-                  {photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <IconCamera size={22} color="#EA580C" strokeWidth={2} />
-                  )}
-                </button>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                      color: '#EA580C', fontWeight: 700, fontFamily: 'inherit', fontSize: 13.5, textAlign: 'left' }}
-                  >
-                    {photoUrl ? c.photoChange : c.photoAdd}
-                  </button>
-                  {photoUrl && (
-                    <button
-                      type="button"
-                      onClick={() => { setPhotoUrl(null); setPhotoErr('') }}
-                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                        color: t.textMuted, fontFamily: 'inherit', fontSize: 12, textAlign: 'left',
-                        display: 'inline-flex', alignItems: 'center', gap: 3 }}
-                    >
-                      <IconX size={11} /> {c.photoRemove}
-                    </button>
-                  )}
-                  {photoErr && (
-                    <span style={{ fontSize: 11, color: '#EF4444' }}>{photoErr}</span>
-                  )}
-                </div>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={e => handlePhotoSelect(e.target.files?.[0])}
-                  style={{ display: 'none' }}
-                />
-              </div>
-
-              {/* Full name */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
-                  {c.nameLabel}
-                </label>
-                <input
-                  value={fullName}
-                  onChange={e => { setFullName(e.target.value); setNameErr('') }}
-                  onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
-                  onFocus={() => setNameFocus(true)}
-                  onBlur={() => setNameFocus(false)}
-                  placeholder={c.namePh}
-                  autoComplete="name"
-                  autoFocus
-                  style={inputStyle(nameFocus, !!nameErr)}
-                />
-                <AnimatePresence>
-                  {nameErr && (
-                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
-                      {nameErr}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Gender */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
-                  {c.genderLabel}
-                </label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {([['male', c.genderM], ['female', c.genderF], ['other', c.genderO]] as const).map(([val, label]) => {
-                    const active = gender === val
-                    return (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setGender(active ? '' : val)}
-                        style={{
-                          flex: 1, height: 44, borderRadius: 10,
-                          border: `1.5px solid ${active ? '#EA580C' : lv.inputBorder}`,
-                          background: active ? 'rgba(234,88,12,0.10)' : lv.inputBg,
-                          color: active ? '#EA580C' : t.text,
-                          fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
-                          cursor: 'pointer',
-                          boxShadow: active ? '0 0 0 3.5px rgba(234,88,12,0.11)' : 'none',
-                          transition: 'border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s',
-                        }}
-                      >
-                        {label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Date of birth */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
-                  {c.dobLabel}
-                </label>
-                <input
-                  type="date"
-                  value={birthDate}
-                  min="1900-01-01"
-                  max={new Date().toISOString().slice(0, 10)}
-                  onChange={e => { setBirthDate(e.target.value); setDobErr('') }}
-                  onFocus={() => setDobFocus(true)}
-                  onBlur={() => setDobFocus(false)}
-                  style={{ ...inputStyle(dobFocus, !!dobErr), colorScheme: isDark ? 'dark' : 'light' }}
-                />
-                <AnimatePresence>
-                  {dobErr && (
-                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
-                      {dobErr}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Gotra (required) */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
-                  {c.gotraLabel} <span style={{ color: '#EA580C' }}>*</span>
-                </label>
-                <Select
-                  options={GOTRAS}
-                  value={gotraSel}
-                  onChange={v => { setGotraSel(v); setGotraErr('') }}
-                  placeholder={c.gotraSelectPh}
-                  otherLabel={c.other}
-                  isDark={isDark}
-                  err={!!gotraErr}
-                />
-                {gotraSel === OTHER && (
-                  <input
-                    value={gotraOther}
-                    onChange={e => { setGotraOther(toTitleCase(e.target.value)); setGotraErr('') }}
-                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
-                    onFocus={() => setGotraFocus(true)}
-                    onBlur={() => setGotraFocus(false)}
-                    placeholder={c.gotraOtherPh}
-                    autoFocus
-                    style={{ ...inputStyle(gotraFocus, !!gotraErr), marginTop: 8 }}
-                  />
-                )}
-                <AnimatePresence>
-                  {gotraErr && (
-                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      style={{ margin: '6px 0 0', fontSize: 11.5, color: '#EF4444' }}>
-                      {gotraErr}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Native village (optional) */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
-                  {c.villageLabel}
-                </label>
-                <Select
-                  options={VILLAGES}
-                  value={villageSel}
-                  onChange={setVillageSel}
-                  placeholder={c.villageSelectPh}
-                  otherLabel={c.other}
-                  isDark={isDark}
-                />
-                {villageSel === OTHER && (
-                  <input
-                    value={villageOther}
-                    onChange={e => setVillageOther(toTitleCase(e.target.value))}
-                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
-                    onFocus={() => setVillageFocus(true)}
-                    onBlur={() => setVillageFocus(false)}
-                    placeholder={c.villageOtherPh}
-                    autoFocus
-                    style={{ ...inputStyle(villageFocus, false), marginTop: 8 }}
-                  />
-                )}
-              </div>
-
-              {/* Current location (optional) */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted, transition: 'color 0.35s ease' }}>
-                  {c.locationLabel}
-                </label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    value={city}
-                    onChange={e => setCity(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
-                    onFocus={() => setCityFocus(true)}
-                    onBlur={() => setCityFocus(false)}
-                    placeholder={c.cityPh}
-                    autoComplete="address-level2"
-                    style={{ ...inputStyle(cityFocus, false), flex: 1, width: 'auto', minWidth: 0 }}
-                  />
-                  <input
-                    value={stateName}
-                    onChange={e => setStateName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleCreate() }}
-                    onFocus={() => setStateFocus(true)}
-                    onBlur={() => setStateFocus(false)}
-                    placeholder={c.statePh}
-                    autoComplete="address-level1"
-                    style={{ ...inputStyle(stateFocus, false), flex: 1, width: 'auto', minWidth: 0 }}
-                  />
-                </div>
-              </div>
+              {/* Fields rendered from SIGNUP_FIELD_SETS[treeType] */}
+              <DynamicFields
+                fields={fieldsFor(fieldSet)}
+                values={values}
+                errors={fieldErrs}
+                isDark={isDark}
+                lang={lang}
+                onChange={setValue}
+                onSubmit={handleCreate}
+              />
 
               <AnimatePresence>
                 {topErr && (
@@ -941,7 +720,7 @@ function SignupInner() {
 
               <motion.button
                 onClick={handleCreate} disabled={loading}
-                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                 whileTap={!loading ? { scale: 0.985 } : {}}
                 style={{ ...ctaStyle(loading), marginBottom: 12 }}
               >
@@ -983,7 +762,7 @@ function SignupInner() {
         <AnimatePresence mode="wait">
           <motion.span key={lang} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
             {c.haveAcct}{' '}
-            <a href="/login" style={{ color: '#EA580C', fontWeight: 700, textDecoration: 'none' }}>{c.signin}</a>
+            <a href="/login" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signin}</a>
           </motion.span>
         </AnimatePresence>
       </motion.p>

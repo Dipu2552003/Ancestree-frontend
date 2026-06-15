@@ -116,7 +116,7 @@ export default function InviteToClaimCard({ nodeId, fullName, isDark }: InviteTo
           </div>
           <p style={{ fontSize: '11px', margin: 0, lineHeight: 1.5, color: isDark ? 'rgba(74,222,128,0.70)' : 'rgba(21,128,61,0.70)' }}>
             Share with {fullName?.split(' ')[0] ?? 'them'} — enter at{' '}
-            <span style={{ color: '#EA580C' }}>/invite</span> to join.
+            <span style={{ color: 'var(--c-primary)' }}>/invite</span> to join.
           </p>
           <button
             onClick={handleGenerateInvite}

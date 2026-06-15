@@ -18,14 +18,14 @@ interface NodeConnectorProps {
 }
 
 export default function NodeConnector({ direction, relAction, isDark }: NodeConnectorProps) {
-  const dashH = `repeating-linear-gradient(to right,${isDark ? 'rgba(234,88,12,0.45)' : 'rgba(234,88,12,0.32)'} 0 5px,transparent 5px 10px)`
-  const dashV = `repeating-linear-gradient(to bottom,${isDark ? 'rgba(234,88,12,0.45)' : 'rgba(234,88,12,0.32)'} 0 5px,transparent 5px 10px)`
+  const dashH = `repeating-linear-gradient(to right,${isDark ? 'rgb(var(--c-primary-rgb) / 0.45)' : 'rgb(var(--c-primary-rgb) / 0.32)'} 0 5px,transparent 5px 10px)`
+  const dashV = `repeating-linear-gradient(to bottom,${isDark ? 'rgb(var(--c-primary-rgb) / 0.45)' : 'rgb(var(--c-primary-rgb) / 0.32)'} 0 5px,transparent 5px 10px)`
 
   const bubbleIcon = direction !== 'beside'
-    ? <IconArrowDown size={14} color="#EA580C" />
+    ? <IconArrowDown size={14} color="var(--c-primary)" />
     : relAction === 'spouse'
-      ? <IconHeart size={14} color="#EA580C" />
-      : <IconArrowsLeftRight size={14} color="#EA580C" />
+      ? <IconHeart size={14} color="var(--c-primary)" />
+      : <IconArrowsLeftRight size={14} color="var(--c-primary)" />
 
   const bubble = (
     <motion.div
@@ -34,10 +34,10 @@ export default function NodeConnector({ direction, relAction, isDark }: NodeConn
       transition={{ delay: 0.5, type: 'spring', stiffness: 340, damping: 22 }}
       style={{
         width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-        background: isDark ? '#1C1410' : '#FFF7ED',
-        border: `2px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
+        background: isDark ? '#1C1410' : 'var(--c-page)',
+        border: `2px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.35)' : 'rgb(var(--c-primary-rgb) / 0.28)'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: `0 0 0 5px ${isDark ? 'rgba(234,88,12,0.07)' : 'rgba(234,88,12,0.06)'}`,
+        boxShadow: `0 0 0 5px ${isDark ? 'rgb(var(--c-primary-rgb) / 0.07)' : 'rgb(var(--c-primary-rgb) / 0.06)'}`,
       }}
     >
       {bubbleIcon}

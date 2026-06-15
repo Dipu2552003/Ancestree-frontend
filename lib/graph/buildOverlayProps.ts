@@ -60,6 +60,9 @@ interface BuildOverlayPropsArgs {
   rawNodes:           Node[]
   rawEdges:           Edge[]
   router:             RouterLike
+  /** Merge requests may only be started from the user's own tree, never while
+   *  viewing another person's tree (perspective mode). */
+  canMerge:           boolean
   fetchGraph:         () => Promise<void>
   /** Full reset + refetch — used after undo, which can add/remove whole family units. */
   resetAndFetch:      () => Promise<void>
@@ -73,23 +76,16 @@ interface BuildOverlayPropsArgs {
 export function buildOverlayProps({
   s, selectedNode, selectedNodeName, matchHighlightNode, anchorRealId,
   nodes, edges, rawNodes, rawEdges,
-  router, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode, handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
+  router, canMerge, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode, handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
 }: BuildOverlayPropsArgs): OverlayBundles {
   return {
     contextMenu: s.contextMenu && {
       ...s.contextMenu,
+      canMerge,
       onViewTree: () => router.push(`/graph?perspective=${s.contextMenu!.nodeId}`),
       onEdit:     () => { s.setSelectedNodeId(s.contextMenu!.nodeId); s.setPanelMode('edit') },
-      onInvite:   async () => {
-        try {
-          const id = s.contextMenu!.nodeId
-          const inviteRealId = isGhostNodeId(id) ? realIdFromGhost(id) : id
-          const { invite_token } = await api.persons.generateInvite(inviteRealId)
-          const url = `${window.location.origin}/invite?token=${invite_token}`
-          await navigator.clipboard.writeText(url)
-        } catch { /* ignore */ }
-      },
       onMergeNode: () => {
+        if (!canMerge) return  // never start a merge while viewing another tree
         const { nodeId, personData } = s.contextMenu!
         const realNodeId = isGhostNodeId(nodeId) ? realIdFromGhost(nodeId) : nodeId
         s.setMergeSearchNode({ id: realNodeId, name: personData.fullName })
@@ -158,6 +154,7 @@ export function buildOverlayProps({
     wizard: s.wizardAction ? {
       relAction:      s.wizardAction,
       anchorName:     selectedNodeName,
+      anchorGender:   (selectedNode?.data as PersonData | undefined)?.gender,
       motherOptions:  computeMotherOptions(s.wizardAction, anchorRealId, rawEdges, rawNodes),
       fatherName:     computeFatherName(s.wizardAction, anchorRealId, rawEdges, rawNodes),
       onAdd:          handleWizardAdd,
@@ -168,6 +165,7 @@ export function buildOverlayProps({
     secondSpouse: s.secondSpouseAnchor ? {
       anchorId:         s.secondSpouseAnchor.id,
       anchorName:       s.secondSpouseAnchor.name,
+      anchorGender:     (rawNodes.find(n => n.id === s.secondSpouseAnchor!.id)?.data as PersonData | undefined)?.gender,
       existingSpouses:  deriveActiveSpousesFromEdges(
         s.secondSpouseAnchor.id,
         rawEdges,

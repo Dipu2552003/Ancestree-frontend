@@ -13,10 +13,10 @@ const STRIP_H  = 40
 const TOTAL_W  = PERSON_W * 2 + 1   // 1px divider
 
 function avatarColors(p: PersonData) {
-  if (p.isSelf)                    return { from: '#EA580C', to: '#C2410C' }
+  if (p.isSelf)                    return { from: 'var(--c-primary)', to: 'var(--c-primary-strong)' }
   if (p.isDeceased)                return { from: '#94A3B8', to: '#64748B' }
-  if (p.nodeState === 'claimed')   return { from: '#C2410C', to: '#9A3412' }
-  return                                  { from: '#D97706', to: '#B45309' }
+  if (p.nodeState === 'claimed')   return { from: 'var(--c-primary-strong)', to: 'var(--c-primary-deep)' }
+  return                                  { from: 'var(--c-secondary)', to: '#B45309' }
 }
 
 function PersonSlice({
@@ -83,7 +83,7 @@ function PersonSlice({
         {person.relationshipToSelf && (
           <div style={{
             fontSize: '6.5px', letterSpacing: '0.06em',
-            color: isDark ? '#7A6A5A' : '#D97706',
+            color: isDark ? '#7A6A5A' : 'var(--c-secondary)',
             fontStyle: 'italic', textAlign: 'center',
           }}>
             {person.relationshipToSelf}
@@ -149,7 +149,7 @@ export function CoupleNode({ data }: NodeProps) {
             position: 'absolute', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
             width: '18px', height: '18px', borderRadius: '50%',
-            background: isDark ? '#2A2520' : '#FFF7ED',
+            background: isDark ? '#2A2520' : 'var(--c-page)',
             border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#E8D5B7'}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '9px', zIndex: 1,

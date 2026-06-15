@@ -6,6 +6,7 @@ export interface CommunityInfo {
   slug:         string
   description:  string | null
   member_count: number
+  member_limit?: number
 }
 
 export interface CommunityInviteInfo {
@@ -27,8 +28,28 @@ export type CommunitySession = {
 }
 
 export const community = {
+  list: () =>
+    req<{ communities: CommunityInfo[] }>('/api/community'),
+
   getInfo: (slug: string) =>
     req<CommunityInfo>(`/api/community/${encodeURIComponent(slug)}`),
+
+  create: (
+    b: {
+      name: string; slug: string; description?: string; member_limit?: number
+      owner: { email: string; password: string; display_name: string }
+    },
+    adminKey: string,
+  ) =>
+    req<{
+      token: string
+      community: { id: string; name: string; slug: string }
+      user: { id: string; email: string; display_name: string; person_id: string; family_id: string; community_id: string }
+    }>('/api/community', {
+      method: 'POST',
+      body: JSON.stringify(b),
+      headers: { 'x-platform-key': adminKey },
+    }),
 
   validateInvite: (slug: string, code: string) =>
     req<CommunityInviteInfo>(

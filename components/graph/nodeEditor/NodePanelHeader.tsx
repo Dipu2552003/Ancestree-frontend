@@ -19,7 +19,7 @@ interface NodePanelHeaderProps {
 
 export default function NodePanelHeader({ isDark, isMobile, isDirty, saveState, onClose }: NodePanelHeaderProps) {
   const t        = getTheme(isDark)
-  const labelCol = isDark ? '#7A6A52' : '#9A3412'
+  const labelCol = isDark ? '#7A6A52' : 'var(--c-primary-deep)'
 
   return (
     <>
@@ -48,7 +48,7 @@ export default function NodePanelHeader({ isDark, isMobile, isDirty, saveState, 
             {isDirty && saveState === 'idle' && (
               <motion.div
                 initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0 }}
-                style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EA580C' }}
+                style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--c-primary)' }}
                 title="Unsaved changes"
               />
             )}

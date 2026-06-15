@@ -182,13 +182,13 @@ function Checkpoint({
 }) {
   const [hovered, setHovered] = useState(false)
   const t = getTheme(isDark)
-  const accent = '#EA580C'
+  const accent = 'var(--c-primary)'
 
   // Dot colours by state
   const dotBg = isCurrent
     ? accent
     : hovered
-      ? (isDark ? 'rgba(234,88,12,0.30)' : 'rgba(234,88,12,0.16)')
+      ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.30)' : 'rgb(var(--c-primary-rgb) / 0.16)')
       : 'transparent'
   const dotBorder = isCurrent ? accent : (isDark ? '#6B5F54' : '#C4A882')
 
@@ -234,7 +234,7 @@ function Checkpoint({
           justifyContent: 'center',
           flexShrink: 0,
           transition: 'background 0.15s, border-color 0.15s',
-          boxShadow: isCurrent ? `0 0 0 4px ${isDark ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.14)'}` : 'none',
+          boxShadow: isCurrent ? `0 0 0 4px ${isDark ? 'rgb(var(--c-primary-rgb) / 0.18)' : 'rgb(var(--c-primary-rgb) / 0.14)'}` : 'none',
         }}
       >
         {isHome && (

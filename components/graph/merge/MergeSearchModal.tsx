@@ -16,14 +16,14 @@ interface Props {
 }
 
 // ── State / label helpers ─────────────────────────────────────────────────────
-const stateColor = (s: string) => s === 'claimed' ? '#22C55E' : s === 'invited' ? '#F59E0B' : '#D97706'
+const stateColor = (s: string) => s === 'claimed' ? '#22C55E' : s === 'invited' ? '#F59E0B' : 'var(--c-secondary)'
 const stateLabel = (s: string) => s === 'claimed' ? 'Claimed' : s === 'invited' ? 'Invited' : 'Proxy'
 
 // ── Animated connector between the two cards ──────────────────────────────────
 function MergeConnector({ isDark }: { isDark: boolean }) {
   const dash = isDark
-    ? 'repeating-linear-gradient(to right,rgba(234,88,12,0.5) 0,rgba(234,88,12,0.5) 5px,transparent 5px,transparent 10px)'
-    : 'repeating-linear-gradient(to right,rgba(234,88,12,0.35) 0,rgba(234,88,12,0.35) 5px,transparent 5px,transparent 10px)'
+    ? 'repeating-linear-gradient(to right,rgb(var(--c-primary-rgb) / 0.5) 0,rgb(var(--c-primary-rgb) / 0.5) 5px,transparent 5px,transparent 10px)'
+    : 'repeating-linear-gradient(to right,rgb(var(--c-primary-rgb) / 0.35) 0,rgb(var(--c-primary-rgb) / 0.35) 5px,transparent 5px,transparent 10px)'
 
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0, minWidth: 0 }}>
@@ -42,17 +42,17 @@ function MergeConnector({ isDark }: { isDark: boolean }) {
         transition={{ delay: 0.62, type: 'spring', stiffness: 340, damping: 22 }}
         style={{
           width: 36, height: 36, borderRadius: '50%', flexShrink: 0, zIndex: 1,
-          background: isDark ? '#1C1410' : '#FFF7ED',
-          border: `2px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
+          background: isDark ? '#1C1410' : 'var(--c-page)',
+          border: `2px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.35)' : 'rgb(var(--c-primary-rgb) / 0.28)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 0 0 6px ${isDark ? 'rgba(234,88,12,0.07)' : 'rgba(234,88,12,0.06)'}`,
+          boxShadow: `0 0 0 6px ${isDark ? 'rgb(var(--c-primary-rgb) / 0.07)' : 'rgb(var(--c-primary-rgb) / 0.06)'}`,
         }}
       >
         <motion.div
           animate={{ rotate: [0, 8, -8, 0], scale: [1, 1.15, 1] }}
           transition={{ duration: 2.8, repeat: Infinity, repeatDelay: 1.5, ease: 'easeInOut' }}
         >
-          <IconGitMerge size={16} color="#EA580C" />
+          <IconGitMerge size={16} color="var(--c-primary)" />
         </motion.div>
       </motion.div>
 
@@ -138,11 +138,11 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
           width: 600, maxWidth: 'calc(100vw - 24px)',
           maxHeight: 'calc(100vh - 40px)',
           background: isDark ? '#1C1410' : '#FFFAF5',
-          border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(234,88,12,0.14)'}`,
+          border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgb(var(--c-primary-rgb) / 0.14)'}`,
           borderRadius: 22,
           boxShadow: isDark
             ? '0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04)'
-            : '0 40px 100px rgba(0,0,0,0.2),  0 0 0 1px rgba(234,88,12,0.06)',
+            : '0 40px 100px rgba(0,0,0,0.2),  0 0 0 1px rgb(var(--c-primary-rgb) / 0.06)',
           overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
         }}
@@ -156,15 +156,15 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
               width: 32, height: 32, borderRadius: 9,
-              background: 'rgba(234,88,12,0.12)',
+              background: 'rgb(var(--c-primary-rgb) / 0.12)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
-              <IconGitMerge size={16} color="#EA580C" />
+              <IconGitMerge size={16} color="var(--c-primary)" />
             </div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.2 }}>Merge node</div>
               <div style={{ fontSize: 11.5, color: t.textMuted, marginTop: 2 }}>
-                Linking <span style={{ color: '#EA580C', fontWeight: 600 }}>{sourceNodeName}</span> to someone from another family
+                Linking <span style={{ color: 'var(--c-primary)', fontWeight: 600 }}>{sourceNodeName}</span> to someone from another family
               </div>
             </div>
           </div>
@@ -187,8 +187,8 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
         {/* ── Hero: both node cards ── */}
         <div style={{
           padding: isMobile ? '20px 16px 16px' : '28px 32px 20px',
-          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(234,88,12,0.09)'}`,
-          background: isDark ? 'rgba(255,255,255,0.015)' : 'rgba(234,88,12,0.025)',
+          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgb(var(--c-primary-rgb) / 0.09)'}`,
+          background: isDark ? 'rgba(255,255,255,0.015)' : 'rgb(var(--c-primary-rgb) / 0.025)',
         }}>
           {/* Mobile: source card only (target swaps in on tap via results) */}
           {isMobile ? (
@@ -197,7 +197,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 24 }}>
                   <NodeCard fullName={sourceNodeName} isDark={isDark} nodeState="proxy" />
                 </motion.div>
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#EA580C', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Your node</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Your node</span>
               </div>
               <MergeConnector isDark={isDark} />
               <div style={{ width: CARD_W, height: CARD_H, position: 'relative', flexShrink: 0 }}>
@@ -228,7 +228,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
               >
                 <NodeCard fullName={sourceNodeName} isDark={isDark} nodeState="proxy" />
               </motion.div>
-              <span style={{ fontSize: 10, fontWeight: 600, color: '#EA580C', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 Your node
               </span>
             </div>
@@ -278,7 +278,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
                     animate={{ opacity: 1, y: 0 }}
                     exit={{    opacity: 0, y: -4 }}
                     style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
-                      color: hovered.node_state === 'claimed' ? '#C2410C' : '#D97706',
+                      color: hovered.node_state === 'claimed' ? 'var(--c-primary-strong)' : 'var(--c-secondary)',
                       maxWidth: CARD_W, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
                     {hovered.full_name}
@@ -322,8 +322,8 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
                 transition: 'border-color 0.15s, box-shadow 0.15s',
               }}
               onFocus={e => {
-                e.currentTarget.style.borderColor = '#FB923C'
-                e.currentTarget.style.boxShadow  = '0 0 0 3px rgba(234,88,12,0.1)'
+                e.currentTarget.style.borderColor = 'var(--c-primary-light)'
+                e.currentTarget.style.boxShadow  = '0 0 0 3px rgb(var(--c-primary-rgb) / 0.1)'
               }}
               onBlur={e => {
                 e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.11)' : 'rgba(0,0,0,0.1)'
@@ -361,10 +361,10 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
                     width: '100%', display: 'flex', alignItems: 'center', gap: 14,
                     padding: '10px 12px', borderRadius: 12, textAlign: 'left',
                     border: `1.5px solid ${isHov
-                      ? (isDark ? 'rgba(234,88,12,0.3)' : 'rgba(234,88,12,0.2)')
+                      ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.3)' : 'rgb(var(--c-primary-rgb) / 0.2)')
                       : 'transparent'}`,
                     background: isHov
-                      ? (isDark ? 'rgba(234,88,12,0.08)' : 'rgba(234,88,12,0.05)')
+                      ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.08)' : 'rgb(var(--c-primary-rgb) / 0.05)')
                       : 'transparent',
                     cursor: 'pointer',
                     transition: 'background 0.12s, border-color 0.12s',
@@ -389,7 +389,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
                     {meta.length > 0 && (
                       <div style={{
                         fontSize: 11.5,
-                        color: isHov ? '#EA580C' : t.textMuted,
+                        color: isHov ? 'var(--c-primary)' : t.textMuted,
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         lineHeight: 1.3,
                         transition: 'color 0.1s',

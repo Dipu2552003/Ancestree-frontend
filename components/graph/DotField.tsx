@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
+import { readVar } from '@/lib/theme/cssVar'
 
 interface Props { isDark: boolean }
 
@@ -26,6 +27,8 @@ export default function DotField({ isDark }: Props) {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')!
+    // Resolve the themed dot color once (canvas can't read CSS vars directly).
+    const dotLight = readVar('--c-dot', 'rgba(160,100,20,0.30)')
 
     const rebuild = () => {
       canvas.width  = window.innerWidth
@@ -52,7 +55,7 @@ export default function DotField({ isDark }: Props) {
     const tick = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       const { x: mx, y: my } = mouse.current
-      const color = isDarkRef.current ? 'rgba(255,255,255,0.14)' : 'rgba(160,100,20,0.30)'
+      const color = isDarkRef.current ? 'rgba(255,255,255,0.14)' : dotLight
 
       for (const d of dots.current) {
         const dx   = d.x - mx

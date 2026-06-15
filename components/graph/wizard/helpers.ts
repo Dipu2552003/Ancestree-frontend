@@ -15,14 +15,14 @@ export function splitName(name: string): [string, string] {
 export function avatarGrad(gender: string): [string, string] {
   if (gender === 'male')   return ['#4F86C6', '#2D5E9A']
   if (gender === 'female') return ['#C06FAE', '#9A4A8A']
-  return ['#D97706', '#B45309']
+  return ['var(--c-secondary)', '#B45309']
 }
 
 // Caption colour under the avatar.
 export function labelColor(gender: string): string {
   if (gender === 'male')   return '#4F86C6'
   if (gender === 'female') return '#C06FAE'
-  return '#D97706'
+  return 'var(--c-secondary)'
 }
 
 // ── Slide animation ───────────────────────────────────────────────────────────

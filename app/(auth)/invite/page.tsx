@@ -154,36 +154,36 @@ function InviteInner() {
 
   const lv = {
     cardBg:     isDark ? '#1C1A12' : '#FFFFFF',
-    cardBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(234,88,12,0.11)',
+    cardBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.11)',
     cardShadow: isDark
       ? '0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 4px rgba(0,0,0,0.30), 0 8px 28px rgba(0,0,0,0.45)'
-      : '0 1px 0 rgba(255,255,255,0.85) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.08), 0 28px 64px rgba(234,88,12,0.06)',
+      : '0 1px 0 rgba(255,255,255,0.85) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.08), 0 28px 64px rgb(var(--c-primary-rgb) / 0.06)',
     inputBg:      isDark ? '#141210' : '#FDFAF6',
     inputBgFocus: isDark ? '#1C1A12' : '#FFFFFF',
     inputBorder:  isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)',
-    previewBg:    isDark ? 'rgba(234,88,12,0.06)' : 'rgba(234,88,12,0.04)',
-    previewBorder:isDark ? 'rgba(234,88,12,0.20)' : 'rgba(234,88,12,0.16)',
+    previewBg:    isDark ? 'rgb(var(--c-primary-rgb) / 0.06)' : 'rgb(var(--c-primary-rgb) / 0.04)',
+    previewBorder:isDark ? 'rgb(var(--c-primary-rgb) / 0.20)' : 'rgb(var(--c-primary-rgb) / 0.16)',
   }
 
   const inputStyle = (focused: boolean, err: boolean): React.CSSProperties => ({
     width: '100%', height: 50, padding: '0 16px',
     fontSize: 15, fontFamily: 'inherit',
-    border: `1.5px solid ${err ? '#EF4444' : focused ? '#EA580C' : lv.inputBorder}`,
+    border: `1.5px solid ${err ? '#EF4444' : focused ? 'var(--c-primary)' : lv.inputBorder}`,
     borderRadius: 12,
     background: focused ? lv.inputBgFocus : lv.inputBg,
     color: t.text, outline: 'none',
     boxSizing: 'border-box',
-    boxShadow: focused ? '0 0 0 3.5px rgba(234,88,12,0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
+    boxShadow: focused ? '0 0 0 3.5px rgb(var(--c-primary-rgb) / 0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
     transition: 'border-color 0.15s, box-shadow 0.15s, background 0.35s ease',
   })
 
   const ctaStyle = (dis: boolean): React.CSSProperties => ({
     width: '100%', height: 50, borderRadius: 12, border: 'none',
-    background: dis ? 'rgba(234,88,12,0.48)' : 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)',
+    background: dis ? 'rgb(var(--c-primary-rgb) / 0.48)' : 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
     color: '#fff', fontSize: 15, fontWeight: 700,
     fontFamily: 'inherit', cursor: dis ? 'default' : 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-    boxShadow: dis ? 'none' : '0 3px 14px rgba(234,88,12,0.40)',
+    boxShadow: dis ? 'none' : '0 3px 14px rgb(var(--c-primary-rgb) / 0.40)',
     letterSpacing: '0.01em',
     transition: 'background 0.2s',
   })
@@ -283,9 +283,9 @@ function InviteInner() {
                 }}
               >
                 {lang === 'en' ? (
-                  <>You&apos;re{' '}<span style={{ color: '#EA580C' }}>invited.</span></>
+                  <>You&apos;re{' '}<span style={{ color: 'var(--c-primary)' }}>invited.</span></>
                 ) : (
-                  <span style={{ color: '#EA580C' }}>{c.headline}</span>
+                  <span style={{ color: 'var(--c-primary)' }}>{c.headline}</span>
                 )}
               </motion.h1>
               <motion.p
@@ -364,7 +364,7 @@ function InviteInner() {
 
               <motion.button
                 onClick={handleLookup} disabled={loading}
-                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                 whileTap={!loading ? { scale: 0.985 } : {}}
                 style={ctaStyle(loading)}
               >
@@ -406,7 +406,7 @@ function InviteInner() {
                 ) : (
                   <div style={{
                     width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
-                    background: 'linear-gradient(135deg, #EA580C, #C2410C)',
+                    background: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: '#fff', fontSize: 22, fontWeight: 800,
                   }}>
@@ -425,7 +425,7 @@ function InviteInner() {
                   {preview.inviter_full_name && (
                     <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.5, marginTop: 6 }}>
                       <div>
-                        {c.invitedBy} <span style={{ fontWeight: 600, color: '#EA580C' }}>{preview.inviter_full_name}</span>
+                        {c.invitedBy} <span style={{ fontWeight: 600, color: 'var(--c-primary)' }}>{preview.inviter_full_name}</span>
                       </div>
                       {inviterMetaLine(preview) && (
                         <div style={{ fontSize: 11.5, marginTop: 2 }}>
@@ -442,7 +442,7 @@ function InviteInner() {
                 <>
                   <motion.button
                     onClick={handleClaimAuthed} disabled={loading}
-                    whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                    whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                     whileTap={!loading ? { scale: 0.985 } : {}}
                     style={{ ...ctaStyle(loading), marginBottom: 12 }}
                   >
@@ -567,7 +567,7 @@ function InviteInner() {
 
                   <motion.button
                     onClick={handleSignupAndClaim} disabled={loading}
-                    whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                    whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                     whileTap={!loading ? { scale: 0.985 } : {}}
                     style={{ ...ctaStyle(loading), marginBottom: 12 }}
                   >
@@ -602,7 +602,7 @@ function InviteInner() {
                 <button
                   onClick={() => { setStep('token'); setToken_(''); setPreview(null); setTopErr('') }}
                   disabled={loading}
-                  style={{ background: 'none', border: 'none', cursor: loading ? 'default' : 'pointer', fontSize: 12.5, color: '#EA580C', fontWeight: 700, fontFamily: 'inherit', padding: 0 }}
+                  style={{ background: 'none', border: 'none', cursor: loading ? 'default' : 'pointer', fontSize: 12.5, color: 'var(--c-primary)', fontWeight: 700, fontFamily: 'inherit', padding: 0 }}
                 >
                   {c.notMe}
                 </button>
@@ -625,7 +625,7 @@ function InviteInner() {
           <AnimatePresence mode="wait">
             <motion.span key={lang + 'acct'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
               {c.haveAcct}{' '}
-              <a href="/login" style={{ color: '#EA580C', fontWeight: 700, textDecoration: 'none' }}>{c.signin}</a>
+              <a href="/login" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signin}</a>
             </motion.span>
           </AnimatePresence>
         </p>
@@ -633,7 +633,7 @@ function InviteInner() {
           <AnimatePresence mode="wait">
             <motion.span key={lang + 'new'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
               {c.newHere}{' '}
-              <a href="/signup" style={{ color: '#EA580C', fontWeight: 700, textDecoration: 'none' }}>{c.signup}</a>
+              <a href="/signup" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signup}</a>
             </motion.span>
           </AnimatePresence>
         </p>

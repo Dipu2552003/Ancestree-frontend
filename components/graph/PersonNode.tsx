@@ -90,16 +90,16 @@ function PersonNode({ id, data, selected }: NodeProps) {
   // Priority: isSelf and isDeceased always win over gotra highlight.
   // For all other states, gotra node-mode overrides the default state color.
   let avatarFrom = '#C4A882'; let avatarTo = '#9A7B5A'
-  if (isSelf)                    { avatarFrom = '#EA580C'; avatarTo = '#C2410C' }
+  if (isSelf)                    { avatarFrom = 'var(--c-primary)'; avatarTo = 'var(--c-primary-strong)' }
   else if (isDeceased)           { avatarFrom = '#94A3B8'; avatarTo = '#64748B' }
   else if (gotraMode === 'node') {
     const gc = gotraColor(person.gotra)
     if (gc) { avatarFrom = gc; avatarTo = darkenHex(gc, 45) }
-    else if (nodeState === 'claimed') { avatarFrom = '#C2410C'; avatarTo = '#9A3412' }
-    else if (nodeState === 'proxy')   { avatarFrom = '#D97706'; avatarTo = '#B45309' }
+    else if (nodeState === 'claimed') { avatarFrom = 'var(--c-primary-strong)'; avatarTo = 'var(--c-primary-deep)' }
+    else if (nodeState === 'proxy')   { avatarFrom = 'var(--c-secondary)'; avatarTo = 'var(--c-primary)' }
   }
-  else if (nodeState === 'claimed') { avatarFrom = '#C2410C'; avatarTo = '#9A3412' }
-  else if (nodeState === 'proxy')   { avatarFrom = '#D97706'; avatarTo = '#B45309' }
+  else if (nodeState === 'claimed') { avatarFrom = 'var(--c-primary-strong)'; avatarTo = 'var(--c-primary-deep)' }
+  else if (nodeState === 'proxy')   { avatarFrom = 'var(--c-secondary)'; avatarTo = 'var(--c-primary)' }
 
   // ── theme-aware colours ──────────────────────────────────────────
   const t             = getTheme(isDark)
@@ -108,12 +108,12 @@ function PersonNode({ id, data, selected }: NodeProps) {
   // In node-gotra mode, replace the left border with a 3px gotra-colored accent.
   const gotraAccentColor = gotraMode === 'node' ? gotraColor(person.gotra) : null
   const cardBorder      = isSelf
-    ? '2px solid #EA580C'
+    ? '2px solid var(--c-primary)'
     : gotraAccentColor
       ? `3px solid ${gotraAccentColor}`
       : isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)'
   const cardShadow      = isNodeSelected
-    ? `0 0 0 2.5px #EA580C, ${isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'}`
+    ? `0 0 0 2.5px var(--c-primary), ${isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'}`
     : isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'
 
   return (
@@ -131,18 +131,18 @@ function PersonNode({ id, data, selected }: NodeProps) {
       {isMatchHighlight && (
         <>
           <motion.div
-            animate={{ boxShadow: ['0 0 0 0px rgba(234,88,12,0.55)', '0 0 0 12px rgba(234,88,12,0)'] }}
+            animate={{ boxShadow: ['0 0 0 0px rgb(var(--c-primary-rgb) / 0.55)', '0 0 0 12px rgb(var(--c-primary-rgb) / 0)'] }}
             transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
             style={{ position: 'absolute', inset: -6, borderRadius: '12px', zIndex: -1, pointerEvents: 'none' }}
           />
           <div style={{
             position: 'absolute', top: isSelf ? -36 : -24, left: '50%',
             transform: 'translateX(-50%)', zIndex: 20,
-            background: '#EA580C', color: '#fff',
+            background: 'var(--c-primary)', color: '#fff',
             fontSize: '8px', fontWeight: 700, letterSpacing: '0.08em',
             padding: '3px 10px', borderRadius: '999px',
             whiteSpace: 'nowrap', pointerEvents: 'none',
-            boxShadow: '0 2px 8px rgba(234,88,12,0.45)',
+            boxShadow: '0 2px 8px rgb(var(--c-primary-rgb) / 0.45)',
           }}>
             POSSIBLE MATCH
           </div>
@@ -156,19 +156,19 @@ function PersonNode({ id, data, selected }: NodeProps) {
           - !isSelf && isViewerNode → user appears somewhere in another tree → "YOU" (outline) */}
       {isSelf && (
         <div style={{
-          background: '#EA580C', color: '#fff',
+          background: 'var(--c-primary)', color: '#fff',
           fontSize: '7.5px', fontWeight: 700, letterSpacing: '0.16em',
           padding: '2.5px 10px', marginBottom: '6px', borderRadius: 999,
           textTransform: 'uppercase' as const,
-          boxShadow: '0 1px 4px rgba(234,88,12,0.35)',
+          boxShadow: '0 1px 4px rgb(var(--c-primary-rgb) / 0.35)',
         }}>
           {isViewerNode ? 'You' : 'Viewing'}
         </div>
       )}
       {isViewerNode && !isSelf && (
         <div style={{
-          background: 'transparent', color: '#EA580C',
-          border: '1px solid #EA580C',
+          background: 'transparent', color: 'var(--c-primary)',
+          border: '1px solid var(--c-primary)',
           fontSize: '7.5px', fontWeight: 700, letterSpacing: '0.16em',
           padding: '2.5px 10px', marginBottom: '6px', borderRadius: 999,
           textTransform: 'uppercase' as const,
@@ -268,7 +268,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
       {relationshipToSelf && (
         <div style={{
           fontSize: '8.5px', fontWeight: 600, letterSpacing: '0.16em',
-          color: isDark ? '#8A7660' : '#B45309',
+          color: isDark ? '#8A7660' : 'var(--c-text-muted)',
           textAlign: 'center', marginTop: '7px',
           textTransform: 'uppercase' as const,
         }}>

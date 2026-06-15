@@ -69,7 +69,7 @@ function MergeInner() {
     return (
       <div style={{ height: '100vh', background: t.pageBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '3px solid #FDE8CC', borderTopColor: '#EA580C', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '3px solid var(--c-tint)', borderTopColor: 'var(--c-primary)', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
           <p style={{ color: '#9A6C3C', fontSize: '14px', margin: 0 }}>Loading family tree…</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -103,7 +103,7 @@ function MergeInner() {
         <Controls style={{ pointerEvents: 'all', background: t.controlBg, border: `1.5px solid ${t.controlBorder}`, borderRadius: '6px' }} />
         <MiniMap
           style={{ pointerEvents: 'all', background: t.mapBg, border: `1.5px solid ${t.controlBorder}`, borderRadius: '6px' }}
-          nodeColor={n => n.data?.isSelf ? '#EA580C' : n.data?.nodeState === 'claimed' ? '#22C55E' : isDark ? '#4A3F35' : '#D97706'}
+          nodeColor={n => n.data?.isSelf ? 'var(--c-primary)' : n.data?.nodeState === 'claimed' ? '#22C55E' : isDark ? '#4A3F35' : 'var(--c-secondary)'}
         />
       </div>
 

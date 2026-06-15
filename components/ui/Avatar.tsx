@@ -4,9 +4,9 @@ import type { CSSProperties } from 'react'
 import { getInitials } from '@/lib/format/initials'
 
 const GRADIENTS = {
-  saffron:    ['#EA580C', '#C2410C'],  // self / primary CTA
-  terracotta: ['#C2410C', '#9A3412'],  // claimed members
-  marigold:   ['#D97706', '#B45309'],  // proxy / invited
+  saffron:    ['var(--c-primary)', 'var(--c-primary-strong)'],  // self / primary CTA
+  terracotta: ['var(--c-primary-strong)', 'var(--c-primary-deep)'],  // claimed members
+  marigold:   ['var(--c-secondary)', 'var(--c-primary)'],  // proxy / invited
   slate:      ['#94A3B8', '#64748B'],  // deceased
   success:    ['#22C55E', '#16A34A'],  // newly-added in a merge preview
   neutral:    ['#C4A882', '#9A7B5A'],  // placeholder / empty

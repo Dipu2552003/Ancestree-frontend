@@ -28,8 +28,8 @@ function FieldChip({ label, isDark }: { label: string; isDark: boolean }) {
   return (
     <span style={{
       padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
-      background: isDark ? 'rgba(234,88,12,0.14)' : 'rgba(234,88,12,0.08)',
-      color: '#EA580C', border: '1px solid rgba(234,88,12,0.20)',
+      background: isDark ? 'rgb(var(--c-primary-rgb) / 0.14)' : 'rgb(var(--c-primary-rgb) / 0.08)',
+      color: 'var(--c-primary)', border: '1px solid rgb(var(--c-primary-rgb) / 0.20)',
     }}>
       {label}
     </span>
@@ -127,7 +127,7 @@ export default function MergeComparisonPanel({
     }
   }
 
-  const labelCol  = isDark ? '#7A6A52' : '#9A3412'
+  const labelCol  = isDark ? '#7A6A52' : 'var(--c-primary-deep)'
   const dividerBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'
 
   return (
@@ -140,8 +140,8 @@ export default function MergeComparisonPanel({
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(234,88,12,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <IconGitMerge size={14} color="#EA580C" />
+          <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgb(var(--c-primary-rgb) / 0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <IconGitMerge size={14} color="var(--c-primary)" />
           </div>
           <span style={{ fontSize: '13px', fontWeight: 700, color: t.text }}>
             {isReview ? 'Merge request' : 'Possible match'}
@@ -176,7 +176,7 @@ export default function MergeComparisonPanel({
               <Avatar
                 name={pendingMatch.myPersonName} photoUrl={pendingMatch.myPhotoUrl} size={48}
                 shape="rounded" ring="none"
-                style={{ border: '2px solid rgba(234,88,12,0.2)', borderRadius: 12 }}
+                style={{ border: '2px solid rgb(var(--c-primary-rgb) / 0.2)', borderRadius: 12 }}
               />
               <div style={{ fontSize: '13px', fontWeight: 700, color: t.text }}>{pendingMatch.myPersonName}</div>
               {pendingMatch.myBirthYear    && <div style={{ fontSize: '11px', color: t.textMuted }}>b. {pendingMatch.myBirthYear}</div>}
@@ -186,8 +186,8 @@ export default function MergeComparisonPanel({
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', paddingTop: '28px' }}>
               <div style={{ width: '1px', height: '20px', background: dividerBg }} />
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(234,88,12,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <IconGitMerge size={12} color="#EA580C" />
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgb(var(--c-primary-rgb) / 0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconGitMerge size={12} color="var(--c-primary)" />
               </div>
               <div style={{ width: '1px', height: '20px', background: dividerBg }} />
             </div>
@@ -197,7 +197,7 @@ export default function MergeComparisonPanel({
               <Avatar
                 name={theirData.fullName} photoUrl={theirData.photoUrl} size={48}
                 shape="rounded" ring="none"
-                style={{ border: '2px solid rgba(234,88,12,0.2)', borderRadius: 12 }}
+                style={{ border: '2px solid rgb(var(--c-primary-rgb) / 0.2)', borderRadius: 12 }}
               />
               <div style={{ fontSize: '13px', fontWeight: 700, color: t.text }}>{theirData.fullName}</div>
               {theirData.birthYear    && <div style={{ fontSize: '11px', color: t.textMuted }}>b. {theirData.birthYear}</div>}
@@ -303,11 +303,11 @@ export default function MergeComparisonPanel({
                   disabled={loading}
                   style={{
                     height: '42px', borderRadius: '11px', border: 'none',
-                    background: loading ? 'rgba(234,88,12,0.5)' : '#EA580C',
+                    background: loading ? 'rgb(var(--c-primary-rgb) / 0.5)' : 'var(--c-primary)',
                     color: '#fff', fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
                     cursor: loading ? 'default' : 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                    boxShadow: '0 2px 8px rgba(234,88,12,0.25)',
+                    boxShadow: '0 2px 8px rgb(var(--c-primary-rgb) / 0.25)',
                   }}
                 >
                   {loading

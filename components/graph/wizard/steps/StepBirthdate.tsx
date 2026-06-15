@@ -61,10 +61,10 @@ export default function StepBirthdate({
         border: `1.5px solid ${
           dateError       ? COLORS.error
           : dateFieldFocused ? COLORS.saffron
-          : isDark        ? 'rgba(234,88,12,0.35)'
-          : 'rgba(234,88,12,0.28)'
+          : isDark        ? 'rgb(var(--c-primary-rgb) / 0.35)'
+          : 'rgb(var(--c-primary-rgb) / 0.28)'
         }`,
-        boxShadow: dateFieldFocused && !dateError ? '0 0 0 3px rgba(234,88,12,0.10)' : 'none',
+        boxShadow: dateFieldFocused && !dateError ? '0 0 0 3px rgb(var(--c-primary-rgb) / 0.10)' : 'none',
         background: isDark ? 'rgba(255,255,255,0.05)' : '#fff',
         overflow: 'hidden',
         transition: 'border-color 0.15s, box-shadow 0.15s',

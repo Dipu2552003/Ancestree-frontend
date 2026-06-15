@@ -93,7 +93,7 @@ export default function HistoryPanel({ isDark, onClose, onUndone }: HistoryPanel
         justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <IconHistory size={17} color="#EA580C" />
+          <IconHistory size={17} color="var(--c-primary)" />
           <span style={{ fontSize: '15px', fontWeight: 700, color: t.text }}>History</span>
         </div>
         <button
@@ -177,7 +177,7 @@ export default function HistoryPanel({ isDark, onClose, onUndone }: HistoryPanel
                     borderRadius: '8px',
                     border:       `1px solid ${isConfirming ? '#EF4444' : t.borderNeutral}`,
                     background:   isConfirming ? 'rgba(239,68,68,0.10)' : 'transparent',
-                    color:        isConfirming ? '#EF4444' : '#EA580C',
+                    color:        isConfirming ? '#EF4444' : 'var(--c-primary)',
                     fontSize:     '11px',
                     fontWeight:   700,
                     fontFamily:   'inherit',

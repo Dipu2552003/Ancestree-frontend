@@ -67,9 +67,9 @@ export default function ClaimSuggestionCard({ notification, isDark, onRequested 
         disabled={!notification.related_person_id}
         style={{
           height: '32px', borderRadius: '8px',
-          border: `1px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
-          background: isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)',
-          color: '#EA580C', fontSize: '11.5px', fontWeight: 600,
+          border: `1px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.35)' : 'rgb(var(--c-primary-rgb) / 0.28)'}`,
+          background: isDark ? 'rgb(var(--c-primary-rgb) / 0.10)' : 'rgb(var(--c-primary-rgb) / 0.06)',
+          color: 'var(--c-primary)', fontSize: '11.5px', fontWeight: 600,
           fontFamily: 'inherit', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
         }}
@@ -83,12 +83,12 @@ export default function ClaimSuggestionCard({ notification, isDark, onRequested 
         disabled={state === 'loading'}
         style={{
           height: '34px', borderRadius: '9px', border: 'none',
-          background: 'linear-gradient(135deg, #EA580C, #C2410C)',
+          background: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
           color: '#fff', fontSize: '12px', fontWeight: 600, fontFamily: 'inherit',
           cursor: state === 'loading' ? 'default' : 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
           opacity: state === 'loading' ? 0.7 : 1, padding: '0 16px',
-          boxShadow: '0 2px 8px rgba(234,88,12,0.3)',
+          boxShadow: '0 2px 8px rgb(var(--c-primary-rgb) / 0.3)',
         }}
       >
         {state === 'loading'

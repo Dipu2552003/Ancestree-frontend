@@ -16,7 +16,7 @@ interface StepMergeSearchProps {
   onAddForMerge: (action: RelAction, match: SearchResult) => Promise<void>
 }
 
-const stateColor = (s: string) => s === 'claimed' ? '#22C55E' : s === 'invited' ? '#F59E0B' : '#D97706'
+const stateColor = (s: string) => s === 'claimed' ? '#22C55E' : s === 'invited' ? '#F59E0B' : 'var(--c-secondary)'
 const stateLabel = (s: string) => s === 'claimed' ? 'Claimed' : s === 'invited' ? 'Invited' : 'Proxy'
 
 export default function StepMergeSearch({ isDark, t, relAction, onAddForMerge }: StepMergeSearchProps) {
@@ -76,8 +76,8 @@ export default function StepMergeSearch({ isDark, t, relAction, onAddForMerge }:
             transition: 'border-color 0.15s, box-shadow 0.15s',
           }}
           onFocus={e => {
-            e.currentTarget.style.borderColor = '#FB923C'
-            e.currentTarget.style.boxShadow  = '0 0 0 3px rgba(234,88,12,0.1)'
+            e.currentTarget.style.borderColor = 'var(--c-primary-light)'
+            e.currentTarget.style.boxShadow  = '0 0 0 3px rgb(var(--c-primary-rgb) / 0.1)'
           }}
           onBlur={e => {
             e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.11)' : 'rgba(0,0,0,0.10)'
@@ -116,10 +116,10 @@ export default function StepMergeSearch({ isDark, t, relAction, onAddForMerge }:
                   width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                   padding: '9px 10px', borderRadius: 12, textAlign: 'left', marginBottom: 4,
                   border: `1.5px solid ${isHov || isSel
-                    ? (isDark ? 'rgba(234,88,12,0.3)' : 'rgba(234,88,12,0.2)')
+                    ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.3)' : 'rgb(var(--c-primary-rgb) / 0.2)')
                     : 'transparent'}`,
                   background: isHov || isSel
-                    ? (isDark ? 'rgba(234,88,12,0.08)' : 'rgba(234,88,12,0.05)')
+                    ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.08)' : 'rgb(var(--c-primary-rgb) / 0.05)')
                     : 'transparent',
                   cursor: saving ? 'wait' : 'pointer',
                   transition: 'background 0.12s, border-color 0.12s',

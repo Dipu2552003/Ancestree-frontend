@@ -16,9 +16,9 @@ export default function VacantMotherSlot({ isDark, label }: VacantMotherSlotProp
       width: W, height: H, flexShrink: 0,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       background: 'transparent',
-      border: `2px dashed ${isDark ? 'rgba(234,88,12,0.40)' : 'rgba(234,88,12,0.35)'}`,
+      border: `2px dashed ${isDark ? 'rgb(var(--c-primary-rgb) / 0.40)' : 'rgb(var(--c-primary-rgb) / 0.35)'}`,
       borderRadius: 4,
-      color: isDark ? 'rgba(234,88,12,0.62)' : 'rgba(234,88,12,0.55)',
+      color: isDark ? 'rgb(var(--c-primary-rgb) / 0.62)' : 'rgb(var(--c-primary-rgb) / 0.55)',
       textAlign: 'center', padding: '0 6px',
     }}>
       <span style={{ fontSize: 26, fontWeight: 300, lineHeight: 1, marginBottom: 6, opacity: 0.65 }}>?</span>

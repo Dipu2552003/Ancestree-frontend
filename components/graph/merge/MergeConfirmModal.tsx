@@ -41,7 +41,7 @@ function MergedCard({ sourceName, targetName, isDark }: { sourceName: string; ta
           <div style={{
             position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
             width: 54, height: 54, borderRadius: '50%',
-            backgroundImage: 'linear-gradient(135deg, #EA580C, #C2410C)',
+            backgroundImage: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontSize: 16, fontWeight: 600,
             border: `3px solid ${isDark ? '#0E1F12' : '#F0FDF4'}`,
@@ -153,8 +153,8 @@ export default function MergeConfirmModal({
   const flyDelta = isMobile ? 0 : 181
 
   const dash = isDark
-    ? 'repeating-linear-gradient(to right,rgba(234,88,12,0.45) 0,rgba(234,88,12,0.45) 5px,transparent 5px,transparent 10px)'
-    : 'repeating-linear-gradient(to right,rgba(234,88,12,0.32) 0,rgba(234,88,12,0.32) 5px,transparent 5px,transparent 10px)'
+    ? 'repeating-linear-gradient(to right,rgb(var(--c-primary-rgb) / 0.45) 0,rgb(var(--c-primary-rgb) / 0.45) 5px,transparent 5px,transparent 10px)'
+    : 'repeating-linear-gradient(to right,rgb(var(--c-primary-rgb) / 0.32) 0,rgb(var(--c-primary-rgb) / 0.32) 5px,transparent 5px,transparent 10px)'
 
   return (
     <>
@@ -186,11 +186,11 @@ export default function MergeConfirmModal({
           pointerEvents: 'all',
           width: 580, maxWidth: 'calc(100vw - 24px)',
           background: isDark ? '#1C1410' : '#FFFAF5',
-          border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(234,88,12,0.14)'}`,
+          border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgb(var(--c-primary-rgb) / 0.14)'}`,
           borderRadius: 22,
           boxShadow: isDark
             ? '0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.04)'
-            : '0 40px 100px rgba(0,0,0,0.2),  0 0 0 1px rgba(234,88,12,0.06)',
+            : '0 40px 100px rgba(0,0,0,0.2),  0 0 0 1px rgb(var(--c-primary-rgb) / 0.06)',
           overflow: 'hidden',
         }}
       >
@@ -206,14 +206,14 @@ export default function MergeConfirmModal({
               transition={{ duration: 0.6, ease: 'easeInOut' }}
               style={{
                 width: 32, height: 32, borderRadius: 9,
-                background: isSent ? 'rgba(34,197,94,0.12)' : 'rgba(234,88,12,0.12)',
+                background: isSent ? 'rgba(34,197,94,0.12)' : 'rgb(var(--c-primary-rgb) / 0.12)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 transition: 'background 0.4s',
               }}
             >
               {phase === 'merged'
                 ? <IconCheck size={16} color="#22C55E" strokeWidth={2.5} />
-                : <IconGitMerge size={16} color={isSent ? '#22C55E' : '#EA580C'} />
+                : <IconGitMerge size={16} color={isSent ? '#22C55E' : 'var(--c-primary)'} />
               }
             </motion.div>
             <div>
@@ -252,8 +252,8 @@ export default function MergeConfirmModal({
         {/* ── Hero: cards + merge animation ── */}
         <div style={{
           padding: isMobile ? '24px 16px 20px' : '32px 32px 24px',
-          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(234,88,12,0.09)'}`,
-          background: isDark ? 'rgba(255,255,255,0.015)' : 'rgba(234,88,12,0.025)',
+          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgb(var(--c-primary-rgb) / 0.09)'}`,
+          background: isDark ? 'rgba(255,255,255,0.015)' : 'rgb(var(--c-primary-rgb) / 0.025)',
           position: 'relative',
           overflow: 'hidden',
         }}>
@@ -268,7 +268,7 @@ export default function MergeConfirmModal({
                   <NodeCard fullName={sourceNodeName} isDark={isDark} nodeState="proxy" />
                 </motion.div>
                 <motion.span animate={{ opacity: isSent ? 0 : 1 }} transition={{ duration: 0.2 }}
-                  style={{ fontSize: 10, fontWeight: 600, color: '#EA580C', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                   {sourceNodeName.split(' ')[0]}
                 </motion.span>
               </div>
@@ -280,12 +280,12 @@ export default function MergeConfirmModal({
                 <div style={{ flex: 1, height: 2, background: dash }} />
                 <div style={{
                   width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                  background: isDark ? '#1C1410' : '#FFF7ED',
-                  border: `2px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
+                  background: isDark ? '#1C1410' : 'var(--c-page)',
+                  border: `2px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.35)' : 'rgb(var(--c-primary-rgb) / 0.28)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: `0 0 0 5px ${isDark ? 'rgba(234,88,12,0.07)' : 'rgba(234,88,12,0.06)'}`,
+                  boxShadow: `0 0 0 5px ${isDark ? 'rgb(var(--c-primary-rgb) / 0.07)' : 'rgb(var(--c-primary-rgb) / 0.06)'}`,
                 }}>
-                  <IconLink size={15} color="#EA580C" />
+                  <IconLink size={15} color="var(--c-primary)" />
                 </div>
                 <div style={{ flex: 1, height: 2, background: dash }} />
               </motion.div>
@@ -297,7 +297,7 @@ export default function MergeConfirmModal({
                   <NodeCard fullName={targetNodeName} isDark={isDark} nodeState="claimed" />
                 </motion.div>
                 <motion.span animate={{ opacity: isSent ? 0 : 1 }} transition={{ duration: 0.2 }}
-                  style={{ fontSize: 10, fontWeight: 600, color: '#C2410C', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary-strong)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                   {targetNodeName.split(' ')[0]}
                 </motion.span>
               </div>
@@ -311,7 +311,7 @@ export default function MergeConfirmModal({
                 transition={{ type: 'spring', stiffness: 200, damping: 22 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <NodeCard fullName={sourceNodeName} isDark={isDark} nodeState="proxy" />
-                  <span style={{ fontSize: 10, fontWeight: 600, color: '#EA580C', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                     {sourceNodeName.split(' ')[0]}
                   </span>
                 </div>
@@ -323,11 +323,11 @@ export default function MergeConfirmModal({
                 <div style={{ width: 2, height: 18, background: dash.replace('to right', 'to bottom') }} />
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                  background: isDark ? '#1C1410' : '#FFF7ED',
-                  border: `2px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
+                  background: isDark ? '#1C1410' : 'var(--c-page)',
+                  border: `2px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.35)' : 'rgb(var(--c-primary-rgb) / 0.28)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <IconLink size={13} color="#EA580C" />
+                  <IconLink size={13} color="var(--c-primary)" />
                 </div>
                 <div style={{ width: 2, height: 18, background: dash.replace('to right', 'to bottom') }} />
               </motion.div>
@@ -336,7 +336,7 @@ export default function MergeConfirmModal({
                 transition={{ type: 'spring', stiffness: 200, damping: 22 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <NodeCard fullName={targetNodeName} isDark={isDark} nodeState="claimed" />
-                  <span style={{ fontSize: 10, fontWeight: 600, color: '#C2410C', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary-strong)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                     {targetNodeName.split(' ')[0]}
                   </span>
                 </div>
@@ -440,11 +440,11 @@ export default function MergeConfirmModal({
                     disabled={isSending}
                     style={{
                       flex: 2, height: 42, borderRadius: 11, border: 'none',
-                      background: isSending ? '#F0A070' : 'linear-gradient(135deg, #EA580C, #C2410C)',
+                      background: isSending ? '#F0A070' : 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
                       color: '#fff', fontSize: 13.5, fontWeight: 600,
                       fontFamily: 'inherit', cursor: isSending ? 'default' : 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      boxShadow: !isSending ? '0 2px 12px rgba(234,88,12,0.35)' : 'none',
+                      boxShadow: !isSending ? '0 2px 12px rgb(var(--c-primary-rgb) / 0.35)' : 'none',
                       transition: 'background 0.2s, box-shadow 0.2s',
                     }}
                   >

@@ -163,9 +163,9 @@ export default function MergeRequestCard({ notification, isDark, onAccepted }: M
         disabled={viewLoading}
         style={{
           height: '32px', borderRadius: '8px',
-          border: `1px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
-          background: isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)',
-          color: '#EA580C', fontSize: '11.5px', fontWeight: 600,
+          border: `1px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.35)' : 'rgb(var(--c-primary-rgb) / 0.28)'}`,
+          background: isDark ? 'rgb(var(--c-primary-rgb) / 0.10)' : 'rgb(var(--c-primary-rgb) / 0.06)',
+          color: 'var(--c-primary)', fontSize: '11.5px', fontWeight: 600,
           fontFamily: 'inherit', cursor: viewLoading ? 'default' : 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
           opacity: viewLoading ? 0.6 : 1,
@@ -184,12 +184,12 @@ export default function MergeRequestCard({ notification, isDark, onAccepted }: M
           disabled={actionState === 'loading'}
           style={{
             flex: 1, height: '34px', borderRadius: '9px', border: 'none',
-            background: 'linear-gradient(135deg, #EA580C, #C2410C)',
+            background: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
             color: '#fff', fontSize: '12px', fontWeight: 600,
             fontFamily: 'inherit', cursor: actionState === 'loading' ? 'default' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
             opacity: actionState === 'loading' ? 0.7 : 1,
-            boxShadow: '0 2px 8px rgba(234,88,12,0.3)',
+            boxShadow: '0 2px 8px rgb(var(--c-primary-rgb) / 0.3)',
           }}
         >
           {actionState === 'loading'

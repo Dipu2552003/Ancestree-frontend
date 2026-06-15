@@ -79,14 +79,14 @@ export default function NotificationPanel({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <IconBell size={17} color="#EA580C" />
+            <IconBell size={17} color="var(--c-primary)" />
             <span style={{ fontSize: '15px', fontWeight: 700, color: t.text }}>Notifications</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {tab === 'inbox' && unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#EA580C', fontFamily: 'inherit', padding: '2px 4px' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--c-primary)', fontFamily: 'inherit', padding: '2px 4px' }}
               >
                 Mark all read
               </button>
@@ -117,14 +117,14 @@ export default function NotificationPanel({
                 borderRadius: '8px 8px 0 0',
                 border:       'none',
                 background:   tab === key
-                  ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.08)')
+                  ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.08)')
                   : 'transparent',
-                color:        tab === key ? '#EA580C' : t.textMuted,
+                color:        tab === key ? 'var(--c-primary)' : t.textMuted,
                 fontSize:     '12.5px',
                 fontWeight:   tab === key ? 700 : 500,
                 fontFamily:   'inherit',
                 cursor:       'pointer',
-                borderBottom: tab === key ? '2px solid #EA580C' : '2px solid transparent',
+                borderBottom: tab === key ? '2px solid var(--c-primary)' : '2px solid transparent',
                 transition:   'all 0.15s',
               }}
             >
@@ -132,7 +132,7 @@ export default function NotificationPanel({
               {label}
               {count > 0 && (
                 <span style={{
-                  background: '#EA580C', color: '#fff',
+                  background: 'var(--c-primary)', color: '#fff',
                   borderRadius: '999px', fontSize: '9px', fontWeight: 700,
                   padding: '1px 6px', lineHeight: 1.7, minWidth: '18px', textAlign: 'center',
                 }}>

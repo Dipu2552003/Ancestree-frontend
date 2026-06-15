@@ -51,6 +51,9 @@ export interface WizardExtras {
 export interface AddNodeWizardProps {
   relAction:  RelAction
   anchorName: string
+  /** Anchor's gender — used to infer a new spouse's (opposite) gender and skip
+   *  the wizard's 'gender' step. Only 'male'/'female' trigger the inference. */
+  anchorGender?: string
   isDark:     boolean
   /**
    * Candidate mothers presented on the 'mother' step.

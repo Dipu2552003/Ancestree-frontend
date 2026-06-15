@@ -54,7 +54,7 @@ export default function ResolvePhase({
           <span style={{ color: COLORS.saffron, fontWeight: 700 }}>{anchorName}</span>{' '}
           is currently married to{' '}
           <span style={{ fontWeight: 700, color: t.text }}>{wife1?.fullName ?? 'someone'}</span>.
-          Only one marriage can be active at a time — which one is it now?
+          Which marriages are active now?
         </p>
       </div>
 
@@ -63,6 +63,7 @@ export default function ResolvePhase({
         {([
           { value: 'existing' as const, label: `${wife1?.fullName ?? 'The first wife'} is still the active marriage` },
           { value: 'new'      as const, label: 'The new spouse will become the active marriage' },
+          { value: 'both'     as const, label: `Both stay active — ${anchorName} has more than one spouse at the same time` },
         ]).map(opt => {
           const active = activeChoice === opt.value
           return (
@@ -73,7 +74,7 @@ export default function ResolvePhase({
                 padding: '12px 13px', borderRadius: 11, cursor: 'pointer',
                 fontFamily: 'inherit', textAlign: 'left',
                 border: `1.5px solid ${active ? COLORS.saffron : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'}`,
-                background: active ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
+                background: active ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.07)') : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
                 color: active ? COLORS.saffron : t.text,
                 fontSize: 13, fontWeight: 600,
               }}>
@@ -86,12 +87,13 @@ export default function ResolvePhase({
         })}
       </div>
 
-      {/* Exit status for the *inactive* spouse */}
+      {/* Exit status for the *inactive* spouse — not shown when both stay active. */}
+      {activeChoice !== 'both' && (
       <div style={{
         display: 'flex', flexDirection: 'column', gap: 10,
         padding: 14, borderRadius: 13,
         background: isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
-        border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(234,88,12,0.10)'}`,
+        border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgb(var(--c-primary-rgb) / 0.10)'}`,
       }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: t.text, letterSpacing: '0.02em' }}>
           What happened with {inactiveName}?
@@ -107,7 +109,7 @@ export default function ResolvePhase({
                   padding: '10px 12px', borderRadius: 9, cursor: 'pointer',
                   fontFamily: 'inherit', textAlign: 'left',
                   border: `1.5px solid ${active ? COLORS.saffron : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)'}`,
-                  background: active ? (isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)') : 'transparent',
+                  background: active ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.10)' : 'rgb(var(--c-primary-rgb) / 0.06)') : 'transparent',
                   color: active ? COLORS.saffron : t.text,
                   fontSize: 12.5, fontWeight: 600,
                 }}>
@@ -134,6 +136,7 @@ export default function ResolvePhase({
           </div>
         )}
       </div>
+      )}
 
       {error && <p style={{ margin: 0, fontSize: 12, color: COLORS.error }}>{error}</p>}
 

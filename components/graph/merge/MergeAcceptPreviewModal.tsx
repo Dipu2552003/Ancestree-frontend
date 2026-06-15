@@ -207,7 +207,7 @@ function MiniTree({
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
       padding: '14px 12px',
-      background: isDark ? 'rgba(255,255,255,0.025)' : 'rgba(255,247,237,0.55)',
+      background: isDark ? 'rgba(255,255,255,0.025)' : 'rgb(var(--c-page-rgb) / 0.55)',
       border: `1.5px solid ${accent}30`,
       borderRadius: 14, minHeight: 280, flex: 1, minWidth: 0,
     }}>
@@ -448,10 +448,10 @@ export default function MergeAcceptPreviewModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 32, height: 32, borderRadius: 9,
-              background: 'rgba(234,88,12,0.10)',
+              background: 'rgb(var(--c-primary-rgb) / 0.10)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <IconGitMerge size={15} color="#EA580C" />
+              <IconGitMerge size={15} color="var(--c-primary)" />
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>Merge preview</div>
@@ -502,7 +502,7 @@ export default function MergeAcceptPreviewModal({
                   transition={{ delay: 0.05, type: 'spring', stiffness: 240, damping: 26 }}
                   style={{ display: 'flex' }}
                 >
-                  <MiniTree snap={aSnap} isDark={isDark} title="Your node now" accent="#EA580C" />
+                  <MiniTree snap={aSnap} isDark={isDark} title="Your node now" accent="var(--c-primary)" />
                 </motion.div>
 
                 <motion.div
@@ -622,7 +622,7 @@ export default function MergeAcceptPreviewModal({
             style={{
               padding: '0 22px', height: 40, borderRadius: 11, border: 'none',
               background: warnings.length > 0
-                ? 'linear-gradient(135deg, #F59E0B, #D97706)'
+                ? 'linear-gradient(135deg, #F59E0B, var(--c-secondary))'
                 : 'linear-gradient(135deg, #22C55E, #16A34A)',
               color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
               cursor: committing || loading ? 'default' : 'pointer',
@@ -673,7 +673,7 @@ export default function MergeAcceptPreviewModal({
                     background: 'rgba(245,158,11,0.14)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <IconAlertTriangle size={17} color="#D97706" />
+                    <IconAlertTriangle size={17} color="var(--c-secondary)" />
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
                     Are you sure you want to merge?

@@ -63,12 +63,12 @@ export default function StepPhoto({
           border: `2px ${dragOver ? 'solid' : 'dashed'} ${
             dragOver ? COLORS.saffron
               : photoHovered ? COLORS.saffron + 'AA'
-              : isDark ? 'rgba(234,88,12,0.25)' : 'rgba(234,88,12,0.20)'
+              : isDark ? 'rgb(var(--c-primary-rgb) / 0.25)' : 'rgb(var(--c-primary-rgb) / 0.20)'
           }`,
           background: dragOver
-            ? (isDark ? 'rgba(234,88,12,0.08)' : 'rgba(234,88,12,0.05)')
+            ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.08)' : 'rgb(var(--c-primary-rgb) / 0.05)')
             : photoUrl ? 'transparent'
-            : isDark ? 'rgba(255,255,255,0.02)' : 'rgba(234,88,12,0.02)',
+            : isDark ? 'rgba(255,255,255,0.02)' : 'rgb(var(--c-primary-rgb) / 0.02)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           overflow: 'hidden', position: 'relative', transition: 'border-color 0.15s, background 0.15s',
         }}

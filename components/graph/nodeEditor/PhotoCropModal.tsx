@@ -176,7 +176,7 @@ export default function PhotoCropModal({ src, isDark, onCancel, onApply }: Photo
             value={zoom}
             onChange={e => handleZoom(parseFloat(e.target.value))}
             aria-label="Zoom"
-            style={{ flex: 1, accentColor: '#EA580C' }}
+            style={{ flex: 1, accentColor: 'var(--c-primary)' }}
           />
           <IconZoomIn size={15} color={t.textMuted} />
         </div>
@@ -199,11 +199,11 @@ export default function PhotoCropModal({ src, isDark, onCancel, onApply }: Photo
             disabled={!imgSize}
             style={{
               flex: 1, height: 38, borderRadius: 10, border: 'none', fontFamily: 'inherit',
-              background: imgSize ? 'linear-gradient(135deg, #EA580C, #C2410C)' : 'rgba(234,88,12,0.4)',
+              background: imgSize ? 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))' : 'rgb(var(--c-primary-rgb) / 0.4)',
               color: '#fff', fontSize: 13, fontWeight: 700,
               cursor: imgSize ? 'pointer' : 'default',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              boxShadow: imgSize ? '0 3px 12px rgba(234,88,12,0.35)' : 'none',
+              boxShadow: imgSize ? '0 3px 12px rgb(var(--c-primary-rgb) / 0.35)' : 'none',
             }}
           >
             <IconCheck size={15} /> Use photo

@@ -108,10 +108,10 @@ export default function LoginPage() {
 
   const lv = {
     cardBg:     isDark ? '#1C1A12' : '#FFFFFF',
-    cardBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(234,88,12,0.11)',
+    cardBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.11)',
     cardShadow: isDark
       ? '0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 4px rgba(0,0,0,0.30), 0 8px 28px rgba(0,0,0,0.45)'
-      : '0 1px 0 rgba(255,255,255,0.85) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.08), 0 28px 64px rgba(234,88,12,0.06)',
+      : '0 1px 0 rgba(255,255,255,0.85) inset, 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.08), 0 28px 64px rgb(var(--c-primary-rgb) / 0.06)',
     inputBg:      isDark ? '#141210' : '#FDFAF6',
     inputBgFocus: isDark ? '#1C1A12' : '#FFFFFF',
     inputBorder:  isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)',
@@ -183,22 +183,22 @@ export default function LoginPage() {
   const inputStyle = (focused: boolean, err: string) => ({
     width: '100%', height: 50, padding: '0 16px',
     fontSize: 15, fontFamily: 'inherit',
-    border: `1.5px solid ${err ? '#EF4444' : focused ? '#EA580C' : lv.inputBorder}`,
+    border: `1.5px solid ${err ? '#EF4444' : focused ? 'var(--c-primary)' : lv.inputBorder}`,
     borderRadius: 12,
     background: focused ? lv.inputBgFocus : lv.inputBg,
     color: t.text, outline: 'none',
     boxSizing: 'border-box' as const,
-    boxShadow: focused ? '0 0 0 3.5px rgba(234,88,12,0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
+    boxShadow: focused ? '0 0 0 3.5px rgb(var(--c-primary-rgb) / 0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
     transition: 'border-color 0.15s, box-shadow 0.15s, background 0.35s ease',
   })
 
   const ctaStyle = (dis: boolean) => ({
     width: '100%', height: 50, borderRadius: 12, border: 'none',
-    background: dis ? 'rgba(234,88,12,0.48)' : 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)',
+    background: dis ? 'rgb(var(--c-primary-rgb) / 0.48)' : 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
     color: '#fff', fontSize: 15, fontWeight: 700 as const,
     fontFamily: 'inherit', cursor: dis ? 'default' as const : 'pointer' as const,
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-    boxShadow: dis ? 'none' : '0 3px 14px rgba(234,88,12,0.40)',
+    boxShadow: dis ? 'none' : '0 3px 14px rgb(var(--c-primary-rgb) / 0.40)',
     letterSpacing: '0.01em',
     transition: 'background 0.2s',
   })
@@ -236,7 +236,7 @@ export default function LoginPage() {
                     style={{
                       display: 'inline-block', marginRight: '0.22em',
                       fontSize: lang === 'hi' ? (isMobile ? 32 : 46) : (isMobile ? 36 : 52), fontWeight: 800, letterSpacing: '-0.03em',
-                      color: li === c.accentLine ? '#EA580C' : t.text,
+                      color: li === c.accentLine ? 'var(--c-primary)' : t.text,
                       transition: 'color 0.35s ease',
                     }}
                   >
@@ -302,7 +302,7 @@ export default function LoginPage() {
                           {' '}
                           <a
                             href={`/signup?email=${encodeURIComponent(email.trim())}`}
-                            style={{ color: '#EA580C', fontWeight: 700, textDecoration: 'none' }}
+                            style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}
                           >
                             {c.signupCta}
                           </a>
@@ -316,7 +316,7 @@ export default function LoginPage() {
               {/* Continue */}
               <motion.button
                 onClick={handleContinue} disabled={loading}
-                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                 whileTap={!loading ? { scale: 0.985 } : {}}
                 style={ctaStyle(loading)}
               >
@@ -347,7 +347,7 @@ export default function LoginPage() {
               {/* Signed-in-as pill */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, padding: '9px 13px', borderRadius: 10, background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)'}` }}>
                 <span style={{ fontSize: 13, color: t.text, fontWeight: 500 }}>{email}</span>
-                <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#EA580C', fontWeight: 700, fontFamily: 'inherit', padding: 0 }}>
+                <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--c-primary)', fontWeight: 700, fontFamily: 'inherit', padding: 0 }}>
                   {c.notYou}
                 </button>
               </div>
@@ -393,7 +393,7 @@ export default function LoginPage() {
                     onClick={goForgot}
                     style={{
                       background: 'none', border: 'none', padding: 0,
-                      fontSize: 12, fontWeight: 600, color: '#EA580C',
+                      fontSize: 12, fontWeight: 600, color: 'var(--c-primary)',
                       cursor: 'pointer', fontFamily: 'inherit',
                     }}
                   >
@@ -405,7 +405,7 @@ export default function LoginPage() {
               {/* Sign in */}
               <motion.button
                 onClick={handleSignIn} disabled={loading}
-                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                 whileTap={!loading ? { scale: 0.985 } : {}}
                 style={ctaStyle(loading)}
               >
@@ -479,7 +479,7 @@ export default function LoginPage() {
 
                   <motion.button
                     onClick={handleSendReset} disabled={loading}
-                    whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgba(234,88,12,0.44)' } : {}}
+                    whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                     whileTap={!loading ? { scale: 0.985 } : {}}
                     style={ctaStyle(loading)}
                   >
@@ -500,7 +500,7 @@ export default function LoginPage() {
                 style={{
                   marginTop: 14, width: '100%',
                   background: 'none', border: 'none', padding: 0,
-                  fontSize: 13, fontWeight: 600, color: '#EA580C',
+                  fontSize: 13, fontWeight: 600, color: 'var(--c-primary)',
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
@@ -524,7 +524,7 @@ export default function LoginPage() {
           <AnimatePresence mode="wait">
             <motion.span key={lang + 'new'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
               {c.noAccount}{' '}
-              <a href="/signup" style={{ color: '#EA580C', fontWeight: 700, textDecoration: 'none' }}>{c.signup}</a>
+              <a href="/signup" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signup}</a>
             </motion.span>
           </AnimatePresence>
         </p>
@@ -533,7 +533,7 @@ export default function LoginPage() {
           <AnimatePresence mode="wait">
             <motion.span key={lang + 'inv'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
               {c.haveInvite}{' '}
-              <a href="/invite" style={{ color: '#EA580C', fontWeight: 700, textDecoration: 'none' }}>{c.invite}</a>
+              <a href="/invite" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.invite}</a>
             </motion.span>
           </AnimatePresence>
         </p>

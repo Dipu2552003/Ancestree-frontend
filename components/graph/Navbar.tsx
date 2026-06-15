@@ -53,7 +53,7 @@ const RELATIONS: {
   { action: 'daughter', label: 'Daughter', icon: <IconArrowDown size={18} />, color: '#9C6FD6' },
   { action: 'brother',  label: 'Brother',  icon: <IconUsers size={18} />,     color: '#0E9F78' },
   { action: 'sister',   label: 'Sister',   icon: <IconUsers size={18} />,     color: '#A855F7' },
-  { action: 'spouse',   label: 'Spouse',   icon: <IconHeart size={18} />,     color: '#EA580C' },
+  { action: 'spouse',   label: 'Spouse',   icon: <IconHeart size={18} />,     color: 'var(--c-primary)' },
 ]
 
 type DeleteState = 'idle' | 'confirm' | 'deleting'
@@ -114,9 +114,9 @@ export default function Navbar({
   const t = getTheme(isDark)
 
   const addEnabled = !!selectedNodeId
-  const addColor   = addEnabled ? '#EA580C' : (isDark ? '#4A3F35' : '#C4A882')
+  const addColor   = addEnabled ? 'var(--c-primary)' : (isDark ? '#4A3F35' : '#C4A882')
   const addBg      = addEnabled
-    ? (isDark ? 'rgba(234,88,12,0.15)' : 'rgba(234,88,12,0.08)')
+    ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.15)' : 'rgb(var(--c-primary-rgb) / 0.08)')
     : (isDark ? '#2A2520' : '#F5F0EA')
 
   const delEnabled = canDeleteSelected
@@ -132,13 +132,13 @@ export default function Navbar({
   const actionEnabled = !!selectedNodeId
 
   const actionBg = (active: boolean) => active
-    ? (isDark ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.10)')
+    ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.18)' : 'rgb(var(--c-primary-rgb) / 0.10)')
     : actionEnabled
       ? (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')
       : (isDark ? '#2A2520' : '#F5F0EA')
 
   const actionColor = (active: boolean) => active
-    ? '#EA580C'
+    ? 'var(--c-primary)'
     : actionEnabled
       ? t.textMuted
       : (isDark ? '#4A3F35' : '#C4A882')
@@ -256,8 +256,8 @@ export default function Navbar({
             {deleteChildrenNote && (
               <p style={{
                 margin: '0 0 12px', padding: '8px 10px', borderRadius: '8px',
-                background: isDark ? 'rgba(217,119,6,0.12)' : '#FFFBEB',
-                border: `1px solid ${isDark ? 'rgba(217,119,6,0.25)' : '#FDE68A'}`,
+                background: isDark ? 'rgb(var(--c-secondary-rgb) / 0.12)' : '#FFFBEB',
+                border: `1px solid ${isDark ? 'rgb(var(--c-secondary-rgb) / 0.25)' : '#FDE68A'}`,
                 fontSize: '12px', color: isDark ? '#FCD34D' : '#B45309', lineHeight: 1.45,
               }}>
                 Their children will stay in the tree, linked to <strong>{deleteChildrenNote}</strong>.
@@ -347,9 +347,9 @@ export default function Navbar({
                   fontFamily: 'inherit',
                   letterSpacing: '0.03em',
                   background: active
-                    ? (isDark ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.10)')
+                    ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.18)' : 'rgb(var(--c-primary-rgb) / 0.10)')
                     : 'transparent',
-                  color: active ? '#EA580C' : t.textMuted,
+                  color: active ? 'var(--c-primary)' : t.textMuted,
                   transition: 'background 0.15s, color 0.15s',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
                 }}

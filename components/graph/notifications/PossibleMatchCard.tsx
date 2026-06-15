@@ -81,9 +81,9 @@ export default function PossibleMatchCard({ notification, isDark, onMarkRead }: 
         disabled={viewLoading}
         style={{
           height: '32px', borderRadius: '8px',
-          border: `1px solid ${isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'}`,
-          background: isDark ? 'rgba(234,88,12,0.10)' : 'rgba(234,88,12,0.06)',
-          color: '#EA580C', fontSize: '11.5px', fontWeight: 600,
+          border: `1px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.35)' : 'rgb(var(--c-primary-rgb) / 0.28)'}`,
+          background: isDark ? 'rgb(var(--c-primary-rgb) / 0.10)' : 'rgb(var(--c-primary-rgb) / 0.06)',
+          color: 'var(--c-primary)', fontSize: '11.5px', fontWeight: 600,
           fontFamily: 'inherit', cursor: viewLoading ? 'default' : 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
           opacity: viewLoading ? 0.6 : 1,

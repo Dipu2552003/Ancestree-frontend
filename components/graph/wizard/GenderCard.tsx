@@ -35,7 +35,7 @@ export default function GenderCard({
         borderRadius: '13px', cursor: 'pointer', fontFamily: 'inherit',
         border: `2px solid ${selected ? COLORS.saffron : hov ? option.color + '77' : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'}`,
         background: selected
-          ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)')
+          ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.07)')
           : hov ? t.itemHoverBg : isDark ? 'rgba(255,255,255,0.02)' : '#FFFAF5',
         transition: 'border-color 0.15s, background 0.15s',
       }}

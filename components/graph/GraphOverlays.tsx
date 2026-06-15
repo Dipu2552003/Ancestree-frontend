@@ -39,9 +39,10 @@ export interface ContextMenuOverlay {
   x:             number
   y:             number
   personData:    PersonData
+  /** Whether a merge request may be started here (own tree only). */
+  canMerge:      boolean
   onViewTree:    () => void
   onEdit:        () => void
-  onInvite:      () => Promise<void>
   onMergeNode:   () => void
   onClose:       () => void
 }
@@ -103,6 +104,7 @@ export interface ComparisonOverlay {
 export interface WizardOverlay {
   relAction:      RelAction
   anchorName:     string
+  anchorGender:   string | undefined
   motherOptions:  { id: string; name: string; gender?: string; photoUrl?: string }[]
   fatherName:     string | undefined
   onAdd:          (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
@@ -113,6 +115,7 @@ export interface WizardOverlay {
 export interface SecondSpouseOverlay {
   anchorId:         string
   anchorName:       string
+  anchorGender:     string | undefined
   existingSpouses:  ExistingSpouse[]
   existingChildren: ExistingChild[]
   onComplete:       () => Promise<void> | void
@@ -155,12 +158,11 @@ export default function GraphOverlays({
           personName={contextMenu.personData.fullName}
           gender={contextMenu.personData.gender}
           canEdit={contextMenu.personData.canEdit ?? false}
-          canInvite={contextMenu.personData.canInvite ?? false}
+          canMerge={contextMenu.canMerge}
           isSelf={contextMenu.personData.isSelf}
           isViewerNode={contextMenu.personData.isViewerNode ?? false}
           onViewTree={contextMenu.onViewTree}
           onEdit={contextMenu.onEdit}
-          onInvite={contextMenu.onInvite}
           onMergeNode={contextMenu.onMergeNode}
           onClose={contextMenu.onClose}
         />
@@ -271,6 +273,7 @@ export default function GraphOverlays({
             key="add-node-wizard"
             relAction={wizard.relAction}
             anchorName={wizard.anchorName}
+            anchorGender={wizard.anchorGender}
             isDark={isDark}
             motherOptions={wizard.motherOptions}
             fatherName={wizard.fatherName}
@@ -290,6 +293,7 @@ export default function GraphOverlays({
             key="second-spouse-wizard"
             anchorId={secondSpouse.anchorId}
             anchorName={secondSpouse.anchorName}
+            anchorGender={secondSpouse.anchorGender}
             existingSpouses={secondSpouse.existingSpouses}
             existingChildren={secondSpouse.existingChildren}
             isDark={isDark}

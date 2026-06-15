@@ -23,4 +23,20 @@ export const graph = {
       }
     }>(`/api/graph?${qs.toString()}`)
   },
+
+  // Public, unauthenticated — read-only graph for the landing-page viewer.
+  // Only works for persons in a PUBLIC, non-community family (else 404).
+  fetchPublic: (perspectiveId: string) =>
+    req<{
+      nodes: import('@xyflow/react').Node[]
+      edges: import('@xyflow/react').Edge[]
+      meta: {
+        totalNodes:               number
+        perspectivePersonId?:     string
+        effectiveAncestorDepth:   number
+        effectiveDescendantDepth: number
+        hasMoreAncestors:         boolean
+        hasMoreDescendants:       boolean
+      }
+    }>(`/api/graph/public?perspective=${encodeURIComponent(perspectiveId)}`),
 }

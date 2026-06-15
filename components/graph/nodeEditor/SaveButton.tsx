@@ -23,7 +23,7 @@ export default function SaveButton({ saveState, isDirty, isDark, onSave }: SaveB
   const saveBg = saveState === 'saved'
     ? (isDark ? '#14401A' : '#DCFCE7')
     : isDirty
-      ? '#EA580C'
+      ? 'var(--c-primary)'
       : (isDark ? '#221A10' : '#FFF3E8')
   const saveTextCol = saveState === 'saved'
     ? (isDark ? '#4ADE80' : '#16A34A')

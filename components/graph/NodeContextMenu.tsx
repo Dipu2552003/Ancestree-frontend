@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, type ReactNode } from 'react'
-import { IconEye, IconPencil, IconSend, IconGitMerge } from '@tabler/icons-react'
+import { IconEye, IconPencil, IconGitMerge } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
 
@@ -12,20 +12,21 @@ interface NodeContextMenuProps {
   personName: string
   gender?: string
   canEdit: boolean
-  canInvite: boolean
+  /** Merge requests can only start from your own tree, never while viewing
+   *  another person's tree (perspective mode). */
+  canMerge: boolean
   isSelf: boolean
   isViewerNode?: boolean
   onViewTree: () => void
   onEdit: () => void
-  onInvite: () => void
   onMergeNode: () => void
   onClose: () => void
 }
 
 export default function NodeContextMenu({
   nodeId, x, y, personName, gender,
-  canEdit, canInvite, isSelf, isViewerNode,
-  onViewTree, onEdit, onInvite, onMergeNode, onClose,
+  canEdit, canMerge, isSelf, isViewerNode,
+  onViewTree, onEdit, onMergeNode, onClose,
 }: NodeContextMenuProps) {
   const { isDark } = useGraphStore()
   const t = getTheme(isDark)
@@ -57,10 +58,9 @@ export default function NodeContextMenu({
   // Clamp to viewport
   // Base: header (~50px) + list padding (8px) = 58px. Each item ~34px.
   const MENU_W = 220
-  const itemCount = 1 // merge (always)
+  const itemCount = (canMerge ? 1 : 0)
     + (!isSelf && !isViewerNode ? 1 : 0)
     + (canEdit ? 1 : 0)
-    + (canInvite ? 1 : 0)
   const MENU_H = 58 + itemCount * 34
   const left = x + MENU_W > window.innerWidth  ? x - MENU_W : x
   const top  = y + MENU_H > window.innerHeight ? y - MENU_H : y
@@ -127,8 +127,7 @@ export default function NodeContextMenu({
       <div role="presentation" style={{ padding: '4px' }}>
         {!isSelf && !isViewerNode && item(<IconEye size={14} />, treeLinkLabel, onViewTree)}
         {canEdit && item(<IconPencil size={14} />, 'Edit details', onEdit)}
-        {item(<IconGitMerge size={14} />, 'Merge node', onMergeNode)}
-        {canInvite && item(<IconSend size={14} />, 'Invite to join', onInvite)}
+        {canMerge && item(<IconGitMerge size={14} />, 'Merge node', onMergeNode)}
       </div>
     </div>
   )

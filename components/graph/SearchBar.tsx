@@ -120,7 +120,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
         height:       '38px',
         padding:      '0 12px',
         background:   t.cardBg,
-        border:       `1.5px solid ${open ? '#EA580C' : t.controlBorder}`,
+        border:       `1.5px solid ${open ? 'var(--c-primary)' : t.controlBorder}`,
         borderRadius: open && results.length > 0 ? '10px 10px 0 0' : '10px',
         boxShadow:    isDark ? '0 2px 12px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.07)',
         transition:   'border-color 0.15s, border-radius 0.12s',
@@ -133,7 +133,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
             >
               <IconLoader2 size={15} color={t.textMuted} />
             </motion.span>
-          : <IconSearch size={15} color={open ? '#EA580C' : t.textMuted} style={{ flexShrink: 0 }} />
+          : <IconSearch size={15} color={open ? 'var(--c-primary)' : t.textMuted} style={{ flexShrink: 0 }} />
         }
         <input
           ref={inputRef}
@@ -178,7 +178,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
               right:        0,
               zIndex:       999,
               background:   t.cardBg,
-              border:       '1.5px solid #EA580C',
+              border:       '1.5px solid var(--c-primary)',
               borderTop:    `1px solid ${t.controlBorder}`,
               borderRadius: '0 0 10px 10px',
               boxShadow:    isDark ? '0 8px 24px rgba(0,0,0,0.5)' : '0 8px 24px rgba(0,0,0,0.10)',
@@ -201,7 +201,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
                     padding:    '10px 12px',
                     cursor:     'pointer',
                     background: isActive
-                      ? (isDark ? 'rgba(234,88,12,0.12)' : 'rgba(234,88,12,0.07)')
+                      ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.07)')
                       : 'transparent',
                     borderBottom: i < results.length - 1
                       ? `1px solid ${t.controlBorder}`
@@ -235,8 +235,8 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
                           fontSize: 9, fontWeight: 700, letterSpacing: '0.06em',
                           textTransform: 'uppercase',
                           padding: '1px 5px', borderRadius: 3,
-                          background: isDark ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.10)',
-                          color: '#EA580C',
+                          background: isDark ? 'rgb(var(--c-primary-rgb) / 0.18)' : 'rgb(var(--c-primary-rgb) / 0.10)',
+                          color: 'var(--c-primary)',
                           flexShrink: 0,
                         }}>
                           Your family
@@ -246,7 +246,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
                     {meta.length > 0 && (
                       <div style={{
                         fontSize:     '11.5px',
-                        color:        isActive ? '#EA580C' : t.textMuted,
+                        color:        isActive ? 'var(--c-primary)' : t.textMuted,
                         whiteSpace:   'nowrap',
                         overflow:     'hidden',
                         textOverflow: 'ellipsis',
@@ -262,7 +262,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
                   {isActive && (
                     <span style={{
                       fontSize:   '10.5px',
-                      color:      '#EA580C',
+                      color:      'var(--c-primary)',
                       fontWeight: 500,
                       flexShrink: 0,
                       opacity:    0.8,
@@ -290,7 +290,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
               right:        0,
               zIndex:       999,
               background:   t.cardBg,
-              border:       '1.5px solid #EA580C',
+              border:       '1.5px solid var(--c-primary)',
               borderTop:    `1px solid ${t.controlBorder}`,
               borderRadius: '0 0 10px 10px',
               padding:      '14px 12px',

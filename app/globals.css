@@ -1,7 +1,45 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
-body { background-color: #FFF7ED; margin: 0; padding: 0; }
+/*
+ * ─── THEME TOKENS — single source of truth ───────────────────────────────────
+ * Every brand color in the app resolves to one of these variables. To re-theme
+ * the product, change the values here and nowhere else. Two forms per accent:
+ *   --c-foo       solid hex, for `color`/`background`/`border`
+ *   --c-foo-rgb   space-separated channels, for translucency:
+ *                 background: rgb(var(--c-primary-rgb) / 0.12)
+ * Canvas code (which can't read CSS vars) resolves these via lib/theme/cssVar.ts.
+ */
+:root {
+  /* ── Warm-neutral palette (Umber / Black / Dune / Vanilla / Taupe) ──
+   * No bright accent: hierarchy comes from TONE. Dark umber/black = emphasis &
+   * actions; dune/taupe = recessive fills, borders, quiet states. */
+
+  /* Surfaces & text */
+  --c-page:             #F8F4EE;  /* Vanilla — page background */
+  --c-page-rgb:         248 244 238;
+  --c-surface:          #FFFFFF;  /* cards, panels */
+  --c-tint:             #E4DDCC;  /* Soft Dune — fills, hover, soft borders */
+  --c-tint-rgb:         228 221 204;
+  --c-stroke:           #C5B49D;  /* Classic Taupe — edges, dividers */
+  --c-text:             #252525;  /* primary text */
+  --c-text-muted:       #6B6052;  /* secondary text (AA on Vanilla) */
+
+  /* Action / emphasis — tone-based, no hue */
+  --c-primary:          #443A35;  /* Umber — CTAs, self node, active, focus */
+  --c-primary-rgb:      68 58 53;
+  --c-primary-strong:   #252525;  /* Black — pressed, claimed nodes */
+  --c-primary-strong-rgb: 37 37 37;
+  --c-primary-deep:     #1A1714;  /* deepest shade */
+  --c-primary-light:    #C5B49D;  /* Classic Taupe — light highlight */
+
+  --c-secondary:        #6B5D4F;  /* Dark taupe — proxy nodes (white text reads) */
+  --c-secondary-rgb:    107 93 79;
+
+  --c-dot:              rgba(68,58,53,0.18); /* Umber — canvas dot-field texture */
+}
+
+body { background-color: var(--c-page); margin: 0; padding: 0; }
 html[data-dark="1"] body { background-color: #0B0A09; }
 
 /* Kill pull-to-refresh and rubber-band overscroll so canvas drags are never
@@ -45,7 +83,7 @@ html, body { overscroll-behavior: none; }
  * so mouse users never see an outline while keyboard users always do.
  */
 :focus-visible {
-  outline: 2px solid #EA580C;
+  outline: 2px solid var(--c-primary);
   outline-offset: 2px;
 }
 
@@ -59,7 +97,7 @@ html, body { overscroll-behavior: none; }
  * Tighten their focus ring to the saffron accent as well.
  */
 .react-flow__node:focus-visible {
-  outline: 2px solid #EA580C;
+  outline: 2px solid var(--c-primary);
   outline-offset: 4px;
   border-radius: 8px;
 }

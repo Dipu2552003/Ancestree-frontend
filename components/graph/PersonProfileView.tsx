@@ -54,19 +54,19 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
 
   // Avatar gradient (mirrors PersonNode state logic) — used for the initials fallback.
   let gFrom = '#C4A882', gTo = '#9A7B5A'
-  if (isSelf)                       { gFrom = '#EA580C'; gTo = '#C2410C' }
+  if (isSelf)                       { gFrom = 'var(--c-primary)'; gTo = 'var(--c-primary-strong)' }
   else if (isDeceased)              { gFrom = '#94A3B8'; gTo = '#64748B' }
-  else if (nodeState === 'claimed') { gFrom = '#C2410C'; gTo = '#9A3412' }
-  else if (nodeState === 'proxy')   { gFrom = '#D97706'; gTo = '#B45309' }
+  else if (nodeState === 'claimed') { gFrom = 'var(--c-primary-strong)'; gTo = 'var(--c-primary-deep)' }
+  else if (nodeState === 'proxy')   { gFrom = 'var(--c-secondary)'; gTo = '#B45309' }
 
   const t        = getTheme(isDark)
   const labelCol = isDark ? '#7A6A52' : '#B5956A'
   const hairline = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
-  const accent   = '#EA580C'
+  const accent   = 'var(--c-primary)'
 
   // nodeState pill copy
   const statePill = isSelf
-    ? { text: 'You', bg: '#EA580C', fg: '#fff' }
+    ? { text: 'You', bg: 'var(--c-primary)', fg: '#fff' }
     : nodeState === 'claimed'
       ? { text: 'On Ancestree', bg: isDark ? 'rgba(34,197,94,0.16)' : '#F0FDF4', fg: isDark ? '#4ADE80' : '#15803D' }
       : nodeState === 'invited'

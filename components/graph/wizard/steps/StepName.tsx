@@ -51,8 +51,8 @@ export default function StepName({
             ...styles.inputStyle,
             borderColor: nameError ? COLORS.error : undefined,
           }}
-          onFocus={e  => { e.currentTarget.style.borderColor = COLORS.saffron; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(234,88,12,0.10)' }}
-          onBlur={e   => { if (!nameError) { e.currentTarget.style.borderColor = isDark ? 'rgba(234,88,12,0.35)' : 'rgba(234,88,12,0.28)'; e.currentTarget.style.boxShadow = 'none' }}}
+          onFocus={e  => { e.currentTarget.style.borderColor = COLORS.saffron; e.currentTarget.style.boxShadow = '0 0 0 3px rgb(var(--c-primary-rgb) / 0.10)' }}
+          onBlur={e   => { if (!nameError) { e.currentTarget.style.borderColor = isDark ? 'rgb(var(--c-primary-rgb) / 0.35)' : 'rgb(var(--c-primary-rgb) / 0.28)'; e.currentTarget.style.boxShadow = 'none' }}}
         />
         <AnimatePresence>
           {nameError && (
