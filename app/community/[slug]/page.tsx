@@ -498,33 +498,31 @@ function CommunityPageInner() {
                 />
               </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: th.textMuted, transition: 'color 0.35s ease' }}>
-                  {c.inviteLabel} <span style={{ color: 'var(--c-primary)' }}>*</span>
-                </label>
-                <input
-                  value={inviteCode}
-                  onChange={e => { setInviteCode(e.target.value); setFormErr(''); setInviteCheck('idle') }}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSignup() }}
-                  onFocus={() => setInviteFocus(true)}
-                  onBlur={() => setInviteFocus(false)}
-                  placeholder={c.invitePh}
-                  style={inputStyle(inviteFocus, inviteCheck === 'invalid')}
-                />
-                {inviteCheck === 'valid' ? (
-                  <p style={{ margin: '7px 0 0', fontSize: 12, fontWeight: 600, color: '#15803D', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <IconCircleCheck size={14} /> {c.inviteOk} {inviteRole}
-                  </p>
-                ) : inviteCheck === 'invalid' ? (
-                  <p style={{ margin: '7px 0 0', fontSize: 12, fontWeight: 600, color: '#EF4444' }}>
-                    {c.inviteBad}
-                  </p>
-                ) : (
-                  <p style={{ margin: '7px 0 0', fontSize: 12, color: th.textMuted, lineHeight: 1.5 }}>
-                    {c.inviteHint}
-                  </p>
-                )}
-              </div>
+              {inviteCode && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: th.textMuted, transition: 'color 0.35s ease' }}>
+                    {c.inviteLabel}
+                  </label>
+                  <input
+                    value={inviteCode}
+                    onChange={e => { setInviteCode(e.target.value); setFormErr(''); setInviteCheck('idle') }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSignup() }}
+                    onFocus={() => setInviteFocus(true)}
+                    onBlur={() => setInviteFocus(false)}
+                    placeholder={c.invitePh}
+                    style={inputStyle(inviteFocus, inviteCheck === 'invalid')}
+                  />
+                  {inviteCheck === 'valid' ? (
+                    <p style={{ margin: '7px 0 0', fontSize: 12, fontWeight: 600, color: '#15803D', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <IconCircleCheck size={14} /> {c.inviteOk} {inviteRole}
+                    </p>
+                  ) : inviteCheck === 'invalid' ? (
+                    <p style={{ margin: '7px 0 0', fontSize: 12, fontWeight: 600, color: '#EF4444' }}>
+                      {c.inviteBad}
+                    </p>
+                  ) : null}
+                </div>
+              )}
 
               <AnimatePresence>
                 {formErr && (

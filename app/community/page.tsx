@@ -1,17 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  IconArrowLeft, IconPlus, IconUsers, IconCopy, IconCheck,
-  IconLoader2, IconArrowRight, IconX, IconCode, IconLink,
-  IconEyeOff, IconEye, IconSun, IconMoon, IconBuilding,
-  IconChevronDown, IconChevronUp, IconSearch,
+  IconArrowRight, IconBuilding, IconSun, IconMoon,
+  IconPlus, IconX, IconArrowLeft, IconLoader2, IconEye, IconEyeOff,
 } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
-import { useIsMobile } from '@/hooks/useIsMobile'
 import { api } from '@/lib/api'
 import { setToken } from '@/lib/api/client'
 import type { CommunityInfo } from '@/lib/api/community'
@@ -20,374 +17,6 @@ const EASE = [0.22, 1, 0.36, 1] as const
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-}
-
-// ── Copy button ───────────────────────────────────────────────────────────────
-
-function CopyButton({ text, isDark }: { text: string; isDark: boolean }) {
-  const [copied, setCopied] = useState(false)
-  const copy = () => {
-    navigator.clipboard.writeText(text).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-  const t = getTheme(isDark)
-  return (
-    <button
-      onClick={copy}
-      title="Copy"
-      style={{
-        background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px',
-        borderRadius: 6, color: copied ? '#16A34A' : t.textMuted,
-        display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600,
-        transition: 'color 0.15s',
-      }}
-    >
-      {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
-      {copied ? 'Copied' : 'Copy'}
-    </button>
-  )
-}
-
-// ── Community card ────────────────────────────────────────────────────────────
-
-function CommunityCard({
-  community, selected, onClick, isDark,
-}: {
-  community: CommunityInfo
-  selected: boolean
-  onClick: () => void
-  isDark: boolean
-}) {
-  const t = getTheme(isDark)
-  return (
-    <motion.div
-      layout
-      onClick={onClick}
-      whileHover={{ y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      style={{
-        background: selected
-          ? (isDark ? '#2A1A0A' : '#FFF1E6')
-          : (isDark ? '#1C1A12' : '#FFFFFF'),
-        border: `1.5px solid ${selected ? 'var(--c-primary)' : (isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.14)')}`,
-        borderRadius: 16,
-        padding: '18px 20px',
-        cursor: 'pointer',
-        boxShadow: selected
-          ? '0 0 0 3px rgb(var(--c-primary-rgb) / 0.12)'
-          : (isDark ? '0 2px 12px rgba(0,0,0,0.4)' : '0 2px 12px rgba(0,0,0,0.06)'),
-        transition: 'background 0.2s, border-color 0.2s, box-shadow 0.2s',
-      }}
-    >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: t.text, lineHeight: 1.2, marginBottom: 3 }}>
-            {community.name}
-          </div>
-          <div style={{
-            fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
-            color: 'var(--c-primary)', fontFamily: 'monospace',
-          }}>
-            /{community.slug}
-          </div>
-        </div>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 4,
-          padding: '4px 10px', borderRadius: 20,
-          background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-          flexShrink: 0,
-        }}>
-          <IconUsers size={12} style={{ color: t.textMuted }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{community.member_count}</span>
-        </div>
-      </div>
-
-      {community.description && (
-        <p style={{
-          margin: '0 0 12px', fontSize: 13, color: t.textMuted, lineHeight: 1.5,
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}>
-          {community.description}
-        </p>
-      )}
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 11, color: t.textMuted }}>
-          {(community.member_limit ?? 0) > 0 ? `Limit: ${community.member_limit}` : 'Open community'}
-        </span>
-        <span style={{
-          fontSize: 12, fontWeight: 700, color: selected ? 'var(--c-primary)' : t.textMuted,
-          display: 'flex', alignItems: 'center', gap: 3,
-          transition: 'color 0.15s',
-        }}>
-          View details <IconArrowRight size={12} />
-        </span>
-      </div>
-    </motion.div>
-  )
-}
-
-// ── Detail panel ──────────────────────────────────────────────────────────────
-
-function DetailPanel({
-  community, onClose, isDark, isMobile,
-}: {
-  community: CommunityInfo
-  onClose: () => void
-  isDark: boolean
-  isMobile: boolean
-}) {
-  const router = useRouter()
-  const t = getTheme(isDark)
-  const [apiOpen, setApiOpen] = useState(false)
-  const [origin, setOrigin] = useState('')
-  const [apiBase, setApiBase] = useState('')
-
-  useEffect(() => {
-    setOrigin(window.location.origin)
-    setApiBase(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000')
-  }, [])
-
-  const webUrl  = `${origin}/community/${community.slug}`
-  const signupUrl = `${apiBase}/api/community/${community.slug}/signup`
-  const loginUrl  = `${apiBase}/api/community/${community.slug}/login`
-
-  const codeStyle: React.CSSProperties = {
-    fontFamily: 'monospace', fontSize: 12,
-    background: isDark ? '#0D0C08' : '#FDF8F2',
-    border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.12)'}`,
-    borderRadius: 8, padding: '10px 12px',
-    color: isDark ? '#C4B99A' : '#7A4A1C',
-    wordBreak: 'break-all' as const,
-    lineHeight: 1.6,
-    overflowX: 'auto' as const,
-  }
-
-  const signupBody = `{
-  "email": "user@example.com",
-  "password": "yourpassword",
-  "display_name": "Full Name",
-  "invite_code": "optional"
-}`
-
-  const loginBody = `{
-  "email": "user@example.com",
-  "password": "yourpassword"
-}`
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: isMobile ? 0 : 32, y: isMobile ? 20 : 0 }}
-      animate={{ opacity: 1, x: 0, y: 0 }}
-      exit={{ opacity: 0, x: isMobile ? 0 : 32, y: isMobile ? 20 : 0 }}
-      transition={{ duration: 0.35, ease: EASE }}
-      style={{
-        background: isDark ? '#1C1A12' : '#FFFFFF',
-        border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.14)'}`,
-        borderRadius: 20,
-        boxShadow: isDark
-          ? '0 8px 40px rgba(0,0,0,0.55)'
-          : '0 8px 40px rgba(0,0,0,0.10), 0 0 0 1px rgb(var(--c-primary-rgb) / 0.06)',
-        overflow: 'hidden',
-        display: 'flex', flexDirection: 'column',
-        maxHeight: isMobile ? '85vh' : 'calc(100vh - 120px)',
-      }}
-    >
-      {/* Header */}
-      <div style={{
-        padding: '20px 20px 16px',
-        borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
-        display: 'flex', alignItems: 'flex-start', gap: 12,
-      }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: '0 0 2px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--c-primary)' }}>
-            Community
-          </p>
-          <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', color: t.text, lineHeight: 1.15 }}>
-            {community.name}
-          </h2>
-          <code style={{ fontSize: 11, color: t.textMuted }}>/{community.slug}</code>
-        </div>
-        <button
-          onClick={onClose}
-          style={{
-            width: 32, height: 32, borderRadius: 8, border: 'none',
-            background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-            color: t.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <IconX size={15} />
-        </button>
-      </div>
-
-      {/* Scrollable body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px' }}>
-
-        {/* Stats */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
-          <div style={{
-            flex: 1, padding: '12px 14px', borderRadius: 12,
-            background: isDark ? 'rgba(255,255,255,0.04)' : 'rgb(var(--c-primary-rgb) / 0.05)',
-            border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgb(var(--c-primary-rgb) / 0.10)'}`,
-          }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--c-primary)', lineHeight: 1 }}>{community.member_count}</div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 3 }}>Members</div>
-          </div>
-          <div style={{
-            flex: 1, padding: '12px 14px', borderRadius: 12,
-            background: isDark ? 'rgba(255,255,255,0.04)' : 'rgb(var(--c-primary-rgb) / 0.05)',
-            border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgb(var(--c-primary-rgb) / 0.10)'}`,
-          }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--c-secondary)', lineHeight: 1 }}>
-              {(community.member_limit ?? 0) === 0 ? '∞' : community.member_limit}
-            </div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 3 }}>Limit</div>
-          </div>
-        </div>
-
-        {community.description && (
-          <p style={{ margin: '0 0 18px', fontSize: 13.5, color: t.textMuted, lineHeight: 1.65 }}>
-            {community.description}
-          </p>
-        )}
-
-        {/* Web join URL */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <IconLink size={13} style={{ color: 'var(--c-primary)' }} />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: t.textMuted }}>
-              Join URL
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ flex: 1, ...codeStyle, padding: '8px 12px' }}>{webUrl}</div>
-            <CopyButton text={webUrl} isDark={isDark} />
-          </div>
-        </div>
-
-        {/* API Reference — collapsible */}
-        <div style={{ marginBottom: 18 }}>
-          <button
-            onClick={() => setApiOpen(v => !v)}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-              transition: 'background 0.12s',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <IconCode size={14} style={{ color: 'var(--c-primary)' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>API Reference</span>
-            </div>
-            {apiOpen ? <IconChevronUp size={14} style={{ color: t.textMuted }} /> : <IconChevronDown size={14} style={{ color: t.textMuted }} />}
-          </button>
-
-          <AnimatePresence>
-            {apiOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.22 }}
-                style={{ overflow: 'hidden' }}
-              >
-                <div style={{ paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                  {/* Common headers */}
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
-                      Required Headers
-                    </div>
-                    <pre style={{ ...codeStyle, margin: 0 }}>
-{`Content-Type: application/json
-Authorization: Bearer <token>  ← after login/signup`}
-                    </pre>
-                  </div>
-
-                  {/* Signup */}
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        Signup Endpoint
-                      </div>
-                      <CopyButton text={`POST ${signupUrl}`} isDark={isDark} />
-                    </div>
-                    <pre style={{ ...codeStyle, margin: 0 }}>POST {signupUrl}</pre>
-                    <pre style={{ ...codeStyle, margin: '6px 0 0' }}>{signupBody}</pre>
-                    <div style={{ marginTop: 6, padding: '8px 12px', borderRadius: 8, background: isDark ? 'rgba(22,163,74,0.08)' : 'rgba(22,163,74,0.06)', border: `1px solid rgba(22,163,74,0.2)` }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#16A34A', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>Response</div>
-                      <code style={{ fontSize: 11, color: '#16A34A' }}>{`{ "token": "eyJ...", "user": { "id": "...", ... } }`}</code>
-                    </div>
-                  </div>
-
-                  {/* Login */}
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        Login Endpoint
-                      </div>
-                      <CopyButton text={`POST ${loginUrl}`} isDark={isDark} />
-                    </div>
-                    <pre style={{ ...codeStyle, margin: 0 }}>POST {loginUrl}</pre>
-                    <pre style={{ ...codeStyle, margin: '6px 0 0' }}>{loginBody}</pre>
-                  </div>
-
-                  {/* Token usage */}
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
-                      Using the Token
-                    </div>
-                    <pre style={{ ...codeStyle, margin: 0 }}>{`Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5...`}</pre>
-                    <p style={{ margin: '6px 0 0', fontSize: 11, color: t.textMuted, lineHeight: 1.5 }}>
-                      Token encodes: userId, familyId, communityId. Send with every authenticated request.
-                    </p>
-                  </div>
-
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <motion.button
-            whileHover={{ scale: 1.015 }}
-            whileTap={{ scale: 0.985 }}
-            onClick={() => router.push(`/community/${community.slug}?tab=login`)}
-            style={{
-              flex: 1, height: 46, borderRadius: 12, border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'}`,
-              background: 'transparent', color: t.text,
-              fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            }}
-          >
-            Sign In
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.40)' }}
-            whileTap={{ scale: 0.985 }}
-            onClick={() => router.push(`/community/${community.slug}?tab=signup`)}
-            style={{
-              flex: 1, height: 46, borderRadius: 12, border: 'none',
-              background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
-              color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              boxShadow: '0 3px 14px rgb(var(--c-primary-rgb) / 0.38)',
-            }}
-          >
-            Create Account <IconArrowRight size={15} />
-          </motion.button>
-        </div>
-
-      </div>
-    </motion.div>
-  )
 }
 
 // ── Create community form (2-step wizard) ─────────────────────────────────────
@@ -402,34 +31,31 @@ function CreateCommunityForm({
   const router = useRouter()
   const t = getTheme(isDark)
 
-  const [step,        setStep]        = useState<1 | 2>(1)
+  const [step, setStep] = useState<1 | 2>(1)
 
-  // Step 1 fields
-  const [name,        setName]        = useState('')
-  const [slug,        setSlug]        = useState('')
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
   const [description, setDescription] = useState('')
-  const [limit,       setLimit]       = useState('')
-  const [adminKey,    setAdminKey]    = useState('')
-  const [showKey,     setShowKey]     = useState(false)
-  const [slugManual,  setSlugManual]  = useState(false)
+  const [limit, setLimit] = useState('')
+  const [adminKey, setAdminKey] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [slugManual, setSlugManual] = useState(false)
 
-  // Step 2 fields
-  const [ownerName,     setOwnerName]     = useState('')
-  const [ownerEmail,    setOwnerEmail]    = useState('')
+  const [ownerName, setOwnerName] = useState('')
+  const [ownerEmail, setOwnerEmail] = useState('')
   const [ownerPassword, setOwnerPassword] = useState('')
-  const [showPassword,  setShowPassword]  = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState('')
+  const [error, setError] = useState('')
 
-  // Focus states
-  const [nameFocus,       setNameFocus]       = useState(false)
-  const [slugFocus,       setSlugFocus]       = useState(false)
-  const [descFocus,       setDescFocus]       = useState(false)
-  const [keyFocus,        setKeyFocus]        = useState(false)
-  const [ownerNameFocus,  setOwnerNameFocus]  = useState(false)
+  const [nameFocus, setNameFocus] = useState(false)
+  const [slugFocus, setSlugFocus] = useState(false)
+  const [descFocus, setDescFocus] = useState(false)
+  const [keyFocus, setKeyFocus] = useState(false)
+  const [ownerNameFocus, setOwnerNameFocus] = useState(false)
   const [ownerEmailFocus, setOwnerEmailFocus] = useState(false)
-  const [ownerPassFocus,  setOwnerPassFocus]  = useState(false)
+  const [ownerPassFocus, setOwnerPassFocus] = useState(false)
 
   const handleNameChange = (v: string) => {
     setName(v)
@@ -510,9 +136,9 @@ function CreateCommunityForm({
         borderRadius: 20,
         boxShadow: isDark ? '0 8px 40px rgba(0,0,0,0.55)' : '0 8px 40px rgba(0,0,0,0.10)',
         overflow: 'hidden',
+        width: '100%', maxWidth: 440,
       }}
     >
-      {/* Header */}
       <div style={{
         padding: '18px 20px 14px',
         borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
@@ -549,7 +175,6 @@ function CreateCommunityForm({
         </button>
       </div>
 
-      {/* Animated step content */}
       <div style={{ padding: '18px 20px 20px', overflow: 'hidden' }}>
         <AnimatePresence mode="wait" initial={false}>
 
@@ -776,44 +401,36 @@ function CreateCommunityForm({
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Main landing page ─────────────────────────────────────────────────────────
 
-function CommunityBrowserInner() {
+function CommunityLandingInner() {
   const router = useRouter()
   const params = useSearchParams()
   const isDark = useGraphStore(s => s.isDark)
   const setIsDark = useGraphStore(s => s.setIsDark)
-  const isMobile = useIsMobile()
   const t = getTheme(isDark)
 
-  const [communities,  setCommunities]  = useState<CommunityInfo[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [selected,     setSelected]     = useState<CommunityInfo | null>(null)
-  const [showCreate,   setShowCreate]   = useState(params?.get('action') === 'create')
-  const [search,       setSearch]       = useState('')
-  const [searchFocus,  setSearchFocus]  = useState(false)
+  const [showCreate, setShowCreate] = useState(params?.get('action') === 'create')
+  const [slug, setSlug] = useState('')
+  const [slugFocus, setSlugFocus] = useState(false)
 
-  useEffect(() => {
-    api.community.list()
-      .then(res => setCommunities(res.communities))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
+  const handleGo = () => {
+    const s = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
+    if (s) router.push(`/community/${s}`)
+  }
 
-  const handleCreated = useCallback((community: CommunityInfo) => {
-    setCommunities(prev => [community, ...prev])
+  const handleCreated = useCallback((_community: CommunityInfo) => {
     setShowCreate(false)
-    setSelected(community)
   }, [])
-
-  const filtered = communities.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.slug.includes(search.toLowerCase()),
-  )
-
-  const pageBg = isDark ? '#0B0A09' : 'var(--c-page)'
 
   return (
-    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: 'inherit', transition: 'background 0.35s ease' }}>
+    <div style={{
+      minHeight: '100vh',
+      background: isDark ? '#0B0A09' : 'var(--c-page)',
+      display: 'flex', flexDirection: 'column',
+      fontFamily: 'inherit',
+      transition: 'background 0.35s ease',
+    }}>
 
       {/* Top bar */}
       <div style={{
@@ -825,223 +442,188 @@ function CommunityBrowserInner() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         height: 60,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button
-            onClick={() => router.back()}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: t.textMuted, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', padding: 0,
-            }}
-          >
-            <IconArrowLeft size={16} /> Back
-          </button>
-          <div style={{ width: 1, height: 20, background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)' }} />
-          <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>Communities</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <motion.button
-            whileTap={{ scale: 0.92 }}
-            onClick={() => { setShowCreate(true); setSelected(null) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
-              color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
-              boxShadow: '0 2px 10px rgb(var(--c-primary-rgb) / 0.38)',
-            }}
-          >
-            <IconPlus size={14} /> Create
-          </motion.button>
-          <button
-            onClick={() => setIsDark(!isDark)}
-            title={isDark ? 'Light mode' : 'Dark mode'}
-            style={{
-              width: 38, height: 38, borderRadius: 8, border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)'}`,
-              background: t.controlBg, color: t.text, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
-          </button>
-        </div>
+        <span style={{ fontSize: 15, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>
+          Ancestree
+        </span>
+        <button
+          onClick={() => setIsDark(!isDark)}
+          title={isDark ? 'Light mode' : 'Dark mode'}
+          style={{
+            width: 38, height: 38, borderRadius: 8,
+            border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)'}`,
+            background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+            color: t.textMuted, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
+        </button>
       </div>
 
-      {/* Main content */}
+      {/* Center content */}
       <div style={{
-        maxWidth: 1100, margin: '0 auto',
-        padding: isMobile ? '24px 16px' : '32px 24px',
-        display: 'grid',
-        gridTemplateColumns: (selected || showCreate) && !isMobile ? '1fr 420px' : '1fr',
-        gap: 24, alignItems: 'start',
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '40px 24px',
       }}>
-
-        {/* Left: list */}
-        <div>
-          {/* Hero */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: EASE }}
-            style={{ marginBottom: 24 }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 12,
-                background: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <IconBuilding size={20} color="#fff" />
-              </div>
-              <h1 style={{ margin: 0, fontSize: isMobile ? 26 : 32, fontWeight: 800, letterSpacing: '-0.03em', color: t.text }}>
-                Communities
-              </h1>
-            </div>
-            <p style={{ margin: 0, fontSize: 15, color: t.textMuted, lineHeight: 1.6 }}>
-              Walled-garden spaces that connect multiple families under one roof.
-            </p>
-          </motion.div>
-
-          {/* Search */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.35, ease: EASE }}
-            style={{ position: 'relative', marginBottom: 20 }}
-          >
-            <IconSearch size={16} style={{
-              position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-              color: t.textMuted, pointerEvents: 'none',
-            }} />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onFocus={() => setSearchFocus(true)}
-              onBlur={() => setSearchFocus(false)}
-              placeholder="Search communities…"
-              style={{
-                width: '100%', height: 46, paddingLeft: 42, paddingRight: 16,
-                fontSize: 14, fontFamily: 'inherit', borderRadius: 12,
-                border: `1.5px solid ${searchFocus ? 'var(--c-primary)' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)')}`,
-                background: isDark ? '#141210' : '#FFFFFF',
-                color: t.text, outline: 'none', boxSizing: 'border-box',
-                transition: 'border-color 0.15s',
-              }}
-            />
-          </motion.div>
-
-          {/* Community cards */}
-          {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
-              <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}>
-                <IconLoader2 size={24} style={{ color: 'var(--c-primary)' }} />
-              </motion.div>
-            </div>
-          ) : filtered.length === 0 ? (
+        <AnimatePresence mode="wait">
+          {showCreate ? (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{
-                textAlign: 'center', padding: '48px 24px',
-                background: isDark ? 'rgba(255,255,255,0.02)' : 'rgb(var(--c-primary-rgb) / 0.03)',
-                borderRadius: 20, border: `1.5px dashed ${isDark ? 'rgba(255,255,255,0.08)' : 'rgb(var(--c-primary-rgb) / 0.15)'}`,
-              }}
+              key="create"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              transition={{ duration: 0.3, ease: EASE }}
+              style={{ width: '100%', maxWidth: 440 }}
             >
-              <div style={{ fontSize: 32, marginBottom: 10 }}>🌸</div>
-              <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: t.text }}>
-                {search ? 'No communities found' : 'No communities yet'}
-              </p>
-              <p style={{ margin: '0 0 16px', fontSize: 13.5, color: t.textMuted }}>
-                {search ? 'Try a different search term.' : 'Create the first one to get started.'}
-              </p>
-              {!search && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => { setShowCreate(true); setSelected(null) }}
-                  style={{
-                    padding: '10px 22px', borderRadius: 10, border: 'none',
-                    background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
-                    color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
-                    cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
-                    boxShadow: '0 3px 14px rgb(var(--c-primary-rgb) / 0.38)',
-                  }}
-                >
-                  <IconPlus size={15} /> Create Community
-                </motion.button>
-              )}
+              <CreateCommunityForm
+                onClose={() => setShowCreate(false)}
+                onCreated={handleCreated}
+                isDark={isDark}
+              />
             </motion.div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {filtered.map((community, i) => (
-                <motion.div
-                  key={community.id}
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.06, duration: 0.35, ease: EASE }}
-                >
-                  <CommunityCard
-                    community={community}
-                    selected={selected?.id === community.id}
-                    onClick={() => { setSelected(community); setShowCreate(false) }}
-                    isDark={isDark}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
+            <motion.div
+              key="landing"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.5, ease: EASE }}
+              style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}
+            >
 
-        {/* Right: detail or create form */}
-        <AnimatePresence mode="wait">
-          {showCreate && (
-            <div
-              key="create"
-              onClick={isMobile ? () => setShowCreate(false) : undefined}
-              style={isMobile ? { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.5)' } : {}}
-            >
-              <div
-                onClick={isMobile ? e => e.stopPropagation() : undefined}
-                style={isMobile ? { width: '100%', maxHeight: '90vh', overflow: 'auto' } : {}}
-              >
-                <CreateCommunityForm
-                  onClose={() => setShowCreate(false)}
-                  onCreated={handleCreated}
-                  isDark={isDark}
-                />
+              {/* Icon */}
+              <div style={{
+                width: 64, height: 64, borderRadius: 18, margin: '0 auto 24px',
+                background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 8px 28px rgb(var(--c-primary-rgb) / 0.35)',
+              }}>
+                <IconBuilding size={28} color="#fff" />
               </div>
-            </div>
-          )}
-          {selected && !showCreate && (
-            <div
-              key={selected.id}
-              onClick={isMobile ? () => setSelected(null) : undefined}
-              style={isMobile ? { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.5)' } : {}}
-            >
-              <div
-                onClick={isMobile ? e => e.stopPropagation() : undefined}
-                style={isMobile ? { width: '100%', maxHeight: '90vh', overflow: 'auto' } : {}}
-              >
-                <DetailPanel
-                  community={selected}
-                  onClose={() => setSelected(null)}
-                  isDark={isDark}
-                  isMobile={isMobile}
-                />
+
+              <h1 style={{
+                margin: '0 0 10px', fontSize: 30, fontWeight: 800,
+                letterSpacing: '-0.03em', color: t.text, lineHeight: 1.15,
+              }}>
+                Community Login
+              </h1>
+
+              <p style={{ margin: '0 0 32px', fontSize: 15, color: t.textMuted, lineHeight: 1.65 }}>
+                Visit your community at{' '}
+                <code style={{
+                  fontSize: 13, fontFamily: 'monospace', fontWeight: 700,
+                  color: 'var(--c-primary)',
+                  background: isDark ? 'rgba(255,255,255,0.06)' : 'rgb(var(--c-primary-rgb) / 0.08)',
+                  padding: '2px 7px', borderRadius: 6,
+                }}>
+                  /community/your-community-name
+                </code>
+              </p>
+
+              {/* Quick nav input */}
+              <div style={{
+                background: isDark ? '#1C1A12' : '#FFFFFF',
+                border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgb(var(--c-primary-rgb) / 0.14)'}`,
+                borderRadius: 16, padding: '20px 20px',
+                boxShadow: isDark
+                  ? '0 4px 20px rgba(0,0,0,0.4)'
+                  : '0 4px 20px rgba(0,0,0,0.07), 0 0 0 1px rgb(var(--c-primary-rgb) / 0.04)',
+                marginBottom: 24,
+              }}>
+                <label style={{
+                  display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 700,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: isDark ? '#7A6A52' : 'var(--c-primary-deep)',
+                  textAlign: 'left',
+                }}>
+                  Go to community
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <span style={{
+                      position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                      fontSize: 13, color: t.textMuted, pointerEvents: 'none', userSelect: 'none',
+                    }}>
+                      /community/
+                    </span>
+                    <input
+                      value={slug}
+                      onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      onKeyDown={e => { if (e.key === 'Enter') handleGo() }}
+                      onFocus={() => setSlugFocus(true)}
+                      onBlur={() => setSlugFocus(false)}
+                      placeholder="community-name"
+                      style={{
+                        width: '100%', height: 46, paddingLeft: 100, paddingRight: 12,
+                        fontSize: 14, fontFamily: 'inherit', borderRadius: 10,
+                        border: `1.5px solid ${slugFocus ? 'var(--c-primary)' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)')}`,
+                        background: slugFocus ? (isDark ? '#1C1A12' : '#FFFFFF') : (isDark ? '#141210' : '#FDFAF6'),
+                        color: t.text, outline: 'none', boxSizing: 'border-box',
+                        transition: 'border-color 0.15s, background 0.15s',
+                        boxShadow: slugFocus ? '0 0 0 3.5px rgb(var(--c-primary-rgb) / 0.11)' : 'none',
+                      }}
+                    />
+                  </div>
+                  <motion.button
+                    onClick={handleGo}
+                    disabled={!slug.trim()}
+                    whileHover={slug.trim() ? { scale: 1.04, boxShadow: '0 6px 20px rgb(var(--c-primary-rgb) / 0.42)' } : {}}
+                    whileTap={slug.trim() ? { scale: 0.96 } : {}}
+                    style={{
+                      height: 46, padding: '0 16px', borderRadius: 10, border: 'none',
+                      background: !slug.trim()
+                        ? 'rgb(var(--c-primary-rgb) / 0.45)'
+                        : 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
+                      color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+                      cursor: !slug.trim() ? 'default' : 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      boxShadow: slug.trim() ? '0 3px 12px rgb(var(--c-primary-rgb) / 0.38)' : 'none',
+                      transition: 'background 0.15s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    Go <IconArrowRight size={15} strokeWidth={2.5} />
+                  </motion.button>
+                </div>
               </div>
-            </div>
+
+              {/* Helper text */}
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: 10,
+                fontSize: 13.5, color: t.textMuted, lineHeight: 1.6,
+              }}>
+                <p style={{ margin: 0 }}>
+                  Already have an invite link? The link will take you directly to your community.
+                </p>
+                <p style={{ margin: 0 }}>
+                  Don&rsquo;t have a community?{' '}
+                  <button
+                    onClick={() => setShowCreate(true)}
+                    style={{
+                      background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                      color: 'var(--c-primary)', fontWeight: 700, fontFamily: 'inherit',
+                      fontSize: 'inherit', textDecoration: 'underline',
+                      textDecorationColor: 'rgb(var(--c-primary-rgb) / 0.4)',
+                    }}
+                  >
+                    Create one
+                  </button>
+                  {' '}or ask your admin to add you.
+                </p>
+              </div>
+
+            </motion.div>
           )}
         </AnimatePresence>
-
       </div>
     </div>
   )
 }
 
-export default function CommunityBrowserPage() {
+export default function CommunityPage() {
   return (
     <Suspense fallback={null}>
-      <CommunityBrowserInner />
+      <CommunityLandingInner />
     </Suspense>
   )
 }
