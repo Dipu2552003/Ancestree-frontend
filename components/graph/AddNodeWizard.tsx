@@ -15,7 +15,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getTheme } from '@/lib/theme'
 import { Z } from '@/lib/zIndex'
-import { compressPhoto } from '@/lib/image'
+import PhotoCropModal from './nodeEditor/PhotoCropModal'
 import {
   WizardHeader, WizardHero,
   StepName, StepGender, StepBirthdate, StepPhoto,
@@ -57,7 +57,7 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
   const [dateError,        setDateError]        = useState('')
   const [dateFieldFocused, setDateFieldFocused] = useState(false)
   const [photoUrl,         setPhotoUrl]         = useState<string | undefined>()
-  const [photoUploading,   setPhotoUploading]   = useState(false)
+  const [cropSrc,          setCropSrc]          = useState<string | null>(null)
   const [photoHovered,     setPhotoHovered]     = useState(false)
   const [dragOver,         setDragOver]         = useState(false)
   const [saving,           setSaving]           = useState(false)
@@ -176,10 +176,16 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
     }
   }, [relAction, fullName, gender, birthYear, birthMonth, birthDay, photoUrl, marriageStatus, unionYear, separationYear, needsParentChoice, multiSpouse, adoptionStatus, motherChoice, addBioParents, bioMotherName, bioFatherName, onAdd])
 
-  const processFile = async (file: File) => {
-    setPhotoUploading(true)
-    try { setPhotoUrl(await compressPhoto(file)) } catch {}
-    finally { setPhotoUploading(false) }
+  // Picking/dropping a file opens PhotoCropModal so the user can centre and
+  // zoom before it lands on the node. The modal exports an already-compressed
+  // 480px JPEG, so no separate compression pass is needed here.
+  const processFile = (file: File) => {
+    if (!file.type.startsWith('image/')) return
+    setCropSrc(URL.createObjectURL(file))
+  }
+
+  const closeCrop = () => {
+    setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null })
   }
 
   const parsedYear = parseInt(birthYear)
@@ -297,7 +303,7 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
               <StepPhoto
                 dir={dir} isDark={isDark} t={t} styles={styles}
                 fullName={fullName} photoUrl={photoUrl}
-                photoUploading={photoUploading} photoHovered={photoHovered}
+                photoUploading={false} photoHovered={photoHovered}
                 dragOver={dragOver} fileRef={fileRef}
                 saving={saving} saved={saved} isLastStep={isLastStep}
                 setPhotoUrl={setPhotoUrl} setPhotoHovered={setPhotoHovered}
@@ -362,6 +368,18 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
         </>
         )}
       </motion.div>
+
+      {cropSrc && (
+        <PhotoCropModal
+          src={cropSrc}
+          isDark={isDark}
+          onCancel={closeCrop}
+          onApply={(photo) => {
+            setPhotoUrl(photo)
+            closeCrop()
+          }}
+        />
+      )}
     </motion.div>
   )
 }
