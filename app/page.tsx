@@ -8,15 +8,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconSearch, IconLoader2, IconArrowRight, IconBinaryTree2 } from '@tabler/icons-react'
+import { IconSearch, IconLoader2, IconArrowRight, IconBinaryTree2, IconSun, IconMoon } from '@tabler/icons-react'
 import DotField from '@/components/graph/DotField'
+import { useGraphStore } from '@/store/graphStore'
+import { getTheme } from '@/lib/theme'
 import { api } from '@/lib/api'
 import type { SearchResult } from '@/lib/api'
 
 const SAFFRON = 'var(--c-primary)'
-const CREAM   = 'var(--c-page)'
-const INK     = '#252525'
-const MUTED   = '#6B6052'
 const SERIF   = 'var(--font-serif), Georgia, "Times New Roman", serif'
 const EASE     = [0.22, 1, 0.36, 1] as const
 
@@ -86,6 +85,16 @@ export default function Landing() {
   const [touched, setTouched] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
 
+  // Theme — shared with the rest of the app via the persisted UI store.
+  const { isDark, setIsDark } = useGraphStore()
+  const t      = getTheme(isDark)
+  const INK    = t.text
+  const MUTED  = t.textMuted
+  const CREAM  = t.pageBg
+  const surfaceBg   = isDark ? 'rgba(28,26,18,0.92)' : 'rgba(255,255,255,0.92)'
+  const inputBorder = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)'
+  const pageRgbWash = isDark ? '11 10 9' : 'var(--c-page-rgb)'
+
   // Typewriter runs only while the field is empty.
   const typed = useTypewriter(SUGGESTIONS, query.length === 0)
 
@@ -120,12 +129,12 @@ export default function Landing() {
       display: 'flex', flexDirection: 'column',
     }}>
       {/* ── Animated dot-field (same as /graph) ─────────────────────────────── */}
-      <DotField isDark={false} />
+      <DotField isDark={isDark} />
 
       {/* Soft radial wash to lift the centre off the dot grid */}
       <div aria-hidden style={{
         position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
-        background: 'radial-gradient(58% 50% at 50% 42%, rgb(var(--c-page-rgb) / 0.85) 0%, rgb(var(--c-page-rgb) / 0) 72%)',
+        background: `radial-gradient(58% 50% at 50% 42%, rgb(${pageRgbWash} / 0.85) 0%, rgb(${pageRgbWash} / 0) 72%)`,
       }} />
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
@@ -147,6 +156,21 @@ export default function Landing() {
           </span>
         </div>
         <nav style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => setIsDark(!isDark)}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Light mode' : 'Dark mode'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 38, height: 38, borderRadius: 10, cursor: 'pointer',
+              background: 'transparent', border: `1px solid ${inputBorder}`,
+              color: INK, marginRight: 2, transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
+          </button>
           <a href="/community" style={{ fontSize: 14, fontWeight: 600, color: INK, textDecoration: 'none', padding: '9px 14px', borderRadius: 10 }}>
             Communities
           </a>
@@ -200,12 +224,12 @@ export default function Landing() {
               style={{
                 width: '100%', height: 60, boxSizing: 'border-box',
                 padding: '0 18px 0 50px', fontSize: 16.5, fontFamily: 'inherit',
-                color: INK, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
-                border: `1.5px solid ${focused ? SAFFRON : 'rgba(0,0,0,0.10)'}`,
+                color: INK, background: surfaceBg, backdropFilter: 'blur(8px)',
+                border: `1.5px solid ${focused ? SAFFRON : inputBorder}`,
                 borderRadius: 18, outline: 'none',
                 boxShadow: focused
-                  ? '0 0 0 4px rgb(var(--c-primary-rgb) / 0.10), 0 12px 36px rgba(0,0,0,0.08)'
-                  : '0 12px 36px rgba(0,0,0,0.06)',
+                  ? `0 0 0 4px rgb(var(--c-primary-rgb) / 0.10), 0 12px 36px rgba(0,0,0,${isDark ? '0.5' : '0.08'})`
+                  : `0 12px 36px rgba(0,0,0,${isDark ? '0.45' : '0.06'})`,
                 transition: 'border-color 0.15s, box-shadow 0.2s',
               }}
             />
@@ -227,8 +251,8 @@ export default function Landing() {
                 transition={{ duration: 0.16 }}
                 style={{
                   position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 10,
-                  background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)',
-                  boxShadow: '0 16px 44px rgba(0,0,0,0.12)', overflow: 'hidden',
+                  background: t.cardBg, borderRadius: 16, border: `1px solid ${t.borderNeutral}`,
+                  boxShadow: `0 16px 44px rgba(0,0,0,${isDark ? '0.55' : '0.12'})`, overflow: 'hidden',
                   maxHeight: 340, overflowY: 'auto', textAlign: 'left',
                 }}
               >
@@ -241,9 +265,9 @@ export default function Landing() {
                         width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                         padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer',
                         textAlign: 'left', fontFamily: 'inherit',
-                        borderBottom: '1px solid rgba(0,0,0,0.05)',
+                        borderBottom: `1px solid ${t.borderNeutral}`,
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgb(var(--c-primary-rgb) / 0.05)')}
+                      onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgb(var(--c-primary-rgb) / 0.16)' : 'rgb(var(--c-primary-rgb) / 0.05)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                     >
                       <div style={{

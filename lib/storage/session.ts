@@ -52,3 +52,11 @@ export function getSelfPersonId(): string | null {
 export function getCommunityId(): string | null {
   return decodeJwtClaims()?.communityId ?? null
 }
+
+/** The slug of the community this session belongs to, if any. Written by
+ *  community login/signup (see community/[slug]/page.tsx) and cleared on sign-out. */
+export function getCommunitySlug(): string | null {
+  try {
+    return typeof window !== 'undefined' ? localStorage.getItem('community_slug') : null
+  } catch { return null }
+}

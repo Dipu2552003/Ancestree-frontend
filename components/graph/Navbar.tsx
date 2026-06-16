@@ -78,6 +78,9 @@ export default function Navbar({
   const handleLogout = () => {
     clearToken()
     localStorage.removeItem('user')
+    // Drop the community association so a normal sign-in isn't bounced back
+    // to /community/{slug}. Only a fresh community login should re-set this.
+    localStorage.removeItem('community_slug')
     router.replace('/login')
   }
 
@@ -114,10 +117,6 @@ export default function Navbar({
   const t = getTheme(isDark)
 
   const addEnabled = !!selectedNodeId
-  const addColor   = addEnabled ? 'var(--c-primary)' : (isDark ? '#4A3F35' : '#C4A882')
-  const addBg      = addEnabled
-    ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.15)' : 'rgb(var(--c-primary-rgb) / 0.08)')
-    : (isDark ? '#2A2520' : '#F5F0EA')
 
   const delEnabled = canDeleteSelected
   const delColor   = delEnabled ? '#EF4444' : (isDark ? '#4A3F35' : '#C4A882')
@@ -396,9 +395,9 @@ export default function Navbar({
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: isMobile ? 0 : '5px',
               padding: isMobile ? '8px 10px' : '8px 14px', borderRadius: '14px',
-              background: addBg, border: 'none',
-              color: addColor, fontFamily: 'inherit',
-              fontSize: '13px', fontWeight: 600,
+              background: actionBg(addOpen), border: 'none',
+              color: actionColor(addOpen), fontFamily: 'inherit',
+              fontSize: '13px', fontWeight: addOpen ? 700 : 500,
               cursor: addEnabled ? 'pointer' : 'default',
               transition: 'background 0.2s, color 0.2s',
               letterSpacing: '0.01em',

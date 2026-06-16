@@ -26,7 +26,7 @@
   --c-text-muted:       #6B6052;  /* secondary text (AA on Vanilla) */
 
   /* Action / emphasis — tone-based, no hue */
-  --c-primary:          #443A35;  /* Umber — CTAs, self node, active, focus */
+  --c-primary:          #7a6d69;  /* Umber — CTAs, self node, active, focus */
   --c-primary-rgb:      68 58 53;
   --c-primary-strong:   #252525;  /* Black — pressed, claimed nodes */
   --c-primary-strong-rgb: 37 37 37;

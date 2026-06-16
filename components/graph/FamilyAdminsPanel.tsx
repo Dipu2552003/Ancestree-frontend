@@ -8,10 +8,10 @@
 // can't be picked — only people who actually own their profile.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { IconX, IconShieldStar, IconPlus, IconLoader2, IconArrowLeft } from '@tabler/icons-react'
+import { IconX, IconShieldStar, IconPlus, IconLoader2, IconArrowLeft, IconLink, IconCopy, IconCheck } from '@tabler/icons-react'
 import type { Node } from '@xyflow/react'
 import { api, type FamilyAdmin } from '@/lib/api'
-import { getFamilyId } from '@/lib/storage'
+import { getFamilyId, getCommunitySlug } from '@/lib/storage'
 import { getTheme } from '@/lib/theme'
 import { getInitials } from '@/lib/format/initials'
 import { isGhostNodeId } from '@/lib/graph/ghostNodes'
@@ -36,6 +36,34 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
   const [picking,   setPicking]   = useState(false)
   const [addingId,  setAddingId]  = useState<string | null>(null)
   const [error,     setError]     = useState('')
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [copied,     setCopied]     = useState(false)
+
+  // Fetch the community's shareable invite link. The backend gates the join
+  // code behind community-admin permission, so a 403/failure simply leaves the
+  // control hidden for non-admins.
+  useEffect(() => {
+    const slug = getCommunitySlug()
+    if (!slug) return
+    let active = true
+    api.community.getJoinCode(slug)
+      .then(({ join_code }) => {
+        if (!active) return
+        const origin = typeof window !== 'undefined' ? window.location.origin : ''
+        setInviteLink(`${origin}/community/${slug}?code=${join_code}`)
+      })
+      .catch(() => { /* not a community admin — hide the invite control */ })
+    return () => { active = false }
+  }, [])
+
+  const handleCopy = useCallback(async () => {
+    if (!inviteLink) return
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch { /* clipboard blocked — the field is selectable as a fallback */ }
+  }, [inviteLink])
 
   const load = useCallback(async () => {
     if (!familyId) {
@@ -126,6 +154,49 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
         {loading && (
           <div style={{ padding: '32px', textAlign: 'center', color: t.textMuted, fontSize: '13px' }}>
             Loading…
+          </div>
+        )}
+
+        {/* ── Invite link (community admins only) ── */}
+        {inviteLink && !picking && (
+          <div style={{ padding: '14px 16px', borderBottom: `1px solid ${t.borderNeutral}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '7px' }}>
+              <IconLink size={14} color="var(--c-primary)" />
+              <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: t.textMuted }}>
+                Invite link
+              </span>
+            </div>
+            <p style={{ margin: '0 0 9px', fontSize: '11.5px', color: t.textMuted, lineHeight: 1.5 }}>
+              Share this link to invite new members. They confirm the code, then create their account.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                readOnly
+                value={inviteLink}
+                onFocus={e => e.currentTarget.select()}
+                style={{
+                  flex: 1, minWidth: 0, height: '36px', padding: '0 11px',
+                  fontSize: '12px', fontFamily: 'inherit', color: t.text,
+                  background: t.inputBg, border: `1px solid ${t.controlBorder}`,
+                  borderRadius: '8px', outline: 'none',
+                }}
+              />
+              <button
+                onClick={handleCopy}
+                style={{
+                  flexShrink: 0, height: '36px', padding: '0 12px', borderRadius: '8px',
+                  border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: '12.5px', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  background: copied ? '#16A34A' : 'var(--c-primary)', color: '#fff',
+                  transition: 'background 0.15s',
+                }}
+              >
+                {copied
+                  ? <><IconCheck size={14} /> Copied</>
+                  : <><IconCopy size={14} /> Copy</>}
+              </button>
+            </div>
           </div>
         )}
 

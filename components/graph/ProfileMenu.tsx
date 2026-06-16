@@ -59,6 +59,12 @@ export default function ProfileMenu({ isDark, isMobile }: Props) {
 
   const handleSignOut = useCallback(() => {
     clearToken()
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user')
+      // Drop the community association so a normal sign-in isn't bounced back
+      // to /community/{slug}. Only a fresh community login should re-set this.
+      localStorage.removeItem('community_slug')
+    }
     setOpen(false)
     router.replace('/login')
   }, [router])

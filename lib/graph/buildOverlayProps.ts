@@ -105,7 +105,14 @@ export function buildOverlayProps({
         await api.relationships.delete(realEdgeId(edgeId))
         await fetchGraph()
       },
-      onRequestAddRelation: () => s.setNavbarAddTrigger(c => c + 1),
+      onRequestAddRelation: () => {
+        // Close the edit panel before opening the navbar Add menu. On mobile the
+        // panel (z 111) sits above the navbar popup (z 110), so leaving it open
+        // would hide the Add-relation options behind it. selectedNodeId stays
+        // set, so the navbar Add button remains enabled.
+        s.setPanelMode('none')
+        s.setNavbarAddTrigger(c => c + 1)
+      },
     } : null,
 
     viewPanel: s.panelMode === 'view' && selectedNode ? {
