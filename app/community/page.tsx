@@ -4,7 +4,7 @@ import { useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  IconArrowRight, IconBuilding, IconSun, IconMoon,
+  IconArrowRight, IconBuilding, IconSun, IconMoon, IconBinaryTree2,
   IconPlus, IconX, IconArrowLeft, IconLoader2, IconEye, IconEyeOff,
   IconCopy, IconCheck,
 } from '@tabler/icons-react'
@@ -525,33 +525,57 @@ function CommunityLandingInner() {
       transition: 'background 0.35s ease',
     }}>
 
-      {/* Top bar */}
-      <div style={{
+      {/* Top bar — matches the landing page header */}
+      <header style={{
         position: 'sticky', top: 0, zIndex: 50,
         background: isDark ? 'rgba(11,10,9,0.88)' : 'rgb(var(--c-page-rgb) / 0.88)',
         backdropFilter: 'blur(12px)',
         borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgb(var(--c-primary-rgb) / 0.10)'}`,
-        padding: '0 24px',
+        padding: '0 clamp(20px, 6vw, 56px)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         height: 60,
       }}>
-        <span style={{ fontSize: 15, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>
-          Ancestree
-        </span>
-        <button
-          onClick={() => setIsDark(!isDark)}
-          title={isDark ? 'Light mode' : 'Dark mode'}
-          style={{
-            width: 38, height: 38, borderRadius: 8,
-            border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)'}`,
-            background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-            color: t.textMuted, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
-        </button>
-      </div>
+        <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
+          <div style={{
+            width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
+            boxShadow: '0 2px 8px rgb(var(--c-primary-rgb) / 0.32)',
+          }}>
+            <IconBinaryTree2 size={18} color="#fff" strokeWidth={2.2} />
+          </div>
+          <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.03em', color: t.text }}>
+            Ancestree
+          </span>
+        </a>
+        <nav style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => setIsDark(!isDark)}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Light mode' : 'Dark mode'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 38, height: 38, borderRadius: 10, cursor: 'pointer',
+              background: 'transparent',
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)'}`,
+              color: t.text, marginRight: 2, transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
+          </button>
+          <a href="/login" style={{ fontSize: 14, fontWeight: 600, color: t.text, textDecoration: 'none', padding: '9px 14px', borderRadius: 10 }}>
+            Sign in
+          </a>
+          <a href="/signup" style={{
+            fontSize: 14, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 18px', borderRadius: 10,
+            background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
+            boxShadow: '0 3px 12px rgb(var(--c-primary-rgb) / 0.32)',
+          }}>
+            Sign up
+          </a>
+        </nav>
+      </header>
 
       {/* Center content */}
       <div style={{
