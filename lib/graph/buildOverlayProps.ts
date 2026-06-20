@@ -63,6 +63,11 @@ interface BuildOverlayPropsArgs {
   /** Merge requests may only be started from the user's own tree, never while
    *  viewing another person's tree (perspective mode). */
   canMerge:           boolean
+  /** True when viewing via ?perspective= — suppresses the "You" treatment in the
+   *  profile view and labels relations against the anchor instead. */
+  isPerspective:      boolean
+  /** Display name of the perspective anchor (empty on the home tree). */
+  perspectiveName:    string
   fetchGraph:         () => Promise<void>
   /** Full reset + refetch — used after undo, which can add/remove whole family units. */
   resetAndFetch:      () => Promise<void>
@@ -76,7 +81,7 @@ interface BuildOverlayPropsArgs {
 export function buildOverlayProps({
   s, selectedNode, selectedNodeName, matchHighlightNode, anchorRealId,
   nodes, edges, rawNodes, rawEdges,
-  router, canMerge, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode, handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
+  router, canMerge, isPerspective, perspectiveName, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode, handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
 }: BuildOverlayPropsArgs): OverlayBundles {
   return {
     contextMenu: s.contextMenu && {
@@ -117,6 +122,8 @@ export function buildOverlayProps({
 
     viewPanel: s.panelMode === 'view' && selectedNode ? {
       node:   selectedNode,
+      isPerspective,
+      perspectiveName,
       onBack: () => s.setPanelMode('none'),
       onEdit: () => s.setPanelMode('edit'),
     } : null,

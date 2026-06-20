@@ -92,7 +92,9 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
   const baseSteps: StepId[] = impliedSpouseGender ? cfg.steps.filter(s => s !== 'gender') : cfg.steps
   const steps: StepId[] = needsParentChoice
     ? (() => {
-        const out: StepId[] = ['name', 'birthdate', 'photo', 'relationship']
+        const out: StepId[] = ['name', 'birthdate', 'photo']
+        // Both child and sibling adds skip the biological/adopted prompt and
+        // default to 'biological' (the adoptionStatus initial state).
         if (multiSpouse)                     out.push('mother')
         if (adoptionStatus === 'adopted')    out.push('bio-parents')
         return out

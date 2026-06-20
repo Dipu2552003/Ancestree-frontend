@@ -60,6 +60,9 @@ export interface PersonData {
   canDelete?: boolean
   canInvite?: boolean
   animDelay?: number
+  /** True when the tree is being viewed via ?perspective= (not the home tree).
+   *  The anchor node then shows a "Viewing" badge instead of "You". */
+  isPerspectiveView?: boolean
   nodeRole?: 'self' | 'spouse' | 'family'
   isMatchHighlight?: boolean
   isSelected?: boolean

@@ -232,6 +232,8 @@ function GraphInner() {
     // Merge requests start only from the user's own tree — not while viewing
     // another person's tree (perspective mode).
     canMerge: !perspectiveId,
+    isPerspective: !!perspectiveId,
+    perspectiveName,
     fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
     handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
   })

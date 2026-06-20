@@ -15,6 +15,11 @@ import { getInitials } from '@/lib/format/initials'
 
 interface PersonProfileViewProps {
   node: Node
+  /** True when viewing via ?perspective= — the "You"/relation-to-self labels
+   *  are suppressed and relations are expressed against the anchor instead. */
+  isPerspective?: boolean
+  /** Display name of the perspective anchor, e.g. "Jonas2". */
+  perspectiveName?: string
   onBack: () => void
   onEdit?: () => void
 }
@@ -31,13 +36,13 @@ function fmtDate(iso?: string): string | null {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function PersonProfileView({ node, onBack, onEdit }: PersonProfileViewProps) {
+export default function PersonProfileView({ node, isPerspective = false, perspectiveName = '', onBack, onEdit }: PersonProfileViewProps) {
   const { isDark } = useGraphStore()
   const isMobile = useIsMobile()
   const d = node.data as unknown as PersonData
   const {
     fullName, nickname, birthDate, birthYear, birthPlace, deathDate, deathYear,
-    deathPlace, isDeceased, isSelf, relationshipToSelf, photoUrl,
+    deathPlace, isDeceased, isSelf, isViewerNode, relationshipToSelf, photoUrl,
     photoThumbnailUrl, nodeState, gender, gotra, religion, bio,
     phone, whatsapp, email,
     currentAddress, currentCity, currentState, currentCountry, currentPincode,
@@ -52,9 +57,26 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
     return () => clearTimeout(id)
   }, [])
 
+  // The "You" treatment (saffron self colour, "This is you", "You" pill) belongs
+  // only to the logged-in user's node on their own home tree. In perspective mode
+  // (?perspective=…) the centred person is a subject being *viewed* — never "You",
+  // even if it happens to be the viewer's own node.
+  const showYou = isViewerNode && !isPerspective
+  // The anchor the perspective tree is centred on.
+  const isAnchor = isPerspective && isSelf
+  // Relations come back relative to the anchor in perspective mode, so we name
+  // the anchor explicitly: "Jonas2's father" instead of an implied "your father".
+  // The anchor itself has no meaningful relation (the backend returns "You"),
+  // so it gets no relation label — the "Viewing" pill already conveys it.
+  const relationLabel = relationshipToSelf && !isAnchor
+    ? (isPerspective && perspectiveName
+        ? `${perspectiveName}’s ${relationshipToSelf.toLowerCase()}`
+        : relationshipToSelf)
+    : ''
+
   // Avatar gradient (mirrors PersonNode state logic) — used for the initials fallback.
   let gFrom = '#C4A882', gTo = '#9A7B5A'
-  if (isSelf)                       { gFrom = 'var(--c-primary)'; gTo = 'var(--c-primary-strong)' }
+  if (showYou)                      { gFrom = 'var(--c-primary)'; gTo = 'var(--c-primary-strong)' }
   else if (isDeceased)              { gFrom = '#94A3B8'; gTo = '#64748B' }
   else if (nodeState === 'claimed') { gFrom = 'var(--c-primary-strong)'; gTo = 'var(--c-primary-deep)' }
   else if (nodeState === 'proxy')   { gFrom = 'var(--c-secondary)'; gTo = '#B45309' }
@@ -64,17 +86,20 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
   const hairline = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
   const accent   = 'var(--c-primary)'
 
-  // nodeState pill copy
-  const statePill = isSelf
+  // nodeState pill copy. Home tree → "You" for your own node; perspective anchor
+  // → "Viewing"; everyone else → their Ancestree status.
+  const statePill = showYou
     ? { text: 'You', bg: 'var(--c-primary)', fg: '#fff' }
-    : nodeState === 'claimed'
-      ? { text: 'On Ancestree', bg: isDark ? 'rgba(34,197,94,0.16)' : '#F0FDF4', fg: isDark ? '#4ADE80' : '#15803D' }
-      : nodeState === 'invited'
-        ? { text: 'Invite sent', bg: isDark ? 'rgba(234,179,8,0.16)' : '#FFFBEB', fg: isDark ? '#FCD34D' : '#B45309' }
-        : { text: 'Not on Ancestree yet', bg: isDark ? 'rgba(255,255,255,0.06)' : '#F4F1EC', fg: t.textMuted }
+    : isAnchor
+      ? { text: 'Viewing', bg: 'var(--c-primary)', fg: '#fff' }
+      : nodeState === 'claimed'
+        ? { text: 'On Ancestree', bg: isDark ? 'rgba(34,197,94,0.16)' : '#F0FDF4', fg: isDark ? '#4ADE80' : '#15803D' }
+        : nodeState === 'invited'
+          ? { text: 'Invite sent', bg: isDark ? 'rgba(234,179,8,0.16)' : '#FFFBEB', fg: isDark ? '#FCD34D' : '#B45309' }
+          : { text: 'Not on Ancestree yet', bg: isDark ? 'rgba(255,255,255,0.06)' : '#F4F1EC', fg: t.textMuted }
 
   // ── Derived copy ──
-  const subtitle = [isSelf ? 'This is you' : relationshipToSelf, occupation]
+  const subtitle = [showYou ? 'This is you' : relationLabel, occupation]
     .filter(Boolean).join('  ·  ')
 
   const vitals = birthYear
@@ -111,7 +136,8 @@ export default function PersonProfileView({ node, onBack, onEdit }: PersonProfil
   ].filter(Boolean) as { label: string; value: string }[]
 
   const identityRows = [
-    { label: 'Relation', value: isSelf ? 'You' : (relationshipToSelf || '—') },
+    // The anchor's relation to itself is meaningless — omit the row entirely.
+    !isAnchor && { label: 'Relation', value: showYou ? 'You' : (relationLabel || '—') },
     nickname && { label: 'Nickname', value: nickname },
     gender   && { label: 'Gender',   value: cap(gender) },
     religion && { label: 'Religion', value: cap(religion) },

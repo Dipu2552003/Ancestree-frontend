@@ -43,7 +43,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
   const gotraMode  = useGraphStore(s => s.gotraMode)
   const isNodeSelected = useGraphStore(s => s.activeNodeId === id)
   const person = data as unknown as PersonData
-  const { fullName, isDeceased, nodeState, isSelf, isViewerNode, relationshipToSelf, photoUrl, animDelay, isMatchHighlight } = person
+  const { fullName, isDeceased, nodeState, isSelf, isViewerNode, isPerspectiveView, relationshipToSelf, photoUrl, animDelay, isMatchHighlight } = person
   const firstName = fullName.trim().split(/\s+/)[0] ?? ''
   const [hovered, setHovered] = useState(false)
   const badge = ownerBadge(nodeState, isSelf, firstName, isDark)
@@ -151,9 +151,10 @@ function PersonNode({ id, data, selected }: NodeProps) {
       )}
 
       {/* Self/perspective badge — outside card, above it.
-          - isSelf && isViewerNode → user viewing own tree → "YOU" (solid)
-          - isSelf && !isViewerNode → user viewing someone else's tree → "VIEWING" (solid)
-          - !isSelf && isViewerNode → user appears somewhere in another tree → "YOU" (outline) */}
+          - home tree, own node → "YOU" (solid)
+          - perspective anchor (incl. your own node) → "VIEWING" (solid)
+          - home tree, your node appears elsewhere → "YOU" (outline)
+          In perspective mode the "You" treatment is suppressed everywhere. */}
       {isSelf && (
         <div style={{
           background: 'var(--c-primary)', color: '#fff',
@@ -162,10 +163,10 @@ function PersonNode({ id, data, selected }: NodeProps) {
           textTransform: 'uppercase' as const,
           boxShadow: '0 1px 4px rgb(var(--c-primary-rgb) / 0.35)',
         }}>
-          {isViewerNode ? 'You' : 'Viewing'}
+          {isViewerNode && !isPerspectiveView ? 'You' : 'Viewing'}
         </div>
       )}
-      {isViewerNode && !isSelf && (
+      {isViewerNode && !isSelf && !isPerspectiveView && (
         <div style={{
           background: 'transparent', color: 'var(--c-primary)',
           border: '1px solid var(--c-primary)',

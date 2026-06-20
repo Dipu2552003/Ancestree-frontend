@@ -60,9 +60,11 @@ export interface EditPanelOverlay {
 }
 
 export interface ViewPanelOverlay {
-  node:   Node
-  onBack: () => void
-  onEdit: () => void
+  node:            Node
+  isPerspective:   boolean
+  perspectiveName: string
+  onBack:          () => void
+  onEdit:          () => void
 }
 
 export interface DuplicateOverlay {
@@ -192,6 +194,8 @@ export default function GraphOverlays({
           <PersonProfileView
             key={viewPanel.node.id}
             node={viewPanel.node}
+            isPerspective={viewPanel.isPerspective}
+            perspectiveName={viewPanel.perspectiveName}
             onBack={viewPanel.onBack}
             onEdit={viewPanel.onEdit}
           />

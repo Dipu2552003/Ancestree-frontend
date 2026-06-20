@@ -75,7 +75,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
       const delays = bfsDelays(data.nodes, rawE)
       const rawN = data.nodes.map((n: Node) => ({
         ...n,
-        data: { ...(n.data as object), animDelay: delays.get(n.id) ?? 0 },
+        data: { ...(n.data as object), animDelay: delays.get(n.id) ?? 0, isPerspectiveView: !!perspectivePersonId },
       }))
 
       // Initialise collapse state BEFORE setting raw nodes so that both
