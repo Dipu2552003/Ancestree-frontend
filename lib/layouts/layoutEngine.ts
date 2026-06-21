@@ -51,18 +51,6 @@ interface CoupleUnit {
   gen:      number
 }
 
-function countDescendants(startIds: string[], childrenOf: Map<string, string[]>): number {
-  const queue = [...startIds]
-  const visited = new Set<string>()
-  while (queue.length) {
-    const id = queue.shift()!
-    if (visited.has(id)) continue
-    visited.add(id)
-    for (const c of childrenOf.get(id) ?? []) queue.push(c)
-  }
-  return visited.size
-}
-
 // ── Main export ───────────────────────────────────────────────────────────────
 export function layoutEngine(
   nodes: Node[],
@@ -274,12 +262,44 @@ export function layoutEngine(
       if (seen.has(id)) continue
       seen.add(id)
       for (const c of childrenOf.get(id) ?? []) queue.push(c)
+      // Walk DOWN through each married-in spouse too: a grandchild may be
+      // recorded only under the spouse (typically the mother), so its sole
+      // PARENT_OF edge bypasses the bloodline node. Enqueueing the spouse's
+      // children — but not re-walking the spouse's other spouses — keeps the
+      // self-guard complete without pulling in the spouse's unrelated partners.
       for (const s of spousesOf.get(id) ?? []) {
         if (s === needleId) return true
-        if (!seen.has(s)) seen.add(s)
+        if (seen.has(s)) continue
+        seen.add(s)
+        for (const c of childrenOf.get(s) ?? []) queue.push(c)
       }
     }
     return false
+  }
+
+  // Downward closure of a couple's subtree: every descendant reached via
+  // PARENT_OF, plus the married-in spouses on that bloodline AND any of their
+  // children (a grandchild is often recorded under only the mother's edge, so
+  // we must walk through the spouse or that branch detaches and floats). We do
+  // NOT re-walk a spouse's other spouses, so an unrelated prior partner of a
+  // married-in spouse is never pulled in. Computed per-couple and independent
+  // of the shared `collapsedDescendants` set, so nested collapses each report
+  // their full member count regardless of processing order.
+  function collectSubtree(childIds: string[]): Set<string> {
+    const out = new Set<string>()
+    const queue = [...childIds]
+    while (queue.length) {
+      const id = queue.shift()!
+      if (out.has(id)) continue
+      out.add(id)
+      for (const c of childrenOf.get(id) ?? []) queue.push(c)
+      for (const s of spousesOf.get(id) ?? []) {
+        if (out.has(s)) continue
+        out.add(s)
+        for (const c of childrenOf.get(s) ?? []) queue.push(c)
+      }
+    }
+    return out
   }
 
   for (const u of allUnits) {
@@ -297,18 +317,15 @@ export function layoutEngine(
     // Right person is merged into the collapsedCouple node — hide individually
     collapsedDescendants.add(u.right)
 
-    // BFS all children and their subtree — they are fully hidden
-    const queue = [...u.children]
-    while (queue.length) {
-      const id = queue.shift()!
-      if (collapsedDescendants.has(id)) continue
-      collapsedDescendants.add(id)
-      for (const c of childrenOf.get(id) ?? []) queue.push(c)
-      for (const s of spousesOf.get(id) ?? []) collapsedDescendants.add(s)
-    }
+    // Hide the couple's entire downward closure. Using collectSubtree (which
+    // walks through married-in spouses) instead of a plain children-only BFS
+    // is what stops deeper branches — kids recorded under only one parent —
+    // from escaping the hidden set and floating off as detached trees.
+    const subtree = collectSubtree(u.children)
+    for (const id of subtree) collapsedDescendants.add(id)
 
     u.hiddenChildCount = u.children.length
-    u.totalDescendants = countDescendants(u.children, childrenOf)
+    u.totalDescendants = subtree.size
     u.children = []
     u.collapsed = true
   }
