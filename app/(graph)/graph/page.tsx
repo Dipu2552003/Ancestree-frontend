@@ -267,7 +267,9 @@ function GraphInner() {
           if (isMobile) {
             const node = nodes.find(n => n.id === id)
             if (!node) return
-            s.setSelectedNodeId(null)
+            // Select the tapped node (without opening a panel) so the bottom
+            // navbar's actions activate for it, then show the action menu.
+            s.setSelectedNodeId(id)
             s.setPanelMode('none')
             s.setContextMenu({ nodeId: id, x: coords.x, y: coords.y, personData: asPersonData(node.data) })
             return
