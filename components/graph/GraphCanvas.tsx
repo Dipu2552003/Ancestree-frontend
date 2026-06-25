@@ -28,7 +28,7 @@ interface GraphCanvasProps {
   edges: Edge[]
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
-  onNodeClick: (nodeId: string) => void
+  onNodeClick: (nodeId: string, coords: { x: number; y: number }) => void
   onNodeContextMenu?: (event: MouseEvent, nodeId: string) => void
   onPaneClick?: () => void
 }
@@ -38,7 +38,8 @@ export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange
   const isMobile = useIsMobile()
   const { rotateX, rotateY, handleMouseMove, handleMouseLeave } = useTiltEffect()
 
-  const handleNodeClick: NodeMouseHandler = (_event, node) => onNodeClick(node.id)
+  const handleNodeClick: NodeMouseHandler = (event, node) =>
+    onNodeClick(node.id, { x: event.clientX, y: event.clientY })
 
   const handleNodeContextMenu: NodeMouseHandler = (event, node) => {
     event.preventDefault()

@@ -19,7 +19,7 @@ interface GraphCanvasAreaProps {
   onNodesChange:     (changes: NodeChange[]) => void
   onEdgesChange:     (changes: EdgeChange[]) => void
   onPaneClick:       () => void
-  onNodeClick:       (nodeId: string) => void
+  onNodeClick:       (nodeId: string, coords: { x: number; y: number }) => void
   onNodeContextMenu: (event: MouseEvent, nodeId: string) => void
 }
 

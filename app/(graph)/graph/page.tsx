@@ -251,7 +251,7 @@ function GraphInner() {
           s.setSelectedNodeId(null)
           s.setPanelMode('none')
         }}
-        onNodeClick={id => {
+        onNodeClick={(id, coords) => {
           s.setContextMenu(null)
           if (id.startsWith('couple_')) return
           // Synthetic UI chips (load-more) handle their own click — don't open the panel.
@@ -259,6 +259,17 @@ function GraphInner() {
           // In exploration mode, clicking the highlighted node opens the merge comparison panel.
           if (isExploration && matchHighlightNode && id === matchHighlightNode.id) {
             s.setMatchPanelOpen(true)
+            return
+          }
+          // On touch devices a tap opens the same action menu that right-click
+          // opens on desktop — long-press is unreliable on iOS (the system
+          // callout/selection gesture cancels it before it can fire).
+          if (isMobile) {
+            const node = nodes.find(n => n.id === id)
+            if (!node) return
+            s.setSelectedNodeId(null)
+            s.setPanelMode('none')
+            s.setContextMenu({ nodeId: id, x: coords.x, y: coords.y, personData: asPersonData(node.data) })
             return
           }
           s.setSelectedNodeId(prev => {
