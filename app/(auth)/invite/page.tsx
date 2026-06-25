@@ -43,6 +43,7 @@ const COPY = {
     pwPh:         'At least 8 characters',
     displayLabel: 'Display name',
     displayPh:    'How your name appears in the tree',
+    dobLabel:     'Date of birth',
 
     back:         'Back',
 
@@ -50,6 +51,7 @@ const COPY = {
     errEmail:     'Enter a valid email address',
     errPwLen:     'Password must be at least 8 characters',
     errDisplay:   'Enter a display name',
+    errDob:       'Enter your date of birth',
     errNetwork:   'Could not reach the server. Please try again.',
   },
   hi: {
@@ -82,6 +84,7 @@ const COPY = {
     pwPh:         'कम से कम 8 अक्षर',
     displayLabel: 'प्रदर्शित नाम',
     displayPh:    'पेड़ में आपका नाम कैसा दिखेगा',
+    dobLabel:     'जन्म तिथि',
 
     back:         'वापस',
 
@@ -89,6 +92,7 @@ const COPY = {
     errEmail:     'एक वैध ईमेल दर्ज करें',
     errPwLen:     'पासवर्ड कम से कम 8 अक्षर का होना चाहिए',
     errDisplay:   'प्रदर्शित नाम दर्ज करें',
+    errDob:       'अपनी जन्म तिथि दर्ज करें',
     errNetwork:   'सर्वर तक नहीं पहुँच सका। पुनः प्रयास करें।',
   },
 } as const
@@ -155,6 +159,9 @@ function InviteInner() {
   const [displayName,  setDisplayName]  = useState('')
   const [displayErr,   setDisplayErr]   = useState('')
   const [displayFocus, setDisplayFocus] = useState(false)
+  const [dob,          setDob]          = useState('')
+  const [dobErr,       setDobErr]       = useState('')
+  const [dobFocus,     setDobFocus]     = useState(false)
   const [topErr,       setTopErr]       = useState('')
 
   const t = getTheme(isDark)
@@ -215,10 +222,15 @@ function InviteInner() {
 
   // ── Step 2: claim (authed flow) ─────────────────────────────────────────────
   const handleClaimAuthed = async () => {
+    if (!dob) { setDobErr(c.errDob); return }
+    setDobErr('')
     setLoading(true); setTopErr('')
     try {
       const result = await api.invite.claim(token.trim())
       setToken(result.token)             // refreshed JWT scoped to new family
+      // claim() doesn't take a birth date, so persist the collected DOB onto the
+      // now-claimed person node. Non-fatal: it can be edited later in the profile.
+      try { await api.persons.update(result.person_id, { birth_date: dob }) } catch { /* non-fatal */ }
       router.push('/graph')
     } catch (err) {
       setLoading(false)
@@ -236,14 +248,22 @@ function InviteInner() {
     else setEmailErr('')
     if (password.length < 8) { setPwErr(c.errPwLen); ok = false } else setPwErr('')
     if (!dn) { setDisplayErr(c.errDisplay); ok = false } else setDisplayErr('')
+    if (!dob) { setDobErr(c.errDob); ok = false } else setDobErr('')
     if (!ok) return
 
     setLoading(true); setTopErr('')
     try {
-      const { token: jwt } = await api.invite.signupAndClaim({
+      const { token: jwt, user } = await api.invite.signupAndClaim({
         email: e, password, display_name: dn, invite_token: token.trim(),
       })
       setToken(jwt)
+      // signup-and-claim doesn't take a birth date, so persist the collected DOB
+      // onto the now-claimed person node. Non-fatal: it can be edited later in the
+      // profile if this patch fails for any reason.
+      try {
+        const personId = (user?.person_id as string | undefined) ?? (await api.auth.me()).person_id
+        if (personId) await api.persons.update(personId, { birth_date: dob })
+      } catch { /* non-fatal */ }
       router.push('/graph')
     } catch (err) {
       setLoading(false)
@@ -445,9 +465,33 @@ function InviteInner() {
                 </div>
               </div>
 
-              {/* Authed path — single CTA */}
+              {/* Authed path — confirm DOB, then claim */}
               {authed && (
                 <>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted }}>
+                      {c.dobLabel} <span style={{ color: 'var(--c-primary)' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={dob}
+                      min="1900-01-01"
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={e => { setDob(e.target.value); setDobErr('') }}
+                      onFocus={() => setDobFocus(true)}
+                      onBlur={() => setDobFocus(false)}
+                      style={{ ...inputStyle(dobFocus, !!dobErr), colorScheme: isDark ? 'dark' : 'light' }}
+                    />
+                    <AnimatePresence>
+                      {dobErr && (
+                        <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
+                          {dobErr}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
                   <motion.button
                     onClick={handleClaimAuthed} disabled={loading}
                     whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
@@ -501,6 +545,30 @@ function InviteInner() {
                         <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                           style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
                           {displayErr}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted }}>
+                      {c.dobLabel} <span style={{ color: 'var(--c-primary)' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={dob}
+                      min="1900-01-01"
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={e => { setDob(e.target.value); setDobErr('') }}
+                      onFocus={() => setDobFocus(true)}
+                      onBlur={() => setDobFocus(false)}
+                      style={{ ...inputStyle(dobFocus, !!dobErr), colorScheme: isDark ? 'dark' : 'light' }}
+                    />
+                    <AnimatePresence>
+                      {dobErr && (
+                        <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          style={{ margin: '5px 0 0', fontSize: 11.5, color: '#EF4444' }}>
+                          {dobErr}
                         </motion.p>
                       )}
                     </AnimatePresence>

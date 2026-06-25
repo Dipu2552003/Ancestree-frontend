@@ -114,16 +114,16 @@ export const PERSON_FIELDS: Record<string, FieldDef> = {
     label: { en: 'Gender', hi: 'लिंग' },
   },
   birth_date: {
-    id: 'birth_date', column: 'birth_date', type: 'date',
+    id: 'birth_date', column: 'birth_date', type: 'date', required: true,
     label: { en: 'Date of birth', hi: 'जन्म तिथि' },
   },
 }
 
 // ── Field sets — which fields each tree type collects at signup ──────────────
 export const SIGNUP_FIELD_SETS: Record<TreeType, readonly string[]> = {
-  public:    ['first_name', 'middle_name', 'last_name', 'current_address', 'native_village'],
-  private:   ['first_name', 'middle_name', 'last_name', 'current_address', 'native_village'],
-  community: ['first_name', 'middle_name', 'last_name', 'current_address', 'native_village_select', 'gotra'],
+  public:    ['first_name', 'middle_name', 'last_name', 'birth_date', 'current_address', 'native_village'],
+  private:   ['first_name', 'middle_name', 'last_name', 'birth_date', 'current_address', 'native_village'],
+  community: ['first_name', 'middle_name', 'last_name', 'birth_date', 'current_address', 'native_village_select', 'gotra'],
 }
 
 // ── Helpers (pure) ───────────────────────────────────────────────────────────
