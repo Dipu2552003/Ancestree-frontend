@@ -87,6 +87,7 @@ export function buildOverlayProps({
     contextMenu: s.contextMenu && {
       ...s.contextMenu,
       canMerge,
+      onViewProfile: () => { s.setSelectedNodeId(s.contextMenu!.nodeId); s.setPanelMode('view') },
       onViewTree: () => router.push(`/graph?perspective=${s.contextMenu!.nodeId}`),
       onEdit:     () => { s.setSelectedNodeId(s.contextMenu!.nodeId); s.setPanelMode('edit') },
       onMergeNode: () => {

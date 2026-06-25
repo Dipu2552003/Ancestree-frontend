@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, type ReactNode } from 'react'
-import { IconEye, IconPencil, IconGitMerge } from '@tabler/icons-react'
+import { IconEye, IconPencil, IconGitMerge, IconUserCircle } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
 
@@ -17,6 +17,7 @@ interface NodeContextMenuProps {
   canMerge: boolean
   isSelf: boolean
   isViewerNode?: boolean
+  onViewProfile: () => void
   onViewTree: () => void
   onEdit: () => void
   onMergeNode: () => void
@@ -26,7 +27,7 @@ interface NodeContextMenuProps {
 export default function NodeContextMenu({
   nodeId, x, y, personName, gender,
   canEdit, canMerge, isSelf, isViewerNode,
-  onViewTree, onEdit, onMergeNode, onClose,
+  onViewProfile, onViewTree, onEdit, onMergeNode, onClose,
 }: NodeContextMenuProps) {
   const { isDark } = useGraphStore()
   const t = getTheme(isDark)
@@ -58,7 +59,8 @@ export default function NodeContextMenu({
   // Clamp to viewport
   // Base: header (~50px) + list padding (8px) = 58px. Each item ~34px.
   const MENU_W = 220
-  const itemCount = (canMerge ? 1 : 0)
+  const itemCount = 1 // View profile — always present
+    + (canMerge ? 1 : 0)
     + (!isSelf && !isViewerNode ? 1 : 0)
     + (canEdit ? 1 : 0)
   const MENU_H = 58 + itemCount * 34
@@ -125,6 +127,7 @@ export default function NodeContextMenu({
 
       {/* Menu items */}
       <div role="presentation" style={{ padding: '4px' }}>
+        {item(<IconUserCircle size={14} />, 'View profile', onViewProfile)}
         {!isSelf && !isViewerNode && item(<IconEye size={14} />, treeLinkLabel, onViewTree)}
         {canEdit && item(<IconPencil size={14} />, 'Edit details', onEdit)}
         {canMerge && item(<IconGitMerge size={14} />, 'Merge node', onMergeNode)}

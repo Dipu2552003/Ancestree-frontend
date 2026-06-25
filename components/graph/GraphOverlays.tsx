@@ -41,6 +41,7 @@ export interface ContextMenuOverlay {
   personData:    PersonData
   /** Whether a merge request may be started here (own tree only). */
   canMerge:      boolean
+  onViewProfile: () => void
   onViewTree:    () => void
   onEdit:        () => void
   onMergeNode:   () => void
@@ -163,6 +164,7 @@ export default function GraphOverlays({
           canMerge={contextMenu.canMerge}
           isSelf={contextMenu.personData.isSelf}
           isViewerNode={contextMenu.personData.isViewerNode ?? false}
+          onViewProfile={contextMenu.onViewProfile}
           onViewTree={contextMenu.onViewTree}
           onEdit={contextMenu.onEdit}
           onMergeNode={contextMenu.onMergeNode}
