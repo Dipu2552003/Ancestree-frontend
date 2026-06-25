@@ -10,7 +10,7 @@ type UserSession = {
 
 export const auth = {
   checkEmail: (email: string) =>
-    req<{ exists: boolean }>('/api/auth/check-email', {
+    req<{ exists: boolean; community_slug?: string }>('/api/auth/check-email', {
       method: 'POST', body: JSON.stringify({ email }),
     }),
 

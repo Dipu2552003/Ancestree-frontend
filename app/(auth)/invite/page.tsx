@@ -129,11 +129,19 @@ function InviteInner() {
   const [authed, setAuthed] = useState(false)
   useEffect(() => { setAuthed(!!getToken()) }, [])
 
+  // A link of the form /invite?token=… should skip the manual code step entirely:
+  // look the token up on mount and jump straight to the preview/claim step.
+  useEffect(() => {
+    const urlToken = params.get('token')
+    if (urlToken) handleLookup(urlToken)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const [step,     setStep]     = useState<Step>('token')
   const [token,    setToken_]   = useState(params.get('token') ?? '')
   const [tokenErr, setTokenErr] = useState('')
   const [focus,    setFocus]    = useState(false)
-  const [loading,  setLoading]  = useState(false)
+  const [loading,  setLoading]  = useState(!!params.get('token'))
   const [preview,  setPreview]  = useState<LookupResult | null>(null)
 
   // Inline signup fields (only shown when !authed)
@@ -189,8 +197,8 @@ function InviteInner() {
   })
 
   // ── Step 1: lookup ──────────────────────────────────────────────────────────
-  const handleLookup = async () => {
-    const code = token.trim()
+  const handleLookup = async (codeArg?: string) => {
+    const code = (codeArg ?? token).trim()
     if (!code) { setTokenErr(c.errToken); return }
     setTokenErr(''); setLoading(true)
     try {
@@ -363,7 +371,7 @@ function InviteInner() {
               </div>
 
               <motion.button
-                onClick={handleLookup} disabled={loading}
+                onClick={() => handleLookup()} disabled={loading}
                 whileHover={!loading ? { scale: 1.015, boxShadow: '0 6px 22px rgb(var(--c-primary-rgb) / 0.44)' } : {}}
                 whileTap={!loading ? { scale: 0.985 } : {}}
                 style={ctaStyle(loading)}

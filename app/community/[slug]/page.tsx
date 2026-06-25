@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconArrowLeft, IconLoader2, IconEye, IconEyeOff, IconCircleCheck, IconTicket } from '@tabler/icons-react'
@@ -167,6 +167,21 @@ function CommunityPageInner() {
       .catch(() => setCommunityStatus('error'))
   }, [slug])
 
+  // A node-claim code (persons.invite_token) is 8 hex chars and belongs to a
+  // different invite system than community codes. If a code fails community
+  // validation but looks like a node code and resolves via the node-claim
+  // lookup, send the user to /invite — where that code actually works.
+  const tryNodeCodeRedirect = useCallback(async (code: string): Promise<boolean> => {
+    if (!/^[0-9a-fA-F]{8}$/.test(code)) return false
+    try {
+      await api.invite.lookup(code)
+    } catch {
+      return false
+    }
+    router.replace(`/invite?token=${encodeURIComponent(code)}`)
+    return true
+  }, [router])
+
   // When an invite code arrives in the URL, confirm it against the community so
   // the invitee gets immediate feedback that the link is valid (and their role).
   useEffect(() => {
@@ -175,8 +190,11 @@ function CommunityPageInner() {
     setInviteCheck('checking')
     api.community.validateInvite(slug, code)
       .then(info => { setInviteCheck('valid'); setInviteRole(info.role) })
-      .catch(() => setInviteCheck('invalid'))
-  }, [slug, search])
+      .catch(async () => {
+        if (await tryNodeCodeRedirect(code)) return
+        setInviteCheck('invalid')
+      })
+  }, [slug, search, tryNodeCodeRedirect])
 
   const lv = {
     cardBg:       isDark ? '#1C1A12' : '#FFFFFF',
@@ -248,6 +266,7 @@ function CommunityPageInner() {
       setInviteCheck('valid'); setInviteRole(info.role)
       setInviteStep('join')
     } catch {
+      if (await tryNodeCodeRedirect(code)) return
       setInviteCheck('invalid')
       setFormErr(c.inviteBad)
     } finally {
@@ -276,6 +295,7 @@ function CommunityPageInner() {
       }
       router.push('/graph')
     } catch (err) {
+      if (await tryNodeCodeRedirect(inviteCode.trim())) return
       setLoading(false)
       setFormErr((err as Error).message || c.errNetwork)
     }

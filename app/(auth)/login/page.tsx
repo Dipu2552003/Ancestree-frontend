@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconLoader2, IconEye, IconEyeOff } from '@tabler/icons-react'
@@ -32,6 +32,7 @@ const COPY = {
     errEmail:    'Enter a valid email address',
     errPw:       'Enter your password',
     errNoAcct:   'No account found for this email.',
+    errCommunity:'You are a community member. Please sign in from your community page.',
     errBadCreds: 'Invalid email or password',
     errNetwork:  'Could not reach the server. Please try again.',
     signupCta:   'Create one',
@@ -62,6 +63,7 @@ const COPY = {
     errEmail:    'एक वैध ईमेल दर्ज करें',
     errPw:       'पासवर्ड दर्ज करें',
     errNoAcct:   'इस ईमेल से कोई खाता नहीं मिला।',
+    errCommunity:'आप एक समुदाय सदस्य हैं। कृपया अपने समुदाय पेज से साइन इन करें।',
     errBadCreds: 'गलत ईमेल या पासवर्ड',
     errNetwork:  'सर्वर तक नहीं पहुँच सका। पुनः प्रयास करें।',
     signupCta:   'खाता बनाएँ',
@@ -92,15 +94,9 @@ export default function LoginPage() {
   const [lang,      setLang]      = useState<AuthLang>('en')
   const [[step, dir], setStepDir] = useState<[Step, number]>(['email', 1])
 
-  // Community users must log in from their community page, not here.
-  // If we find a stored community slug, redirect them back immediately.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const communitySlug = localStorage.getItem('community_slug')
-    if (communitySlug) {
-      router.replace(`/community/${communitySlug}`)
-    }
-  }, [router])
+  // Community accounts aren't redirected away from here — entering a community
+  // email surfaces an inline error (see handleContinue) telling them to sign in
+  // from their community page.
   const [email,     setEmail]     = useState('')
   const [emailErr,  setEmailErr]  = useState('')
   const [emailNotFound, setEmailNotFound] = useState(false)
@@ -161,10 +157,17 @@ export default function LoginPage() {
     }
     setEmailErr(''); setEmailNotFound(false); setLoading(true)
     try {
-      const { exists } = await api.auth.checkEmail(trimmed)
+      const { exists, community_slug } = await api.auth.checkEmail(trimmed)
       if (!exists) {
         setEmailNotFound(true)
         setEmailErr(c.errNoAcct)
+        setLoading(false)
+        return
+      }
+      // Community accounts can't use the platform login — show an error telling
+      // them to sign in from their community page (don't advance, don't redirect).
+      if (community_slug) {
+        setEmailErr(c.errCommunity)
         setLoading(false)
         return
       }
