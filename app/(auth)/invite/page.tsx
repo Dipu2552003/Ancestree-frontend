@@ -10,6 +10,8 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, getToken, setToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
+import { DynamicFields } from '@/components/forms/DynamicField'
+import { fieldsFor, resolveFieldValue, validateFields, PERSON_FIELDS } from '@/lib/forms/personFields'
 
 // ── Bilingual copy ────────────────────────────────────────────────────────────
 const COPY = {
@@ -162,6 +164,10 @@ function InviteInner() {
   const [dob,          setDob]          = useState('')
   const [dobErr,       setDobErr]       = useState('')
   const [dobFocus,     setDobFocus]     = useState(false)
+  // Gotra uses the shared config-driven dropdown (curated list + "Other"), so it
+  // lives in a small values/errors map keyed by field id like the signup form.
+  const [gotraValues,  setGotraValues]  = useState<Record<string, string>>({})
+  const [gotraErrs,    setGotraErrs]    = useState<Record<string, string>>({})
   const [topErr,       setTopErr]       = useState('')
 
   const t = getTheme(isDark)
@@ -249,7 +255,11 @@ function InviteInner() {
     if (password.length < 8) { setPwErr(c.errPwLen); ok = false } else setPwErr('')
     if (!dn) { setDisplayErr(c.errDisplay); ok = false } else setDisplayErr('')
     if (!dob) { setDobErr(c.errDob); ok = false } else setDobErr('')
+    const gErrs = validateFields(['gotra'], gotraValues, lang)
+    if (Object.keys(gErrs).length > 0) { setGotraErrs(gErrs); ok = false } else setGotraErrs({})
     if (!ok) return
+
+    const gotra = resolveFieldValue(PERSON_FIELDS.gotra, gotraValues)
 
     setLoading(true); setTopErr('')
     try {
@@ -257,12 +267,12 @@ function InviteInner() {
         email: e, password, display_name: dn, invite_token: token.trim(),
       })
       setToken(jwt)
-      // signup-and-claim doesn't take a birth date, so persist the collected DOB
-      // onto the now-claimed person node. Non-fatal: it can be edited later in the
-      // profile if this patch fails for any reason.
+      // signup-and-claim doesn't take birth date / gotra, so persist the collected
+      // values onto the now-claimed person node. Non-fatal: they can be edited
+      // later in the profile if this patch fails for any reason.
       try {
         const personId = (user?.person_id as string | undefined) ?? (await api.auth.me()).person_id
-        if (personId) await api.persons.update(personId, { birth_date: dob })
+        if (personId) await api.persons.update(personId, { birth_date: dob, gotra })
       } catch { /* non-fatal */ }
       router.push('/graph')
     } catch (err) {
@@ -573,6 +583,16 @@ function InviteInner() {
                       )}
                     </AnimatePresence>
                   </div>
+
+                  {/* Gotra — required, curated dropdown shared with the signup form */}
+                  <DynamicFields
+                    fields={fieldsFor(['gotra'])}
+                    values={gotraValues}
+                    errors={gotraErrs}
+                    isDark={isDark}
+                    lang={lang}
+                    onChange={(id, v) => { setGotraValues(p => ({ ...p, [id]: v })); setGotraErrs({}) }}
+                  />
 
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted }}>

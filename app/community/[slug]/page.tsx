@@ -10,6 +10,8 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, setToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
+import { DynamicFields } from '@/components/forms/DynamicField'
+import { fieldsFor, resolveFieldValue, validateFields, PERSON_FIELDS } from '@/lib/forms/personFields'
 
 const COPY = {
   en: {
@@ -142,6 +144,9 @@ function CommunityPageInner() {
   const [signupName,    setSignupName]    = useState('')
   const [signupPw,      setSignupPw]      = useState('')
   const [signupConfirm, setSignupConfirm] = useState('')
+  // Gotra uses the shared config-driven dropdown (curated list + "Other").
+  const [gotraValues,   setGotraValues]   = useState<Record<string, string>>({})
+  const [gotraErrs,     setGotraErrs]     = useState<Record<string, string>>({})
   const [inviteCode,    setInviteCode]    = useState(search?.get('code') ?? '')
   // Validation of an invite arriving via ?code= so the invitee sees it's recognised.
   const [inviteCheck,   setInviteCheck]   = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle')
@@ -280,6 +285,10 @@ function CommunityPageInner() {
     if (signupPw.length < 8) { setFormErr(c.errPwLen); return }
     if (signupPw !== signupConfirm) { setFormErr(c.errPwMatch); return }
     if (!inviteCode.trim()) { setFormErr(c.errInvite); return }
+    const gErrs = validateFields(['gotra'], gotraValues, lang)
+    if (Object.keys(gErrs).length > 0) { setGotraErrs(gErrs); setFormErr(''); return }
+    setGotraErrs({})
+    const gotra = resolveFieldValue(PERSON_FIELDS.gotra, gotraValues)
     setFormErr(''); setLoading(true)
     try {
       const { token, user } = await api.community.signup(slug, {
@@ -289,6 +298,9 @@ function CommunityPageInner() {
         invite_code:  inviteCode.trim(),
       })
       setToken(token)
+      // community.signup doesn't take gotra, so persist it onto the new member's
+      // person node. Non-fatal: it stays editable in the profile.
+      try { await api.persons.update(user.person_id, { gotra }) } catch { /* non-fatal */ }
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify({ person_id: user.person_id, family_id: user.family_id }))
         localStorage.setItem('community_slug', slug)
@@ -480,6 +492,16 @@ function CommunityPageInner() {
                   <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: th.textMuted }}>{c.confirmLabel}</label>
                   <input type={showPw ? 'text' : 'password'} value={signupConfirm} onChange={e => { setSignupConfirm(e.target.value); setFormErr('') }} onKeyDown={e => { if (e.key === 'Enter') handleSignup() }} onFocus={() => setPw2Focus(true)} onBlur={() => setPw2Focus(false)} placeholder={c.confirmPh} autoComplete="new-password" style={inputStyle(pw2Focus, false)} />
                 </div>
+
+                {/* Gotra — required, curated dropdown shared with the signup form */}
+                <DynamicFields
+                  fields={fieldsFor(['gotra'])}
+                  values={gotraValues}
+                  errors={gotraErrs}
+                  isDark={isDark}
+                  lang={lang}
+                  onChange={(id, v) => { setGotraValues(p => ({ ...p, [id]: v })); setGotraErrs({}) }}
+                />
 
                 <AnimatePresence>
                   {formErr && (
@@ -798,6 +820,16 @@ function CommunityPageInner() {
                   </p>
                 ) : null}
               </div>
+
+              {/* Gotra — required, curated dropdown shared with the signup form */}
+              <DynamicFields
+                fields={fieldsFor(['gotra'])}
+                values={gotraValues}
+                errors={gotraErrs}
+                isDark={isDark}
+                lang={lang}
+                onChange={(id, v) => { setGotraValues(p => ({ ...p, [id]: v })); setGotraErrs({}) }}
+              />
 
               <AnimatePresence>
                 {formErr && (
