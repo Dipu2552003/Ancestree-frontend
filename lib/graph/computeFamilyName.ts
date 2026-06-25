@@ -10,7 +10,7 @@ import type { PersonData, EdgeData } from '@/types'
  *  - Among roots: males first, then lowest birthYear (oldest)
  *  - Returns "{firstName} Family"
  *
- * For married women the caller passes the already-filtered (piyar or mayka)
+ * For married women the caller passes the already-filtered (sasural or mayka)
  * nodes/edges, so the correct side's family name is computed automatically.
  */
 export function computeFamilyName(nodes: Node[], edges: Edge[]): string {

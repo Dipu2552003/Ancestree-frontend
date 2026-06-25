@@ -90,9 +90,9 @@ function PublicTreeInner() {
   // ── Layout pipeline (pure) ────────────────────────────────────────────────
   const { laidOutNodes, displayEdges } = useMemo(() => {
     if (rawNodes.length === 0) return { laidOutNodes: [] as Node[], displayEdges: [] as Edge[] }
-    const { nodes: fNodes, edges: fEdges, isMarriedWoman } = filterGraphBySide(rawNodes, rawEdges, 'piyar')
+    const { nodes: fNodes, edges: fEdges, isMarriedWoman } = filterGraphBySide(rawNodes, rawEdges, 'sasural')
     const { nodes: gNodes, edges: gEdges } = injectGhostsForIntraFamilyMarriages(fNodes, fEdges)
-    // Mirror useGraphData's default: a married woman's piyar view anchors on her spouse.
+    // Mirror useGraphData's default: a married woman's sasural view anchors on her spouse.
     const perspective = isMarriedWoman ? 'spouse' : 'self'
     const laid = layoutEngine(gNodes, gEdges, perspective, new Set())
     return { laidOutNodes: laid, displayEdges: buildDisplayEdges(laid, gEdges) }

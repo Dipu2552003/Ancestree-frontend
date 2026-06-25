@@ -314,7 +314,7 @@ export default function Navbar({
         )}
       </AnimatePresence>
 
-      {/* ── Mayka / Piyar toggle (married women only) ── */}
+      {/* ── Mayka / Sasural toggle (married women only) ── */}
       {isMarriedWoman && (
         <motion.div
           initial={{ opacity: 0, y: 6, scale: 0.97 }}
@@ -331,13 +331,13 @@ export default function Navbar({
             gap: '2px',
           }}
         >
-          {(['piyar', 'mayka'] as WomanView[]).map(v => {
+          {(['sasural', 'mayka'] as WomanView[]).map(v => {
             const active = womanView === v
             return (
               <button
                 key={v}
                 onClick={() => onWomanViewChange(v)}
-                title={v === 'piyar' ? 'Piyar — husband\'s family side' : 'Mayka — birth / parents\' side'}
+                title={v === 'sasural' ? 'Sasural — husband\'s family side' : 'Mayka — birth / parents\' side'}
                 style={{
                   padding: '5px 16px',
                   borderRadius: '10px',
@@ -356,10 +356,10 @@ export default function Navbar({
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
                 <span style={{ fontSize: '12px', fontWeight: active ? 700 : 500 }}>
-                  {v === 'piyar' ? 'Piyar' : 'Mayka'}
+                  {v === 'sasural' ? 'Sasural' : 'Mayka'}
                 </span>
                 <span style={{ fontSize: '8.5px', letterSpacing: '0.04em', opacity: 0.65, fontWeight: 500 }}>
-                  {v === 'piyar' ? "husband's side" : 'birth side'}
+                  {v === 'sasural' ? "husband's side" : 'birth side'}
                 </span>
               </button>
             )

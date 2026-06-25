@@ -3,8 +3,8 @@ import type { EdgeData, PersonData } from '@/types'
 
 /**
  * For married women the graph can be viewed from two angles:
- *  'piyar'  — husband's paternal family (ससुराल / पियर)
- *  'mayka'  — her own birth family       (मायका)
+ *  'sasural' — husband's paternal family (ससुराल)
+ *  'mayka'   — her own birth family       (मायका)
  *
  * For all other users (men, unmarried women) only the papa-side
  * view is computed and `isMarriedWoman` is returned as false.
@@ -21,12 +21,12 @@ import type { EdgeData, PersonData } from '@/types'
  *
  * addSealed = rendered but BFS never processes it.
  */
-export type WomanView = 'piyar' | 'mayka'
+export type WomanView = 'sasural' | 'mayka'
 
 export function filterGraphBySide(
   nodes: Node[],
   edges: Edge[],
-  womanView: WomanView = 'piyar',
+  womanView: WomanView = 'sasural',
 ): { nodes: Node[]; edges: Edge[]; isMarriedWoman: boolean } {
   if (nodes.length === 0) return { nodes, edges, isMarriedWoman: false }
 
@@ -102,8 +102,8 @@ export function filterGraphBySide(
   const isMarriedWoman = !!husband
 
   // Seed
-  if (isMarriedWoman && womanView === 'piyar') {
-    // Piyar — husband's paternal tree; self is sealed (visible but not BFS root)
+  if (isMarriedWoman && womanView === 'sasural') {
+    // Sasural — husband's paternal tree; self is sealed (visible but not BFS root)
     addSealed(selfId)
     addFull(husband!)
   } else {

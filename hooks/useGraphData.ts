@@ -52,7 +52,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
   const [graphLoading, setGraphLoading] = useState(true)
-  const [womanView, setWomanView] = useState<WomanView>('piyar')
+  const [womanView, setWomanView] = useState<WomanView>('sasural')
 
   const {
     collapsedUnitIds, initCollapseState,
@@ -101,7 +101,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   // ── Derive collapse set from store ────────────────────────────────────────
   const collapsedSet = useMemo(() => new Set(collapsedUnitIds), [collapsedUnitIds])
 
-  // ── Filter by side (mayka / piyar) ───────────────────────────────────────
+  // ── Filter by side (mayka / sasural) ─────────────────────────────────────
   const { nodes: filteredNodes, edges: filteredEdges, isMarriedWoman } = useMemo(
     () => rawNodes.length > 0
       ? filterGraphBySide(rawNodes, rawEdges, womanView)
@@ -134,7 +134,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const laidOutNodes = useMemo(() => {
     if (ghostedNodes.length === 0) return []
     let perspective: 'self' | 'mother' | 'spouse' = 'self'
-    if (isMarriedWoman && womanView === 'piyar') perspective = 'spouse'
+    if (isMarriedWoman && womanView === 'sasural') perspective = 'spouse'
     return layoutEngine(ghostedNodes, ghostedEdges, perspective, collapsedSet)
   }, [ghostedNodes, ghostedEdges, isMarriedWoman, womanView, collapsedSet])
 
