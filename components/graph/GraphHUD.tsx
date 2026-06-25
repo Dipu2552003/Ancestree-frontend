@@ -252,11 +252,20 @@ function DropdownRow({
   t:         ReturnType<typeof getTheme>
 }) {
   const [hovered, setHovered] = useState(false)
-  const isClickable = !!onClick
+  const childRef = useRef<HTMLDivElement>(null)
+
+  // Every row is a full-width hit target. Action rows use the supplied onClick;
+  // widget rows (Account / Family view) have no onClick — instead the tap is
+  // forwarded to their embedded control's button, so the whole row (not just
+  // the icon) opens it.
+  const handleRowClick = () => {
+    if (onClick) { onClick(); return }
+    childRef.current?.querySelector('button')?.click()
+  }
 
   return (
     <div
-      onClick={onClick}
+      onClick={handleRowClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -265,8 +274,8 @@ function DropdownRow({
         gap:           '10px',
         padding:       '6px 8px',
         borderRadius:  '10px',
-        cursor:        isClickable ? 'pointer' : 'default',
-        background:    hovered && isClickable ? t.itemHoverBg : 'transparent',
+        cursor:        'pointer',
+        background:    hovered ? t.itemHoverBg : 'transparent',
         transition:    'background 0.12s',
         userSelect:    'none',
       }}
@@ -283,10 +292,18 @@ function DropdownRow({
           </span>
         )}
       </span>
-      {/* Prevent row click from propagating into the child button */}
-      <div onClick={e => e.stopPropagation()}>
-        {children}
-      </div>
+      {onClick ? (
+        // Action row: the icon is decorative — the row owns the click.
+        <div style={{ display: 'flex', pointerEvents: 'none' }}>
+          {children}
+        </div>
+      ) : (
+        // Widget row: keep the control interactive; stop its own clicks from
+        // re-triggering the row's forward handler.
+        <div ref={childRef} onClick={e => e.stopPropagation()} style={{ display: 'flex' }}>
+          {children}
+        </div>
+      )}
     </div>
   )
 }
