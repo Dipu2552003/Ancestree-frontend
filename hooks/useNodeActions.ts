@@ -173,10 +173,13 @@ export function useNodeActions(
     const needsParentChoice = isChildAdd || isSiblingAdd
 
     // ── Gotra inheritance ──────────────────────────────────────────────────
-    // Gotra follows the paternal line: a new son/daughter starts with the
-    // father's gotra (the anchor if male, else the anchor's male spouse); a
-    // new brother/sister starts with the anchor's father's gotra. It's only a
-    // default — the field stays editable in the node panel.
+    // Gotra follows the paternal line. Downward: a new son/daughter starts with
+    // the father's gotra (the anchor if male, else the anchor's male spouse); a
+    // new brother/sister starts with the anchor's father's gotra. Upward: a new
+    // father starts with the anchor child's gotra (a child shares its father's
+    // gotra, so the relationship is symmetric). Mothers keep their own paternal
+    // gotra, so 'mother' is intentionally excluded. It's only a default — the
+    // field stays editable in the node panel.
     let inheritedGotra: string | undefined
     if (needsParentChoice) {
       const anchor = personOf(realSelectedNodeId)
@@ -195,6 +198,8 @@ export function useNodeActions(
           .find(p => p?.gender === 'male')
       }
       inheritedGotra = father?.gotra || undefined
+    } else if (action === 'father') {
+      inheritedGotra = personOf(realSelectedNodeId)?.gotra || undefined
     }
 
     try {
