@@ -68,6 +68,24 @@ export interface PersonData {
   isSelected?: boolean
 }
 
+/**
+ * Whether the current viewer may edit this person's profile.
+ *
+ * A node "owned" by a real user (node_state = 'claimed', claimed by someone
+ * other than the viewer) is read-only for everyone but its owner — the backend
+ * encodes this in `canEditProfile`. `isViewerNode` (the logged-in user's own
+ * node) is honoured as a safety net so the owner can always edit their node
+ * even if the per-node flag is absent (e.g. demo/seed data).
+ *
+ * Do NOT use `isSelf` here: in perspective mode (?perspective=) the anchor you
+ * are *viewing* is flagged `isSelf = true` even though you don't own it, which
+ * would wrongly expose Edit on someone else's node.
+ */
+export function canEditPersonProfile(d: Pick<PersonData, 'isViewerNode' | 'canEditProfile'> | null | undefined): boolean {
+  if (!d) return false
+  return (d.canEditProfile ?? false) || (d.isViewerNode ?? false)
+}
+
 /** Minimal data about "my" node stored before navigating to exploration mode */
 export interface MyPersonInfo {
   fullName:      string

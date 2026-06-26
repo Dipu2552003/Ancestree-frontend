@@ -3,7 +3,7 @@
 import { useRef, useEffect, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import {
-  IconArrowLeft, IconEdit, IconPhone, IconBrandWhatsapp, IconMail, IconMapPin,
+  IconArrowLeft, IconEdit, IconUserPlus, IconPhone, IconBrandWhatsapp, IconMail, IconMapPin,
 } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -22,6 +22,9 @@ interface PersonProfileViewProps {
   perspectiveName?: string
   onBack: () => void
   onEdit?: () => void
+  /** Any member of your own family can add relations to any node (owned or not),
+   *  including while viewing a member's tree. Omitted on another family's tree. */
+  onAddRelation?: () => void
 }
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -36,7 +39,7 @@ function fmtDate(iso?: string): string | null {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function PersonProfileView({ node, isPerspective = false, perspectiveName = '', onBack, onEdit }: PersonProfileViewProps) {
+export default function PersonProfileView({ node, isPerspective = false, perspectiveName = '', onBack, onEdit, onAddRelation }: PersonProfileViewProps) {
   const { isDark } = useGraphStore()
   const isMobile = useIsMobile()
   const d = node.data as unknown as PersonData
@@ -86,17 +89,16 @@ export default function PersonProfileView({ node, isPerspective = false, perspec
   const hairline = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
   const accent   = 'var(--c-primary)'
 
-  // nodeState pill copy. Home tree → "You" for your own node; perspective anchor
-  // → "Viewing"; everyone else → their Ancestree status.
+  // nodeState pill copy. Home tree → "You" for your own node; everyone else
+  // (including the perspective anchor) → their Ancestree membership status, so
+  // the profile always tells you whether this person is on Ancestree.
   const statePill = showYou
     ? { text: 'You', bg: 'var(--c-primary)', fg: '#fff' }
-    : isAnchor
-      ? { text: 'Viewing', bg: 'var(--c-primary)', fg: '#fff' }
-      : nodeState === 'claimed'
-        ? { text: 'On Ancestree', bg: isDark ? 'rgba(34,197,94,0.16)' : '#F0FDF4', fg: isDark ? '#4ADE80' : '#15803D' }
-        : nodeState === 'invited'
-          ? { text: 'Invite sent', bg: isDark ? 'rgba(234,179,8,0.16)' : '#FFFBEB', fg: isDark ? '#FCD34D' : '#B45309' }
-          : { text: 'Not on Ancestree yet', bg: isDark ? 'rgba(255,255,255,0.06)' : '#F4F1EC', fg: t.textMuted }
+    : nodeState === 'claimed'
+      ? { text: 'On Ancestree', bg: isDark ? 'rgba(34,197,94,0.16)' : '#F0FDF4', fg: isDark ? '#4ADE80' : '#15803D' }
+      : nodeState === 'invited'
+        ? { text: 'Invite sent', bg: isDark ? 'rgba(234,179,8,0.16)' : '#FFFBEB', fg: isDark ? '#FCD34D' : '#B45309' }
+        : { text: 'Not on Ancestree yet', bg: isDark ? 'rgba(255,255,255,0.06)' : '#F4F1EC', fg: t.textMuted }
 
   // ── Derived copy ──
   const subtitle = [showYou ? 'This is you' : relationLabel, occupation]
@@ -194,6 +196,11 @@ export default function PersonProfileView({ node, isPerspective = false, perspec
         <button ref={backRef} onClick={onBack} style={{ ...glassBtn(t, isDark, t.text), pointerEvents: 'auto' }}>
           <IconArrowLeft size={15} /> Back to tree
         </button>
+        {onAddRelation && (
+          <button onClick={onAddRelation} style={{ ...glassBtn(t, isDark, accent), pointerEvents: 'auto' }}>
+            <IconUserPlus size={15} /> Add relation
+          </button>
+        )}
         {onEdit && (
           <button onClick={onEdit} style={{ ...glassBtn(t, isDark, accent), pointerEvents: 'auto' }}>
             <IconEdit size={15} /> Edit
@@ -307,13 +314,17 @@ export default function PersonProfileView({ node, isPerspective = false, perspec
             )}
 
             <Reveal i={2}>
-              <span style={{
-                display: 'inline-block', marginTop: 14, padding: '5px 14px', borderRadius: 999,
-                background: statePill.bg, color: statePill.fg,
-                fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+              <div style={{
+                display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14,
+                justifyContent: isMobile ? 'center' : 'flex-start',
               }}>
-                {statePill.text}
-              </span>
+                {/* Perspective context — kept alongside the membership status so
+                    you still know you're viewing this person's tree. */}
+                {isAnchor && (
+                  <span style={pillStyle('var(--c-primary)', '#fff')}>Viewing</span>
+                )}
+                <span style={pillStyle(statePill.bg, statePill.fg)}>{statePill.text}</span>
+              </div>
             </Reveal>
 
             {contacts.length > 0 && (
@@ -453,6 +464,14 @@ function InfoRow({ label, value, t, labelCol, hairline }: {
       </span>
     </div>
   )
+}
+
+function pillStyle(bg: string, fg: string): React.CSSProperties {
+  return {
+    display: 'inline-block', padding: '5px 14px', borderRadius: 999,
+    background: bg, color: fg,
+    fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+  }
 }
 
 function glassBtn(t: Theme, isDark: boolean, color: string): React.CSSProperties {

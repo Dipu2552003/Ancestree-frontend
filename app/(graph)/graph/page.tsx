@@ -44,6 +44,7 @@ import { isDupDismissed, getCommunityId } from '@/lib/storage'
 import FamilyAdminsPanel from '@/components/graph/FamilyAdminsPanel'
 import { buildOverlayProps } from '@/lib/graph/buildOverlayProps'
 import type { PersonData } from '@/types'
+import { canEditPersonProfile } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 import type { WizardExtras } from '@/components/graph/AddNodeWizard'
 import type { SearchResult } from '@/lib/api'
@@ -108,6 +109,9 @@ function GraphInner() {
       if (isDupDismissed(newPersonId)) return
       s.setDuplicateInfo({ newPersonId, matches, myInfo })
     },
+    (newPersonId, newPersonName, matches) => {
+      s.setSameTreeDup({ newPersonId, newPersonName, matches })
+    },
     updateRawNode,
   )
 
@@ -142,6 +146,9 @@ function GraphInner() {
   const selectedNodeName  = asPersonData(selectedNode?.data)?.fullName ?? ''
   const selectedIsSelf    = asPersonData(selectedNode?.data)?.isSelf ?? false
   const selectedIsClaimed = asPersonData(selectedNode?.data)?.nodeState === 'claimed'
+  // Owned (claimed-by-someone-else) nodes are read-only — gate every edit
+  // affordance (navbar pencil, context menu, profile view) on this.
+  const canEditSelected   = !!selectedNode && canEditPersonProfile(asPersonData(selectedNode.data))
   // Deletable = not you, not a claimed account, and an edge node — removing
   // them must not split the tree (see lib/graph/deleteRules.ts).
   const deleteCheck = useMemo(
@@ -235,6 +242,8 @@ function GraphInner() {
     isPerspective: !!perspectiveId,
     perspectiveName,
     fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
+    onDeleteNode, canDeleteSelected, deleteDisabledReason,
+    deleteChildrenNote: deleteCheck?.childrenStayWith ?? null,
     handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
   })
 
@@ -341,6 +350,7 @@ function GraphInner() {
         deleteDisabledReason={deleteDisabledReason}
         deleteChildrenNote={deleteCheck?.childrenStayWith ?? null}
         panelMode={s.panelMode}
+        canEditSelected={canEditSelected}
         onHome={onHome}
         onStartWizard={action => {
           // For "Add spouse", if the anchor already has an active spouse, route

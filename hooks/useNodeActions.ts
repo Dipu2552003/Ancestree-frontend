@@ -3,7 +3,7 @@
 import { useCallback } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import type { Dispatch, SetStateAction } from 'react'
-import { api, type PotentialMatch } from '@/lib/api'
+import { api, type PotentialMatch, type SameTreeMatch } from '@/lib/api'
 import type { PersonData, SavePayload, MyPersonInfo, EdgeData } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 import { computeCascadeOps } from '@/lib/graph/relationshipRules'
@@ -47,6 +47,7 @@ export function useNodeActions(
   selectedNodeId: string | null,
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>,
   onDuplicateFound: (newPersonId: string, matches: PotentialMatch[], myInfo: MyPersonInfo) => void,
+  onSameTreeDuplicate: (newPersonId: string, newPersonName: string, matches: SameTreeMatch[]) => void,
   updateRawNode: (id: string, data: Partial<PersonData>) => void,
 ): NodeActionsReturn {
   // Ghosts (intra-family-marriage duplicates) live only in the render layer
@@ -286,12 +287,18 @@ export function useNodeActions(
         })
       }
 
+      // Same-family duplicate: a node with this name already exists in this
+      // tree — offer to view it or send a merge request instead.
+      if (person.same_tree_matches && person.same_tree_matches.length > 0) {
+        onSameTreeDuplicate(person.id, cleanName, person.same_tree_matches)
+      }
+
       return person.id
     } catch (err) {
       console.error('Failed to add relation:', err)
       return null
     }
-  }, [selectedNodeId, nodes, edges, fetchGraph, setSelectedNodeId, onDuplicateFound])
+  }, [selectedNodeId, nodes, edges, fetchGraph, setSelectedNodeId, onDuplicateFound, onSameTreeDuplicate])
 
   return { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation }
 }

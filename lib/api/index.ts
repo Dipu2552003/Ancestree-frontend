@@ -25,7 +25,7 @@ export {
 
 // Shared response/payload types
 export type {
-  ConflictType, SearchResult, MergeConflict, PotentialMatch,
+  ConflictType, SearchResult, MergeConflict, PotentialMatch, SameTreeMatch,
   PossibleMatchNotificationDetails, AppNotification, SentMergeRequest,
 } from './types'
 

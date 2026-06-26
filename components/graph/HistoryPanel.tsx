@@ -11,7 +11,7 @@
 // reverted again by either family. History itself is never deleted.
 
 import { useCallback, useEffect, useState } from 'react'
-import { IconX, IconHistory, IconArrowBackUp, IconLoader2 } from '@tabler/icons-react'
+import { IconX, IconHistory, IconArrowBackUp, IconLoader2, IconLock } from '@tabler/icons-react'
 import { api, type HistoryOperation } from '@/lib/api'
 import { getFamilyId } from '@/lib/storage'
 import { getTheme } from '@/lib/theme'
@@ -164,7 +164,21 @@ export default function HistoryPanel({ isDark, onClose, onUndone }: HistoryPanel
                 }}>
                   Undone
                 </span>
-              ) : op.can_undo && (
+              ) : op.undo_locked ? (
+                <span
+                  title={op.lock_reason === 'owner'
+                    ? `Only ${op.actor_name ?? 'the person who made this change'} or a family admin can undo this`
+                    : 'Undo the most recent change first — actions can only be undone in order'}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    fontSize: '10px', fontWeight: 700, color: t.textMuted,
+                    border: `1px solid ${t.borderNeutral}`, borderRadius: '999px',
+                    padding: '3px 8px', flexShrink: 0, cursor: 'help',
+                  }}
+                >
+                  <IconLock size={11} /> Locked
+                </span>
+              ) : op.can_undo ? (
                 <button
                   onClick={() => isConfirming ? handleUndo(op.operation_id) : setConfirmId(op.operation_id)}
                   onBlur={() => { if (!isUndoing) setConfirmId(null) }}
@@ -191,7 +205,7 @@ export default function HistoryPanel({ isDark, onClose, onUndone }: HistoryPanel
                     : <IconArrowBackUp size={13} />}
                   {isUndoing ? 'Undoing…' : isConfirming ? 'Confirm?' : 'Undo'}
                 </button>
-              )}
+              ) : null}
             </div>
           )
         })}

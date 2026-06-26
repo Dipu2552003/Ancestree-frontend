@@ -13,10 +13,12 @@
 
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { IconTrash } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Node, Edge } from '@xyflow/react'
 import type { PersonData, SavePayload, EdgeData } from '@/types'
+import { canEditPersonProfile } from '@/types'
 import { getTheme } from '@/lib/theme'
 import {
   SectionHeader, ReadOnlyNotice, InviteToClaimCard, PhotoEditor,
@@ -38,16 +40,24 @@ interface NodePanelProps {
   onViewNode?: (id: string) => void
   onRemoveConnection?: (edgeId: string) => Promise<void>
   onRequestAddRelation?: () => void
+  /** Whether this node may be deleted (same rule as the navbar trash button). */
+  canDelete?: boolean
+  /** Why deletion is blocked — shown when canDelete is false. */
+  deleteDisabledReason?: string
+  /** Other-parent name when a deleted parent's children stay linked through them. */
+  deleteChildrenNote?: string | null
+  onDelete?: () => Promise<void>
 }
 
-export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, rawNodes, onViewNode, onRemoveConnection, onRequestAddRelation }: NodePanelProps) {
+export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, rawNodes, onViewNode, onRemoveConnection, onRequestAddRelation, canDelete, deleteDisabledReason, deleteChildrenNote, onDelete }: NodePanelProps) {
   const { isDark } = useGraphStore()
   const isMobile = useIsMobile()
   const d = node.data as unknown as PersonData
-  const canEditProfile = d.isSelf || (d.canEditProfile ?? false)
+  const canEditProfile = canEditPersonProfile(d)
 
   const [draft, setDraft] = useState<Draft>(() => initDraft(d))
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'deleting'>('idle')
   const [nameError, setNameError] = useState('')
   const [focused, setFocused] = useState<string | null>(null)
 
@@ -150,6 +160,17 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave, isDirty])
 
+  const handleDelete = useCallback(async () => {
+    if (!onDelete) return
+    setDeleteState('deleting')
+    try {
+      await onDelete()
+      // On success the node is gone and the panel unmounts as selection clears.
+    } catch {
+      setDeleteState('idle')
+    }
+  }, [onDelete])
+
   const t    = getTheme(isDark)
   const form = buildFormApi({ draft, setDraft, focused, setFocused, nameError, setNameError, isDark })
 
@@ -229,6 +250,82 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
             onRequestAddRelation()
           }}
         />
+      )}
+
+      {/* Delete node — gated by the same rule as the navbar trash button. */}
+      {onDelete && (
+        <div style={{ padding: '6px 16px 22px' }}>
+          <div style={{ height: 1, background: t.border, margin: '2px 0 14px' }} />
+          {canDelete ? (
+            deleteState === 'idle' ? (
+              <button
+                onClick={() => setDeleteState('confirm')}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  padding: '10px', borderRadius: 11,
+                  border: `1px solid ${isDark ? 'rgba(239,68,68,0.30)' : 'rgba(239,68,68,0.25)'}`,
+                  background: isDark ? 'rgba(239,68,68,0.10)' : 'rgba(239,68,68,0.06)',
+                  color: '#EF4444', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                }}
+              >
+                <IconTrash size={15} /> Delete node
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5 }}>
+                  Remove <strong style={{ color: t.text }}>{d.fullName}</strong> from the tree?
+                  {deleteChildrenNote && <> Their children stay linked through <strong style={{ color: t.text }}>{deleteChildrenNote}</strong>.</>}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => setDeleteState('idle')}
+                    disabled={deleteState === 'deleting'}
+                    style={{
+                      flex: 1, padding: '9px', borderRadius: 10,
+                      border: `1px solid ${t.border}`, background: 'transparent',
+                      color: t.text, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
+                      cursor: deleteState === 'deleting' ? 'default' : 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleteState === 'deleting'}
+                    style={{
+                      flex: 1, padding: '9px', borderRadius: 10, border: 'none',
+                      background: '#EF4444', color: '#fff', fontSize: 12.5, fontWeight: 600,
+                      fontFamily: 'inherit', cursor: deleteState === 'deleting' ? 'default' : 'pointer',
+                      opacity: deleteState === 'deleting' ? 0.8 : 1,
+                    }}
+                  >
+                    {deleteState === 'deleting' ? 'Removing…' : 'Yes, remove'}
+                  </button>
+                </div>
+              </div>
+            )
+          ) : (
+            <>
+              <button
+                disabled
+                title={deleteDisabledReason}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  padding: '10px', borderRadius: 11, border: `1px solid ${t.border}`,
+                  background: 'transparent', color: t.textMuted,
+                  fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'default', opacity: 0.7,
+                }}
+              >
+                <IconTrash size={15} /> Delete node
+              </button>
+              {deleteDisabledReason && (
+                <div style={{ fontSize: 11, color: t.textMuted, marginTop: 7, lineHeight: 1.4, textAlign: 'center' }}>
+                  {deleteDisabledReason}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
     </motion.div>
   )

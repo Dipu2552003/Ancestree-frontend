@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   IconHome2, IconPlus, IconX,
   IconArrowUp, IconArrowDown, IconHeart, IconTrash, IconLoader2,
-  IconLogout, IconPencil, IconEye, IconUsers,
+  IconLogout, IconPencil, IconEye, IconUsers, IconHandClick,
 } from '@tabler/icons-react'
 import type { WomanView } from '@/lib/layouts/familySideFilter'
 import { getTheme } from '@/lib/theme'
@@ -29,6 +29,9 @@ interface NavbarProps {
    *  shown as a note in the delete confirm popup. */
   deleteChildrenNote?: string | null
   panelMode: 'none' | 'edit' | 'view'
+  /** Whether the selected node's profile may be edited by the viewer. Owned
+   *  (claimed-by-someone-else) nodes are read-only, so the Edit button hides. */
+  canEditSelected: boolean
   onHome: () => void
   onStartWizard: (action: RelAction) => void
   onDeleteSelected: () => Promise<void>
@@ -61,6 +64,7 @@ type DeleteState = 'idle' | 'confirm' | 'deleting'
 export default function Navbar({
   familyName, timeline, selectedNodeId, selectedNodeName,
   canDeleteSelected, deleteDisabledReason, deleteChildrenNote, panelMode,
+  canEditSelected,
   onHome, onStartWizard, onDeleteSelected,
   onEdit, onView,
   isMarriedWoman, womanView, onWomanViewChange, isDark,
@@ -114,6 +118,19 @@ export default function Navbar({
     if (forceAddOpen && addEnabled) setAddOpen(true)
   }, [forceAddOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Briefly nudge the user to pick a person when they tap an action that needs
+  // a selection but none is set.
+  const [selectHint, setSelectHint] = useState(false)
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const nudgeSelect = () => {
+    setSelectHint(true)
+    if (hintTimer.current) clearTimeout(hintTimer.current)
+    hintTimer.current = setTimeout(() => setSelectHint(false), 2400)
+  }
+  // Dismiss the hint as soon as a person is selected; clean up on unmount.
+  useEffect(() => { if (selectedNodeId) setSelectHint(false) }, [selectedNodeId])
+  useEffect(() => () => { if (hintTimer.current) clearTimeout(hintTimer.current) }, [])
+
   const t = getTheme(isDark)
 
   const addEnabled = !!selectedNodeId
@@ -129,6 +146,12 @@ export default function Navbar({
   const editActive = panelMode === 'edit'
   const viewActive = panelMode === 'view'
   const actionEnabled = !!selectedNodeId
+  // Edit affordance: enabled only when the selected node is editable. Hidden
+  // entirely once an un-editable (owned) node is selected, so other family
+  // members never see an Edit control for someone else's account. With nothing
+  // selected it stays visible-but-disabled ("Select a person first").
+  const editEnabled = canEditSelected
+  const editVisible = !selectedNodeId || canEditSelected
 
   const actionBg = (active: boolean) => active
     ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.18)' : 'rgb(var(--c-primary-rgb) / 0.10)')
@@ -367,6 +390,28 @@ export default function Navbar({
         </motion.div>
       )}
 
+      {/* ── "Select a person" hint — shown when an action needs a selection ── */}
+      <AnimatePresence>
+        {selectHint && !selectedNodeId && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            style={{
+              background: 'var(--c-primary)', color: '#fff',
+              borderRadius: '12px', padding: '8px 14px',
+              boxShadow: t.shadow, maxWidth: 'calc(100vw - 32px)',
+              fontSize: '12.5px', fontWeight: 600, letterSpacing: '0.01em',
+              display: 'flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap',
+            }}
+          >
+            <IconHandClick size={15} stroke={2} />
+            {isMobile ? 'Tap a person to add, edit or view' : 'Click a person to add, edit or view'}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Navbar pill ── */}
       <div style={{
         background: t.cardBg,
@@ -388,7 +433,7 @@ export default function Navbar({
         {/* + Add */}
         <div style={{ padding: '0 2px' }}>
           <motion.button
-            onClick={() => { if (!addEnabled) return; if (addOpen) closeAdd(); else setAddOpen(true) }}
+            onClick={() => { if (!addEnabled) { nudgeSelect(); return } if (addOpen) closeAdd(); else setAddOpen(true) }}
             whileHover={addEnabled ? { scale: 1.04 } : {}}
             whileTap={addEnabled ? { scale: 0.96 } : {}}
             style={{
@@ -411,11 +456,12 @@ export default function Navbar({
         </div>
 
         {/* Edit */}
+        {editVisible && (
         <div style={{ padding: '0 2px' }}>
           <motion.button
-            onClick={() => actionEnabled && onEdit()}
-            whileHover={actionEnabled ? { scale: 1.04 } : {}}
-            whileTap={actionEnabled ? { scale: 0.96 } : {}}
+            onClick={() => editEnabled ? onEdit() : nudgeSelect()}
+            whileHover={editEnabled ? { scale: 1.04 } : {}}
+            whileTap={editEnabled ? { scale: 0.96 } : {}}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: isMobile ? 0 : '5px',
@@ -423,22 +469,23 @@ export default function Navbar({
               background: actionBg(editActive), border: 'none',
               color: actionColor(editActive), fontFamily: 'inherit',
               fontSize: '13px', fontWeight: editActive ? 700 : 500,
-              cursor: actionEnabled ? 'pointer' : 'default',
+              cursor: editEnabled ? 'pointer' : 'default',
               transition: 'background 0.2s, color 0.2s',
               letterSpacing: '0.01em',
               minWidth: isMobile ? '40px' : undefined,
             }}
-            title={actionEnabled ? `Edit ${selectedNodeName}` : 'Select a person first'}
+            title={editEnabled ? `Edit ${selectedNodeName}` : 'Select a person first'}
           >
             <IconPencil size={15} strokeWidth={2} />
             {!isMobile && 'Edit'}
           </motion.button>
         </div>
+        )}
 
         {/* View */}
         <div style={{ padding: '0 2px' }}>
           <motion.button
-            onClick={() => actionEnabled && onView()}
+            onClick={() => actionEnabled ? onView() : nudgeSelect()}
             whileHover={actionEnabled ? { scale: 1.04 } : {}}
             whileTap={actionEnabled ? { scale: 0.96 } : {}}
             style={{
@@ -466,7 +513,7 @@ export default function Navbar({
         <div style={{ padding: '0 2px' }}>
           <motion.button
             onClick={() => {
-              if (!delEnabled) return
+              if (!delEnabled) { if (!selectedNodeId) nudgeSelect(); return }
               if (deleteState !== 'idle') { setDeleteState('idle'); setDeleteError('') }
               else setDeleteState('confirm')
             }}

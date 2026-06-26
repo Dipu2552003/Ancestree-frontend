@@ -14,10 +14,12 @@
 
 import { AnimatePresence } from 'framer-motion'
 import type { Node, Edge } from '@xyflow/react'
+import { canEditPersonProfile } from '@/types'
 import NodeContextMenu from './NodeContextMenu'
 import NodePanel from './NodePanel'
 import PersonProfileView from './PersonProfileView'
 import DuplicateFoundModal from './DuplicateFoundModal'
+import SameTreeDuplicateModal, { type NewPersonCard } from './SameTreeDuplicateModal'
 import NotificationPanel from './NotificationPanel'
 import HistoryPanel from './HistoryPanel'
 import MergeConflictModal from './merge/MergeConflictModal'
@@ -28,7 +30,7 @@ import SecondSpouseWizard from './SecondSpouseWizard'
 import type { WizardExtras } from './AddNodeWizard'
 import type { ExistingSpouse, ExistingChild } from './SecondSpouseWizard'
 import type { PersonData, PendingMatchData, MyPersonInfo, SavePayload } from '@/types'
-import type { PotentialMatch, MergeConflict, SearchResult } from '@/lib/api'
+import type { PotentialMatch, MergeConflict, SearchResult, SameTreeMatch } from '@/lib/api'
 import type { RelAction } from './Navbar'
 
 // ── Prop bundles ─────────────────────────────────────────────────────────────
@@ -39,10 +41,13 @@ export interface ContextMenuOverlay {
   x:             number
   y:             number
   personData:    PersonData
+  /** Any member of your own tree can add relations to any node. */
+  canAddRelation: boolean
   /** Whether a merge request may be started here (own tree only). */
   canMerge:      boolean
   onViewProfile: () => void
   onViewTree:    () => void
+  onAddRelation: () => void
   onEdit:        () => void
   onMergeNode:   () => void
   onClose:       () => void
@@ -58,6 +63,13 @@ export interface EditPanelOverlay {
   onViewNode:           (id: string) => void
   onRemoveConnection:   (edgeId: string) => Promise<void>
   onRequestAddRelation: () => void
+  /** Whether this node may be deleted (same rule as the navbar trash). */
+  canDelete:            boolean
+  /** Why deletion is blocked — shown when canDelete is false. */
+  deleteDisabledReason?: string
+  /** Other-parent name when a deleted parent's children stay linked through them. */
+  deleteChildrenNote:   string | null
+  onDelete:             () => Promise<void>
 }
 
 export interface ViewPanelOverlay {
@@ -65,7 +77,11 @@ export interface ViewPanelOverlay {
   isPerspective:   boolean
   perspectiveName: string
   onBack:          () => void
-  onEdit:          () => void
+  /** Omitted when the viewer can't edit this profile (owned node) — the
+   *  profile view then hides its Edit button. */
+  onEdit?:         () => void
+  /** Omitted on another family's tree (no canEdit) — hides Add relation. */
+  onAddRelation?:  () => void
 }
 
 export interface DuplicateOverlay {
@@ -73,6 +89,14 @@ export interface DuplicateOverlay {
   myInfo:      MyPersonInfo
   matches:     PotentialMatch[]
   onDismiss:   () => void
+}
+
+export interface SameTreeDupOverlay {
+  newPerson:     NewPersonCard
+  matches:       SameTreeMatch[]
+  onViewNode:    (personId: string) => void
+  onSendMerge:   (canonicalPersonId: string) => Promise<void>
+  onDismiss:     () => void
 }
 
 export interface NotifOverlay {
@@ -137,6 +161,7 @@ interface GraphOverlaysProps {
   editPanel:      EditPanelOverlay      | null
   viewPanel:      ViewPanelOverlay      | null
   duplicate:      DuplicateOverlay      | null
+  sameTreeDup:    SameTreeDupOverlay    | null
   notif:          NotifOverlay          | null
   history:        HistoryOverlay        | null
   conflict:       ConflictOverlay       | null
@@ -147,7 +172,7 @@ interface GraphOverlaysProps {
 }
 
 export default function GraphOverlays({
-  isDark, contextMenu, editPanel, viewPanel, duplicate, notif, history,
+  isDark, contextMenu, editPanel, viewPanel, duplicate, sameTreeDup, notif, history,
   conflict, comparison, wizard, secondSpouse, mergeSearch,
 }: GraphOverlaysProps) {
   return (
@@ -160,12 +185,14 @@ export default function GraphOverlays({
           y={contextMenu.y}
           personName={contextMenu.personData.fullName}
           gender={contextMenu.personData.gender}
-          canEdit={contextMenu.personData.canEdit ?? false}
+          canEdit={canEditPersonProfile(contextMenu.personData)}
+          canAddRelation={contextMenu.canAddRelation}
           canMerge={contextMenu.canMerge}
           isSelf={contextMenu.personData.isSelf}
           isViewerNode={contextMenu.personData.isViewerNode ?? false}
           onViewProfile={contextMenu.onViewProfile}
           onViewTree={contextMenu.onViewTree}
+          onAddRelation={contextMenu.onAddRelation}
           onEdit={contextMenu.onEdit}
           onMergeNode={contextMenu.onMergeNode}
           onClose={contextMenu.onClose}
@@ -186,6 +213,10 @@ export default function GraphOverlays({
             onViewNode={editPanel.onViewNode}
             onRemoveConnection={editPanel.onRemoveConnection}
             onRequestAddRelation={editPanel.onRequestAddRelation}
+            canDelete={editPanel.canDelete}
+            deleteDisabledReason={editPanel.deleteDisabledReason}
+            deleteChildrenNote={editPanel.deleteChildrenNote}
+            onDelete={editPanel.onDelete}
           />
         )}
       </AnimatePresence>
@@ -200,6 +231,7 @@ export default function GraphOverlays({
             perspectiveName={viewPanel.perspectiveName}
             onBack={viewPanel.onBack}
             onEdit={viewPanel.onEdit}
+            onAddRelation={viewPanel.onAddRelation}
           />
         )}
       </AnimatePresence>
@@ -214,6 +246,19 @@ export default function GraphOverlays({
           matches={duplicate.matches}
           isDark={isDark}
           onDismiss={duplicate.onDismiss}
+        />
+      )}
+
+      {/* Same-tree duplicate modal — a node with this name already exists in
+          this family; view it or send a merge request. */}
+      {sameTreeDup && (
+        <SameTreeDuplicateModal
+          newPerson={sameTreeDup.newPerson}
+          matches={sameTreeDup.matches}
+          isDark={isDark}
+          onViewNode={sameTreeDup.onViewNode}
+          onSendMerge={sameTreeDup.onSendMerge}
+          onDismiss={sameTreeDup.onDismiss}
         />
       )}
 

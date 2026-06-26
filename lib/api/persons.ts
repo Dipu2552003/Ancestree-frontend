@@ -1,5 +1,5 @@
 import { req } from './client'
-import type { PotentialMatch } from './types'
+import type { PotentialMatch, SameTreeMatch } from './types'
 
 export const persons = {
   create: (b: {
@@ -8,7 +8,7 @@ export const persons = {
     birth_year?: number
     is_alive?: boolean
     gotra?: string
-  }) => req<{ id: string; person_code: string; potential_matches: PotentialMatch[] }>('/api/persons', {
+  }) => req<{ id: string; person_code: string; potential_matches: PotentialMatch[]; same_tree_matches?: SameTreeMatch[] }>('/api/persons', {
     method: 'POST', body: JSON.stringify(b),
   }),
 

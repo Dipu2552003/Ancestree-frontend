@@ -10,7 +10,8 @@ import type { Node, Edge } from '@xyflow/react'
 import { api } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
 import { Z } from '@/lib/zIndex'
-import { Avatar, Spinner } from '@/components/ui'
+import { Spinner } from '@/components/ui'
+import { MiniNodeCard, MINI_CARD_W, MINI_CARD_H } from '../NodeCard'
 import {
   extractDirectRelations,
   type NeighborInfo,
@@ -142,29 +143,29 @@ function detectWarnings(a: PersonSnapshot, b: PersonSnapshot): Warning[] {
 
 // ── Mini visual components ───────────────────────────────────────────────────
 
-/** Small avatar + name beneath, used for parents/spouses/children chips. */
+/** Mini node card (parents/spouses/children), highlighted when newly merged. */
 function NeighborChip({
   n, isNew, isDark,
 }: { n: NeighborInfo; isNew?: boolean; isDark: boolean }) {
-  const t = getTheme(isDark)
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-      maxWidth: 64,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+      maxWidth: MINI_CARD_W,
     }}>
-      <Avatar
-        name={n.name} photoUrl={n.photoUrl} size={32}
-        gradient={isNew ? 'success' : 'saffron'}
-        ring={isNew ? 'highlight' : 'soft'}
-      />
-      <span style={{
-        fontSize: 10, color: isNew ? '#15803D' : t.textMuted,
-        fontWeight: isNew ? 700 : 500,
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        maxWidth: 64, textAlign: 'center', lineHeight: 1.2,
+      <div style={{
+        borderRadius: 3,
+        boxShadow: isNew ? '0 0 0 2px #22C55E, 0 2px 8px rgba(34,197,94,0.30)' : 'none',
       }}>
-        {n.name.split(/\s+/)[0]}
-      </span>
+        <MiniNodeCard fullName={n.name} photoUrl={n.photoUrl} nodeState="claimed" isDark={isDark} />
+      </div>
+      {isNew && (
+        <span style={{
+          fontSize: 8.5, fontWeight: 700, letterSpacing: '0.06em',
+          textTransform: 'uppercase', color: '#15803D',
+        }}>
+          new
+        </span>
+      )}
     </div>
   )
 }
@@ -193,9 +194,9 @@ function MiniTree({
 
   const Plus = ({ n }: { n: number }) => (
     <div style={{
-      width: 32, height: 32, borderRadius: '50%',
+      width: MINI_CARD_W, height: MINI_CARD_H, borderRadius: 3,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 10, fontWeight: 700, color: t.textMuted,
+      fontSize: 12, fontWeight: 700, color: t.textMuted,
       background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
       border: `1px dashed ${t.borderNeutral}`,
     }}>
@@ -240,7 +241,9 @@ function MiniTree({
       {/* Centre person + spouses row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <Avatar name={snap.name} photoUrl={snap.photoUrl} size={52} />
+          <div style={{ borderRadius: 3, boxShadow: `0 0 0 2px ${accent}` }}>
+            <MiniNodeCard fullName={snap.name} photoUrl={snap.photoUrl} nodeState="claimed" isDark={isDark} />
+          </div>
           <span style={{
             fontSize: 12, fontWeight: 700, color: t.text,
             maxWidth: 120, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

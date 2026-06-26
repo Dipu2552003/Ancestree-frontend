@@ -48,6 +48,19 @@ export interface PotentialMatch {
   matched_fields: string[]
 }
 
+/** A possible duplicate found in the SAME family when adding a node. */
+export interface SameTreeMatch {
+  id:             string
+  full_name:      string
+  birth_year:     number | null
+  gotra:          string | null
+  gender:         string | null
+  photo_url:      string | null
+  father_name:    string | null
+  match_score:    number
+  matched_fields: string[]
+}
+
 export interface PossibleMatchNotificationDetails {
   new_person_name:           string
   new_person_birth_year:     number | null

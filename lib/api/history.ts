@@ -12,7 +12,15 @@ export interface HistoryOperation {
   entry_count:  number
   reverted:     boolean
   reverted_by:  string | null
+  /** This viewer performed the action. */
+  is_actor:     boolean
+  /** This viewer may undo it right now → active Undo button. */
   can_undo:     boolean
+  /** Undo blocked for now → disabled "locked" state. */
+  undo_locked:  boolean
+  /** 'order' = a newer change must be undone first; 'owner' = next in line but
+   *  only its actor / an admin may undo it. */
+  lock_reason:  'order' | 'owner' | null
 }
 
 export interface UndoResult {

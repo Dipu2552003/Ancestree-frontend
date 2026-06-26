@@ -7,7 +7,7 @@
 // Every entry maps 1:1 to a previous inline useState — no behaviour change.
 
 import { useState } from 'react'
-import type { PotentialMatch, MergeConflict } from '@/lib/api'
+import type { PotentialMatch, MergeConflict, SameTreeMatch } from '@/lib/api'
 import type { PersonData, MyPersonInfo, PendingMatchData } from '@/types'
 import type { RelAction } from '@/components/graph/Navbar'
 
@@ -24,6 +24,12 @@ export interface DuplicateInfoState {
   newPersonId: string
   matches:     PotentialMatch[]
   myInfo:      MyPersonInfo
+}
+
+export interface SameTreeDupState {
+  newPersonId:   string
+  newPersonName: string
+  matches:       SameTreeMatch[]
 }
 
 export interface NamedAnchor {
@@ -48,6 +54,9 @@ export function useGraphPageState() {
 
   // Duplicate-found modal shown after creating a person that matches existing ones.
   const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfoState | null>(null)
+
+  // Same-tree duplicate modal — a node with this name already exists in this family.
+  const [sameTreeDup, setSameTreeDup] = useState<SameTreeDupState | null>(null)
 
   // Notification panel + the conflict modal that opens after merge acceptance.
   const [notifPanelOpen, setNotifPanelOpen] = useState(false)
@@ -75,6 +84,7 @@ export function useGraphPageState() {
     wizardAction,      setWizardAction,
     contextMenu,       setContextMenu,
     duplicateInfo,     setDuplicateInfo,
+    sameTreeDup,       setSameTreeDup,
     notifPanelOpen,    setNotifPanelOpen,
     mergeConflicts,    setMergeConflicts,
     historyPanelOpen,  setHistoryPanelOpen,

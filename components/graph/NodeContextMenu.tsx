@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, type ReactNode } from 'react'
-import { IconEye, IconPencil, IconGitMerge, IconUserCircle } from '@tabler/icons-react'
+import { IconEye, IconPencil, IconGitMerge, IconUserCircle, IconUserPlus } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
 
@@ -12,6 +12,10 @@ interface NodeContextMenuProps {
   personName: string
   gender?: string
   canEdit: boolean
+  /** Any member of your own family can add relations to any node (owned or not),
+   *  including while viewing a member's tree in perspective. Hidden only on
+   *  another family's tree. */
+  canAddRelation: boolean
   /** Merge requests can only start from your own tree, never while viewing
    *  another person's tree (perspective mode). */
   canMerge: boolean
@@ -19,6 +23,7 @@ interface NodeContextMenuProps {
   isViewerNode?: boolean
   onViewProfile: () => void
   onViewTree: () => void
+  onAddRelation: () => void
   onEdit: () => void
   onMergeNode: () => void
   onClose: () => void
@@ -26,8 +31,8 @@ interface NodeContextMenuProps {
 
 export default function NodeContextMenu({
   nodeId, x, y, personName, gender,
-  canEdit, canMerge, isSelf, isViewerNode,
-  onViewProfile, onViewTree, onEdit, onMergeNode, onClose,
+  canEdit, canAddRelation, canMerge, isSelf, isViewerNode,
+  onViewProfile, onViewTree, onAddRelation, onEdit, onMergeNode, onClose,
 }: NodeContextMenuProps) {
   const { isDark } = useGraphStore()
   const t = getTheme(isDark)
@@ -62,6 +67,7 @@ export default function NodeContextMenu({
   const itemCount = 1 // View profile — always present
     + (canMerge ? 1 : 0)
     + (!isSelf && !isViewerNode ? 1 : 0)
+    + (canAddRelation ? 1 : 0)
     + (canEdit ? 1 : 0)
   const MENU_H = 58 + itemCount * 34
   const left = x + MENU_W > window.innerWidth  ? x - MENU_W : x
@@ -129,6 +135,7 @@ export default function NodeContextMenu({
       <div role="presentation" style={{ padding: '4px' }}>
         {item(<IconUserCircle size={14} />, 'View profile', onViewProfile)}
         {!isSelf && !isViewerNode && item(<IconEye size={14} />, treeLinkLabel, onViewTree)}
+        {canAddRelation && item(<IconUserPlus size={14} />, 'Add relation', onAddRelation)}
         {canEdit && item(<IconPencil size={14} />, 'Edit details', onEdit)}
         {canMerge && item(<IconGitMerge size={14} />, 'Merge node', onMergeNode)}
       </div>
