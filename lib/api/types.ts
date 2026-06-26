@@ -28,7 +28,6 @@ export interface MergeConflict {
   severity:         'warning' | 'error'
   message:          string
   affected_persons: string[]
-  resolution_options: never[]
 }
 
 export interface PotentialMatch {

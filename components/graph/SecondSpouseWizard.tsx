@@ -19,7 +19,7 @@ import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Z } from '@/lib/zIndex'
 import { api } from '@/lib/api'
-import { compressPhoto } from '@/lib/image'
+import { compressPhoto } from '@/lib/image/compressPhoto'
 import { titleCase } from '@/lib/format/normalize'
 import {
   WizardHeader, ResolvePhase, AddPhase, ReparentPhase,
