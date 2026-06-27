@@ -8,7 +8,7 @@
 import type { RelAction } from '@/components/graph/Navbar'
 
 type SimpleEdge = { id: string; source: string; target: string; data?: unknown }
-type SimpleNode = { id: string; data?: { fullName?: string; gender?: string; photoUrl?: string } }
+type SimpleNode = { id: string; data?: { fullName?: string; gender?: string; photoUrl?: string; gotra?: string } }
 type MotherOption = { id: string; name: string; gender?: string; photoUrl?: string }
 
 /**
@@ -90,4 +90,49 @@ export function computeFatherName(
   const multiSpouseParent = anchorParents.find(p => spousesOf(p) >= 2)
   if (!multiSpouseParent) return undefined
   return nodes.find(n => n.id === multiSpouseParent)?.data?.fullName
+}
+
+/**
+ * Gotra the new person will inherit, for DISPLAY on the wizard review step.
+ * Mirrors the rule applied at create time in useNodeActions.onAddRelation
+ * (gotra follows the paternal line) — keep the two in sync:
+ *   - son/daughter:   father's gotra (anchor if male, else anchor's male spouse)
+ *   - brother/sister: anchor's male parent's gotra
+ *   - father:         anchor's own gotra (a child shares its father's gotra)
+ *   - everything else: none (mothers keep their own; spouses unaffected)
+ */
+export function computeInheritedGotra(
+  action: RelAction,
+  anchorId: string | null,
+  edges: SimpleEdge[],
+  nodes: SimpleNode[],
+): string | undefined {
+  if (!anchorId) return undefined
+  const dataOf = (id: string) => nodes.find(n => n.id === id)?.data
+  const relTypeOf = (e: SimpleEdge) => (e.data as { relType?: string } | undefined)?.relType
+  const spousesOfPerson = (personId: string): string[] =>
+    edges
+      .filter(e => relTypeOf(e) === 'SPOUSE_OF' && (e.source === personId || e.target === personId))
+      .map(e => e.source === personId ? e.target : e.source)
+
+  const isChild   = action === 'son'     || action === 'daughter'
+  const isSibling = action === 'brother' || action === 'sister'
+
+  if (isChild || isSibling) {
+    let fatherId: string | undefined
+    if (isChild) {
+      fatherId = dataOf(anchorId)?.gender === 'male'
+        ? anchorId
+        : spousesOfPerson(anchorId).find(s => dataOf(s)?.gender === 'male')
+    } else {
+      fatherId = edges
+        .filter(e => relTypeOf(e) === 'PARENT_OF' && e.target === anchorId)
+        .map(e => e.source)
+        .find(p => dataOf(p)?.gender === 'male')
+    }
+    return fatherId ? (dataOf(fatherId)?.gotra || undefined) : undefined
+  }
+
+  if (action === 'father') return dataOf(anchorId)?.gotra || undefined
+  return undefined
 }

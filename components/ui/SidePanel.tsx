@@ -49,6 +49,8 @@ export function SidePanel({
         position:      'fixed',
         top:           0, right: 0, bottom: 0,
         width:         `${width}px`,
+        // Responsive: never exceed the viewport on small screens.
+        maxWidth:      '100vw',
         zIndex,
         background:    t.panelBg,
         borderLeft:    `1.5px solid ${t.borderNeutral ?? t.border}`,

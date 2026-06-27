@@ -68,6 +68,12 @@ function GraphInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const perspectiveId = searchParams.get('perspective') ?? undefined
+  // The merge-review sidebar belongs ONLY to a review/explore entry — i.e. a
+  // perspective opened from a notification ("View their tree", carries
+  // ?viewMerge=) or a possible-match suggestion (?match=). A plain
+  // ?perspective= from the search bar must NOT show it. This URL marker is the
+  // de-facto "merge-review endpoint"; without it we're just browsing a tree.
+  const isReviewEntry = !!(searchParams.get('viewMerge') || searchParams.get('match'))
 
   const { getNodes, setCenter, fitView } = useReactFlow()
   const { isDark, setIsDark, unreadCount, setNotifications } = useGraphStore()
@@ -119,7 +125,7 @@ function GraphInner() {
   // Exploration mode — true when we're viewing another tree to evaluate a merge.
   // When the exploration banner occupies the top strip, push the whole HUD row
   // down so nothing overlaps it.
-  const isExploration    = !!perspectiveId && !!s.pendingMatch
+  const isExploration    = !!perspectiveId && isReviewEntry && !!s.pendingMatch
   const EXPLORE_BANNER_H = 46
   const hudOffset        = isExploration ? EXPLORE_BANNER_H : 0
   const matchHighlightNode = useMemo(
@@ -137,7 +143,7 @@ function GraphInner() {
     })
   }, [visibleNodes, isExploration])
 
-  useGraphPageEffects({ s, perspectiveId, nodes, graphLoading, isExploration, matchHighlightNode })
+  useGraphPageEffects({ s, perspectiveId, isReviewEntry, nodes, graphLoading, isExploration, matchHighlightNode })
 
   const perspectivePerson = perspectiveId
     ? nodes.find(n => asPersonData(n.data)?.isSelf) ?? null
@@ -204,7 +210,9 @@ function GraphInner() {
   }, [onAddRelation, s])
 
   const handleWizardAddForMerge = useCallback(async (action: RelAction, match: SearchResult) => {
-    const personId = await onAddRelation(action, match.full_name, {})
+    // We're explicitly sending a merge request here, so suppress the auto
+    // duplicate modal that would otherwise fire from the create.
+    const personId = await onAddRelation(action, match.full_name, { skipDuplicateCheck: true })
     if (personId) {
       try { await api.merges.create({ new_person_id: personId, canonical_person_id: match.id }) }
       catch { /* merge request non-critical — proxy node already created */ }
@@ -312,7 +320,7 @@ function GraphInner() {
         hudOffset={hudOffset}
         onToggleTheme={() => setIsDark(!isDark)}
         onToggleNotif={() => { s.setHistoryPanelOpen(false); setAdminsPanelOpen(false); s.setNotifPanelOpen(v => !v) }}
-        onToggleHistory={() => { s.setNotifPanelOpen(false); setAdminsPanelOpen(false); s.setHistoryPanelOpen(v => !v) }}
+        onToggleHistory={() => { s.setNotifPanelOpen(false); setAdminsPanelOpen(false); s.setPanelMode('none'); s.setHistoryPanelOpen(v => !v) }}
         onOpen3D={onOpen3D}
         onSelectPerson={handleSearchSelect}
         isCommunity={!!communityId}
@@ -341,6 +349,7 @@ function GraphInner() {
           canonicalPersonName={s.pendingMatch.canonicalPersonName}
           personName={s.pendingMatch.myPersonName}
           isDark={isDark}
+          onExit={() => router.push('/graph')}
         />
       )}
 

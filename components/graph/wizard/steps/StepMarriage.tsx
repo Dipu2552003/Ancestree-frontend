@@ -30,6 +30,7 @@ interface StepMarriageProps {
   marriageError:       string
   saving:              boolean
   saved:               boolean
+  isLastStep:          boolean
   setMarriageStatus:   (v: MarriageStatus) => void
   setUnionYear:        (v: string) => void
   setSeparationYear:   (v: string) => void
@@ -40,7 +41,7 @@ interface StepMarriageProps {
 export default function StepMarriage({
   dir, isDark, t, styles,
   marriageStatus, unionYear, separationYear, marriageError,
-  saving, saved,
+  saving, saved, isLastStep,
   setMarriageStatus, setUnionYear, setSeparationYear, setMarriageError,
   onCreate,
 }: StepMarriageProps) {
@@ -120,13 +121,13 @@ export default function StepMarriage({
         style={styles.btnPrimary}>
         {saving && <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={15} /></motion.div>}
         {saved  && <IconCheck size={15} strokeWidth={2.5} />}
-        {saving ? 'Adding…' : saved ? 'Added!' : '✓ Add to family tree'}
+        {saving ? 'Adding…' : saved ? 'Added!' : isLastStep ? '✓ Add to family tree' : 'Continue'}
       </motion.button>
 
       <button onClick={() => !saving && !saved && onCreate()} style={styles.btnSkip}
         onMouseEnter={e => (e.currentTarget.style.color = t.text)}
         onMouseLeave={e => (e.currentTarget.style.color = t.textMuted)}>
-        Skip — I&apos;ll add details later
+        {isLastStep ? 'Skip — I’ll add details later' : 'Skip for now'}
       </button>
     </motion.div>
   )

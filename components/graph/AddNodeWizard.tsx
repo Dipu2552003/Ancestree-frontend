@@ -20,7 +20,7 @@ import {
   WizardHeader, WizardHero,
   StepName, StepGender, StepBirthdate, StepPhoto,
   StepMarriage, StepRelationship, StepMother, StepBioParents,
-  StepMergeSearch,
+  StepMergeSearch, StepReview,
   getWizardStyles,
   REL_CONFIG, CURRENT_YEAR, MONTH_NAMES,
   type StepId, type MarriageStatus, type AdoptionStatus, type MotherChoice,
@@ -33,7 +33,7 @@ import {
 export type { WizardExtras, MarriageStatus, AdoptionStatus, MotherChoice } from './wizard'
 export { RELATION_LABELS } from './wizard'
 
-export default function AddNodeWizard({ relAction, anchorName, anchorGender, isDark, motherOptions, fatherName, onAdd, onAddForMerge, onClose }: AddNodeWizardProps) {
+export default function AddNodeWizard({ relAction, anchorName, anchorGender, isDark, motherOptions, fatherName, gotra, onAdd, onAddForMerge, onViewExisting, onClose }: AddNodeWizardProps) {
   const t   = getTheme(isDark)
   const cfg = REL_CONFIG[relAction]
 
@@ -90,6 +90,11 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
   const multiSpouse        = (motherOptions?.length ?? 0) >= 2
   // When the spouse's gender is inferred from the anchor, drop the 'gender' step.
   const baseSteps: StepId[] = impliedSpouseGender ? cfg.steps.filter(s => s !== 'gender') : cfg.steps
+  // NOTE: the 'review' step (summary + opt-in "search if this person exists"
+  // duplicate recommendation) is hidden for now — adding a node creates it
+  // directly. handleCreate still passes skipDuplicateCheck, so no auto
+  // merge-recommendation modal fires either. Merging is manual only (right-click
+  // a node → send merge request). Re-add 'review' below to bring it back.
   const steps: StepId[] = needsParentChoice
     ? (() => {
         const out: StepId[] = ['name', 'birthdate', 'photo']
@@ -171,6 +176,9 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
         motherChoice:   needsParentChoice && multiSpouse ? motherChoice : undefined,
         bioMotherName:  needsParentChoice && adoptionStatus === 'adopted' && addBioParents ? bioMotherName.trim() || undefined : undefined,
         bioFatherName:  needsParentChoice && adoptionStatus === 'adopted' && addBioParents ? bioFatherName.trim() || undefined : undefined,
+        // The review step already offered an opt-in duplicate search, so never
+        // pop the auto post-create modals from the wizard path.
+        skipDuplicateCheck: true,
       })
       setSaved(true)
     } catch {
@@ -321,11 +329,11 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
                 marriageStatus={marriageStatus}
                 unionYear={unionYear} separationYear={separationYear}
                 marriageError={marriageError}
-                saving={saving} saved={saved}
+                saving={saving} saved={saved} isLastStep={isLastStep}
                 setMarriageStatus={setMarriageStatus}
                 setUnionYear={setUnionYear} setSeparationYear={setSeparationYear}
                 setMarriageError={setMarriageError}
-                onCreate={() => handleCreate(true)}
+                onCreate={() => isLastStep ? handleCreate(true) : goNext()}
               />
             )}
 
@@ -358,10 +366,23 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
                 fullName={fullName}
                 addBioParents={addBioParents}
                 bioMotherName={bioMotherName} bioFatherName={bioFatherName}
-                saving={saving} saved={saved}
+                saving={saving} saved={saved} isLastStep={isLastStep}
                 setAddBioParents={setAddBioParents}
                 setBioMotherName={setBioMotherName} setBioFatherName={setBioFatherName}
+                onCreate={() => isLastStep ? handleCreate(true) : goNext()}
+              />
+            )}
+
+            {currentStep === 'review' && (
+              <StepReview
+                dir={dir} isDark={isDark} t={t} styles={styles}
+                relAction={relAction} relLabel={cfg.label} anchorName={anchorName}
+                fullName={fullName} gender={gender} gotra={gotra}
+                birthDate={datePreview} photoUrl={photoUrl}
+                saving={saving} saved={saved}
                 onCreate={() => handleCreate(true)}
+                onAddForMerge={onAddForMerge}
+                onViewExisting={onViewExisting}
               />
             )}
 

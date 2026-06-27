@@ -29,6 +29,10 @@ export interface AddExtras {
   motherChoice?:   string | 'unknown' | null
   bioMotherName?:  string
   bioFatherName?:  string
+  // When true, suppress the auto post-create duplicate/same-tree modals. The
+  // add-node wizard sets this once the user has passed its review step, where
+  // the duplicate search is now handled inline and opt-in.
+  skipDuplicateCheck?: boolean
 }
 
 interface NodeActionsReturn {
@@ -280,17 +284,21 @@ export function useNodeActions(
       await fetchGraph()
       setSelectedNodeId(person.id)
 
-      if (person.potential_matches && person.potential_matches.length > 0) {
-        onDuplicateFound(person.id, person.potential_matches, {
-          fullName: cleanName,
-          gender:   GENDER_BY_RELATION[action] ?? null,
-        })
-      }
+      // Duplicate recommendations are opt-in via the wizard's review step now,
+      // so skip the auto modals when the wizard asks us to (skipDuplicateCheck).
+      if (!extras?.skipDuplicateCheck) {
+        if (person.potential_matches && person.potential_matches.length > 0) {
+          onDuplicateFound(person.id, person.potential_matches, {
+            fullName: cleanName,
+            gender:   GENDER_BY_RELATION[action] ?? null,
+          })
+        }
 
-      // Same-family duplicate: a node with this name already exists in this
-      // tree — offer to view it or send a merge request instead.
-      if (person.same_tree_matches && person.same_tree_matches.length > 0) {
-        onSameTreeDuplicate(person.id, cleanName, person.same_tree_matches)
+        // Same-family duplicate: a node with this name already exists in this
+        // tree — offer to view it or send a merge request instead.
+        if (person.same_tree_matches && person.same_tree_matches.length > 0) {
+          onSameTreeDuplicate(person.id, cleanName, person.same_tree_matches)
+        }
       }
 
       return person.id

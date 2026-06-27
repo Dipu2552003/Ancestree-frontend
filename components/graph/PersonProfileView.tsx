@@ -12,6 +12,7 @@ import type { PersonData } from '@/types'
 import { getTheme, type Theme } from '@/lib/theme'
 import { Z } from '@/lib/zIndex'
 import { getInitials } from '@/lib/format/initials'
+import type { RelationGroup, RelatedPerson } from '@/lib/graph/personRelations'
 
 interface PersonProfileViewProps {
   node: Node
@@ -20,11 +21,15 @@ interface PersonProfileViewProps {
   isPerspective?: boolean
   /** Display name of the perspective anchor, e.g. "Jonas2". */
   perspectiveName?: string
+  /** This person's relations from the loaded family graph. */
+  relations?: RelationGroup[]
   onBack: () => void
   onEdit?: () => void
   /** Any member of your own family can add relations to any node (owned or not),
    *  including while viewing a member's tree. Omitted on another family's tree. */
   onAddRelation?: () => void
+  /** Open a related person's profile. */
+  onViewPerson?: (personId: string) => void
 }
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -39,7 +44,7 @@ function fmtDate(iso?: string): string | null {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function PersonProfileView({ node, isPerspective = false, perspectiveName = '', onBack, onEdit, onAddRelation }: PersonProfileViewProps) {
+export default function PersonProfileView({ node, isPerspective = false, perspectiveName = '', relations = [], onBack, onEdit, onAddRelation, onViewPerson }: PersonProfileViewProps) {
   const { isDark } = useGraphStore()
   const isMobile = useIsMobile()
   const d = node.data as unknown as PersonData
@@ -392,6 +397,35 @@ export default function PersonProfileView({ node, isPerspective = false, perspec
           ))}
         </div>
 
+        {/* ── Family — every relation in the loaded tree ── */}
+        {relations.length > 0 && (
+          <Reveal i={9}>
+            <div style={{ marginTop: isMobile ? 36 : 52 }}>
+              <SectionLabel text="Family" color={labelCol} hairline={hairline} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 18 : 22 }}>
+                {relations.map((g) => (
+                  <div key={g.title}>
+                    <div style={{
+                      fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+                      textTransform: 'uppercase', color: labelCol, marginBottom: 10,
+                    }}>
+                      {g.title}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                      {g.people.map((p) => (
+                        <RelationChip
+                          key={p.id} person={p} t={t} isDark={isDark} accent={accent}
+                          onClick={onViewPerson ? () => onViewPerson(p.id) : undefined}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        )}
+
         {/* Deceased memorial note */}
         {isDeceased && (
           <Reveal i={9}>
@@ -463,6 +497,66 @@ function InfoRow({ label, value, t, labelCol, hairline }: {
         {value}
       </span>
     </div>
+  )
+}
+
+function RelationChip({ person, t, isDark, accent, onClick }: {
+  person:  RelatedPerson
+  t:       Theme
+  isDark:  boolean
+  accent:  string
+  onClick?: () => void
+}) {
+  const initials = getInitials(person.name)
+  // Avatar tint mirrors the node state palette used elsewhere.
+  const gFrom = person.nodeState === 'claimed' ? 'var(--c-primary-strong)' : 'var(--c-secondary)'
+  const gTo   = person.nodeState === 'claimed' ? 'var(--c-primary-deep)'   : '#B45309'
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '7px 14px 7px 7px', borderRadius: 999,
+        border: `1px solid ${isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.09)'}`,
+        background: isDark ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
+        cursor: onClick ? 'pointer' : 'default', fontFamily: 'inherit',
+        transition: 'border-color 0.15s, background 0.15s',
+        maxWidth: 240,
+      }}
+      onMouseEnter={onClick ? (e) => { e.currentTarget.style.borderColor = accent } : undefined}
+      onMouseLeave={onClick ? (e) => { e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.09)' } : undefined}
+    >
+      <div style={{
+        width: 34, height: 34, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {person.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={person.photoUrl} alt={person.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{
+            width: '100%', height: '100%',
+            background: `linear-gradient(150deg, ${gFrom}, ${gTo})`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontSize: 12, fontWeight: 700,
+          }}>
+            {initials}
+          </div>
+        )}
+      </div>
+      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+        <span style={{
+          fontSize: 13.5, fontWeight: 600, color: t.text,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 180,
+        }}>
+          {person.name}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: accent }}>
+          {person.relation}
+        </span>
+      </span>
+    </button>
   )
 }
 

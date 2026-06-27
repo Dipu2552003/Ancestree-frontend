@@ -31,6 +31,7 @@ import type { WizardExtras } from './AddNodeWizard'
 import type { ExistingSpouse, ExistingChild } from './SecondSpouseWizard'
 import type { PersonData, PendingMatchData, MyPersonInfo, SavePayload } from '@/types'
 import type { PotentialMatch, MergeConflict, SearchResult, SameTreeMatch } from '@/lib/api'
+import type { RelationGroup } from '@/lib/graph/personRelations'
 import type { RelAction } from './Navbar'
 
 // ── Prop bundles ─────────────────────────────────────────────────────────────
@@ -76,12 +77,17 @@ export interface ViewPanelOverlay {
   node:            Node
   isPerspective:   boolean
   perspectiveName: string
+  /** This person's relations (parents/siblings/spouse/children) from the loaded
+   *  family graph — shown as a clickable "Family" section in the profile. */
+  relations:       RelationGroup[]
   onBack:          () => void
   /** Omitted when the viewer can't edit this profile (owned node) — the
    *  profile view then hides its Edit button. */
   onEdit?:         () => void
   /** Omitted on another family's tree (no canEdit) — hides Add relation. */
   onAddRelation?:  () => void
+  /** Navigate the profile to a related person. */
+  onViewPerson?:   (personId: string) => void
 }
 
 export interface DuplicateOverlay {
@@ -134,8 +140,10 @@ export interface WizardOverlay {
   anchorGender:   string | undefined
   motherOptions:  { id: string; name: string; gender?: string; photoUrl?: string }[]
   fatherName:     string | undefined
+  gotra:          string | undefined
   onAdd:          (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
   onAddForMerge?: (action: RelAction, match: SearchResult) => Promise<void>
+  onViewExisting?: (personId: string) => void
   onClose:        () => void
 }
 
@@ -229,9 +237,11 @@ export default function GraphOverlays({
             node={viewPanel.node}
             isPerspective={viewPanel.isPerspective}
             perspectiveName={viewPanel.perspectiveName}
+            relations={viewPanel.relations}
             onBack={viewPanel.onBack}
             onEdit={viewPanel.onEdit}
             onAddRelation={viewPanel.onAddRelation}
+            onViewPerson={viewPanel.onViewPerson}
           />
         )}
       </AnimatePresence>
@@ -328,8 +338,10 @@ export default function GraphOverlays({
             isDark={isDark}
             motherOptions={wizard.motherOptions}
             fatherName={wizard.fatherName}
+            gotra={wizard.gotra}
             onAdd={wizard.onAdd}
             onAddForMerge={wizard.onAddForMerge}
+            onViewExisting={wizard.onViewExisting}
             onClose={wizard.onClose}
           />
         )}

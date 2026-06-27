@@ -11,7 +11,8 @@
 import type { Node, Edge } from '@xyflow/react'
 import { api, type MergeConflict } from '@/lib/api'
 import { isGhostNodeId, realIdFromGhost, realEdgeId } from '@/lib/graph/ghostNodes'
-import { computeMotherOptions, computeFatherName } from '@/lib/graph/wizardOptions'
+import { computeMotherOptions, computeFatherName, computeInheritedGotra } from '@/lib/graph/wizardOptions'
+import { computePersonRelations } from '@/lib/graph/personRelations'
 import { markDupDismissed } from '@/lib/storage'
 import {
   deriveActiveSpousesFromEdges,
@@ -154,6 +155,15 @@ export function buildOverlayProps({
       node:   selectedNode,
       isPerspective,
       perspectiveName,
+      // All relations from the full loaded family graph (ghost id → real id).
+      relations: computePersonRelations(
+        isGhostNodeId(selectedNode.id) ? realIdFromGhost(selectedNode.id) : selectedNode.id,
+        rawNodes, rawEdges,
+      ),
+      onViewPerson: (personId: string) => {
+        s.setSelectedNodeId(personId)
+        s.setPanelMode('view')
+      },
       onBack: () => s.setPanelMode('none'),
       // Owned (claimed-by-someone-else) nodes are read-only — omit onEdit so the
       // profile view hides its Edit button entirely.
@@ -241,8 +251,16 @@ export function buildOverlayProps({
       anchorGender:   (selectedNode?.data as PersonData | undefined)?.gender,
       motherOptions:  computeMotherOptions(s.wizardAction, anchorRealId, rawEdges, rawNodes),
       fatherName:     computeFatherName(s.wizardAction, anchorRealId, rawEdges, rawNodes),
+      gotra:          computeInheritedGotra(s.wizardAction, anchorRealId, rawEdges, rawNodes),
       onAdd:          handleWizardAdd,
       onAddForMerge:  handleWizardAddForMerge,
+      // Picked an existing person from the review-step search → open it in the
+      // current tree instead of creating a duplicate.
+      onViewExisting: (personId: string) => {
+        s.setWizardAction(null)
+        s.setSelectedNodeId(personId)
+        s.setPanelMode('view')
+      },
       onClose:        () => s.setWizardAction(null),
     } : null,
 

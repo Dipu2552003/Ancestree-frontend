@@ -1,6 +1,6 @@
 'use client'
 
-import { IconEye, IconGitMerge } from '@tabler/icons-react'
+import { IconEye, IconGitMerge, IconX } from '@tabler/icons-react'
 import { getTheme } from '@/lib/theme'
 
 interface ExplorationBannerProps {
@@ -12,9 +12,11 @@ interface ExplorationBannerProps {
   /** The user's own person they're attempting to merge against canonical. */
   personName:          string
   isDark:              boolean
+  /** Leave the review/explore view and return to the user's own tree. */
+  onExit:              () => void
 }
 
-export default function ExplorationBanner({ mode, canonicalPersonName, personName, isDark }: ExplorationBannerProps) {
+export default function ExplorationBanner({ mode, canonicalPersonName, personName, isDark, onExit }: ExplorationBannerProps) {
   const bg     = isDark ? 'rgba(26,20,16,0.95)' : 'rgb(var(--c-page-rgb) / 0.95)'
   const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgb(var(--c-primary-rgb) / 0.18)'
   const accent = 'var(--c-primary)'
@@ -64,6 +66,22 @@ export default function ExplorationBanner({ mode, canonicalPersonName, personNam
           animation: 'pulse-dot 2s ease-in-out infinite',
         }} />
       </div>
+
+      {/* Exit — leave the review and return to the user's own tree */}
+      <button
+        onClick={onExit}
+        style={{
+          position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+          display: 'flex', alignItems: 'center', gap: '5px',
+          height: '30px', padding: '0 12px', borderRadius: '8px',
+          border: `1px solid ${border}`,
+          background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.5)',
+          color: text, fontSize: '12px', fontWeight: 600, fontFamily: 'inherit',
+          cursor: 'pointer', whiteSpace: 'nowrap',
+        }}
+      >
+        <IconX size={13} /> Exit review
+      </button>
 
       <style>{`
         @keyframes pulse-dot {

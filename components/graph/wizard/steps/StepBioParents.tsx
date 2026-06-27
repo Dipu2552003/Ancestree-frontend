@@ -20,6 +20,7 @@ interface StepBioParentsProps {
   bioFatherName:     string
   saving:            boolean
   saved:             boolean
+  isLastStep:        boolean
   setAddBioParents:  (v: boolean) => void
   setBioMotherName:  (v: string) => void
   setBioFatherName:  (v: string) => void
@@ -29,7 +30,7 @@ interface StepBioParentsProps {
 export default function StepBioParents({
   dir, isDark, t, styles,
   fullName, addBioParents, bioMotherName, bioFatherName,
-  saving, saved,
+  saving, saved, isLastStep,
   setAddBioParents, setBioMotherName, setBioFatherName, onCreate,
 }: StepBioParentsProps) {
   return (
@@ -108,7 +109,7 @@ export default function StepBioParents({
         style={styles.btnPrimary}>
         {saving && <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}><IconLoader2 size={15} /></motion.div>}
         {saved  && <IconCheck size={15} strokeWidth={2.5} />}
-        {saving ? 'Adding…' : saved ? 'Added!' : '✓ Add to family tree'}
+        {saving ? 'Adding…' : saved ? 'Added!' : isLastStep ? '✓ Add to family tree' : 'Continue'}
       </motion.button>
     </motion.div>
   )

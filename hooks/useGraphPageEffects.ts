@@ -29,6 +29,10 @@ function asPersonData(data: unknown): PersonData {
 interface UseGraphPageEffectsArgs {
   s:                  State
   perspectiveId:      string | undefined
+  /** True only when the perspective was opened from a merge-review / explore
+   *  entry (URL carries ?viewMerge= or ?match=). A plain search perspective is
+   *  false, and must drop any leftover review context. */
+  isReviewEntry:      boolean
   nodes:              Node[]
   graphLoading:       boolean
   isExploration:      boolean
@@ -36,7 +40,7 @@ interface UseGraphPageEffectsArgs {
 }
 
 export function useGraphPageEffects({
-  s, perspectiveId, nodes, graphLoading, isExploration, matchHighlightNode,
+  s, perspectiveId, isReviewEntry, nodes, graphLoading, isExploration, matchHighlightNode,
 }: UseGraphPageEffectsArgs) {
   const router = useRouter()
   const { setNotifications, setActiveNodeId } = useGraphStore()
@@ -55,8 +59,16 @@ export function useGraphPageEffects({
     if (raw) {
       try { s.setPendingMatch(JSON.parse(raw) as PendingMatchData) } catch {}
       sessionStorage.removeItem('pendingMatch')
+      // Entered review/explore from the notification panel — close that panel so
+      // it doesn't sit on top of the merge sidebar.
+      s.setNotifPanelOpen(false)
+    } else if (!isReviewEntry) {
+      // Plain perspective (search) or back on the home tree — drop any leftover
+      // review context so the merge sidebar/banner doesn't follow us around.
+      s.setPendingMatch(null)
+      s.setMatchPanelOpen(false)
     }
-  }, [perspectiveId])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [perspectiveId, isReviewEntry])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch notification unread count on load
   useEffect(() => {
@@ -70,6 +82,12 @@ export function useGraphPageEffects({
   useEffect(() => {
     setActiveNodeId(s.selectedNodeId ?? s.contextMenu?.nodeId ?? null)
   }, [s.selectedNodeId, s.contextMenu?.nodeId, setActiveNodeId])
+
+  // The History panel and a node's view/edit panel both occupy the right side —
+  // opening a node panel closes History so they don't stack.
+  useEffect(() => {
+    if (s.panelMode !== 'none') s.setHistoryPanelOpen(false)
+  }, [s.panelMode])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Long-press on mobile → open context menu (mirrors onNodeContextMenu for right-click)
   const nodesRef = useRef(nodes)

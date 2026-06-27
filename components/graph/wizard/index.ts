@@ -18,7 +18,7 @@ export { default as WizardHero }        from './WizardHero'
 export {
   StepName, StepGender, StepBirthdate, StepPhoto,
   StepMarriage, StepRelationship, StepMother, StepBioParents,
-  StepMergeSearch,
+  StepMergeSearch, StepReview,
 } from './steps'
 
 export { getWizardStyles } from './styles'

@@ -70,6 +70,15 @@ export function injectUnknownParents(
     // If any member already has a parent, the group is anchored — skip it.
     if (members.some(m => hasParent.has(m))) continue
 
+    // Married-in siblings have their lineage in another family (their mayka),
+    // which the side filter deliberately seals out of this view — so never
+    // fabricate a father for a group that is ENTIRELY married-in (sealed
+    // spouses). In the mayka view those same people are blood ('self'/'family'),
+    // so the Unknown parent still appears there when a real father is missing.
+    const roleOf = (id: string) =>
+      (nodeById.get(id)!.data as unknown as PersonData).nodeRole
+    if (members.every(m => roleOf(m) === 'spouse')) continue
+
     const sorted    = [...members].sort()
     const parentId  = `${UNKNOWN_PARENT_PREFIX}${sorted[0]}`
     const sample    = nodeById.get(sorted[0])!.data as unknown as PersonData

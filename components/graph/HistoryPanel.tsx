@@ -24,6 +24,33 @@ interface HistoryPanelProps {
   onUndone: () => Promise<void> | void
 }
 
+// ── Tabs ────────────────────────────────────────────────────────────────────
+// Three views over the same audit log so undo is easier to reason about:
+//   merge      — merge requests / accepted merges
+//   structure  — people (nodes) added or deleted
+//   details    — proxy-node field edits
+// Categorisation is by the backend `action` string (matched by keyword). The
+// exact action names aren't referenced anywhere else in the frontend, so if a
+// bucket looks wrong, adjust the keyword sets in `categorize` to match what the
+// backend emits.
+type HistoryTab = 'merge' | 'structure' | 'details'
+
+const TABS: { id: HistoryTab; label: string }[] = [
+  { id: 'merge',     label: 'Merges' },
+  { id: 'structure', label: 'Added / Deleted' },
+  // 'Detail edits' is hidden until the backend logs person.update events with
+  // ownership info (so owned-node self-edits can be excluded). Re-add here:
+  // { id: 'details', label: 'Detail edits' },
+]
+
+function categorize(op: HistoryOperation): HistoryTab {
+  const a = (op.action ?? '').toLowerCase()
+  if (a.includes('merge')) return 'merge'
+  if (/(creat|add|delet|remov)/.test(a)) return 'structure'
+  // Field edits + anything not otherwise classified.
+  return 'details'
+}
+
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
   const min = Math.floor(ms / 60_000)
@@ -41,10 +68,13 @@ export default function HistoryPanel({ isDark, onClose, onUndone }: HistoryPanel
   const familyId = getFamilyId()
 
   const [ops,        setOps]        = useState<HistoryOperation[]>([])
+  const [tab,        setTab]        = useState<HistoryTab>('merge')
   const [loading,    setLoading]    = useState(true)
   const [confirmId,  setConfirmId]  = useState<string | null>(null)
   const [undoingId,  setUndoingId]  = useState<string | null>(null)
   const [error,      setError]      = useState('')
+
+  const visibleOps = ops.filter(op => categorize(op) === tab)
 
   const load = useCallback(async () => {
     if (!familyId) {
@@ -104,6 +134,44 @@ export default function HistoryPanel({ isDark, onClose, onUndone }: HistoryPanel
         </button>
       </div>
 
+      {/* ── Tabs ────────────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', flexShrink: 0,
+        borderBottom: `1px solid ${t.borderNeutral}`,
+        padding: '0 8px',
+      }}>
+        {TABS.map(tb => {
+          const active = tab === tb.id
+          const count  = ops.filter(op => categorize(op) === tb.id).length
+          return (
+            <button
+              key={tb.id}
+              onClick={() => { setTab(tb.id); setConfirmId(null) }}
+              style={{
+                flex: 1, padding: '11px 4px 9px', background: 'none', cursor: 'pointer',
+                border: 'none', borderBottom: `2px solid ${active ? 'var(--c-primary)' : 'transparent'}`,
+                color: active ? 'var(--c-primary)' : t.textMuted,
+                fontSize: '12px', fontWeight: active ? 700 : 600, fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                transition: 'color 0.15s, border-color 0.15s',
+              }}
+            >
+              {tb.label}
+              {count > 0 && (
+                <span style={{
+                  fontSize: '10px', fontWeight: 700, lineHeight: 1,
+                  padding: '2px 5px', borderRadius: '999px',
+                  background: active ? 'rgb(var(--c-primary-rgb) / 0.14)' : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'),
+                  color: active ? 'var(--c-primary)' : t.textMuted,
+                }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
       {/* ── Body ────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {error && (
@@ -121,17 +189,23 @@ export default function HistoryPanel({ isDark, onClose, onUndone }: HistoryPanel
           </div>
         )}
 
-        {!loading && ops.length === 0 && (
+        {!loading && visibleOps.length === 0 && (
           <div style={{ padding: '48px 20px', textAlign: 'center' }}>
             <IconHistory size={32} color={t.textMuted} style={{ opacity: 0.3, marginBottom: '8px' }} />
-            <p style={{ margin: 0, fontSize: '13px', color: t.textMuted }}>No changes recorded yet</p>
+            <p style={{ margin: 0, fontSize: '13px', color: t.textMuted }}>
+              {tab === 'merge'     ? 'No merge activity yet'
+             : tab === 'structure' ? 'No people added or removed yet'
+             :                       'No detail edits yet'}
+            </p>
             <p style={{ margin: '6px 0 0', fontSize: '11.5px', color: t.textMuted, lineHeight: 1.5 }}>
-              New family members and merges appear here and can be undone.
+              {tab === 'merge'     ? 'Merge requests and accepted merges show here.'
+             : tab === 'structure' ? 'Added and deleted family members show here — and can be undone.'
+             :                       'Edits to proxy members’ details show here.'}
             </p>
           </div>
         )}
 
-        {!loading && ops.map(op => {
+        {!loading && visibleOps.map(op => {
           const isConfirming = confirmId === op.operation_id
           const isUndoing    = undoingId === op.operation_id
           return (

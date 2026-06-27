@@ -23,6 +23,7 @@ import { useElapsedSeconds } from '@/hooks/useElapsedSeconds'
 import { getTheme } from '@/lib/theme'
 import { api, isColdStartError } from '@/lib/api'
 import { bfsDelays, buildDisplayEdges } from '@/lib/graph/edgeUtils'
+import { computePersonRelations } from '@/lib/graph/personRelations'
 import { filterGraphBySide } from '@/lib/layouts/familySideFilter'
 import { injectGhostsForIntraFamilyMarriages, isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
 import { layoutEngine } from '@/lib/layouts/layoutEngine'
@@ -303,6 +304,8 @@ function PublicTreeInner() {
           <PersonProfileView
             key={selectedNodeId}
             node={profileNode}
+            relations={computePersonRelations(profileNode.id, rawNodes, rawEdges)}
+            onViewPerson={(pid) => setSelectedNodeId(pid)}
             onBack={clearSelection}
           />
         )}
