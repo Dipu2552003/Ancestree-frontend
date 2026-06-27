@@ -5,12 +5,13 @@
 // with a cycling typewriter placeholder, and a one-line quote beneath it.
 // The same animated dot-field used on /graph sits in the background.
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconSearch, IconLoader2, IconArrowRight, IconBinaryTree2, IconSun, IconMoon } from '@tabler/icons-react'
+import { IconSearch, IconLoader2, IconArrowRight, IconBinaryTree2, IconSun, IconMoon, IconRefresh } from '@tabler/icons-react'
 import DotField from '@/components/graph/DotField'
 import { useGraphStore } from '@/store/graphStore'
+import { useElapsedSeconds } from '@/hooks/useElapsedSeconds'
 import { getTheme } from '@/lib/theme'
 import { api } from '@/lib/api'
 import type { SearchResult } from '@/lib/api'
@@ -83,7 +84,12 @@ export default function Landing() {
   const [loading, setLoading] = useState(false)
   const [focused, setFocused] = useState(false)
   const [touched, setTouched] = useState(false)
+  const [searchError, setSearchError] = useState(false)
+  const [failCount,   setFailCount]   = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
+
+  // Elapsed timer beside the spinner — reassures during a slow backend cold start.
+  const seconds = useElapsedSeconds(loading)
 
   // Theme — shared with the rest of the app via the persisted UI store.
   const { isDark, setIsDark } = useGraphStore()
@@ -98,19 +104,25 @@ export default function Landing() {
   // Typewriter runs only while the field is empty.
   const typed = useTypewriter(SUGGESTIONS, query.length === 0)
 
-  // Debounced public search. Backend returns [] for queries under 2 chars.
+  // Public search. Backend returns [] for queries under 2 chars. Any thrown
+  // error here means the backend was unreachable (cold start / down) — surface
+  // a retry rather than a misleading "no match".
+  const runSearch = useCallback((raw: string) => {
+    const trimmed = raw.trim()
+    if (trimmed.length < 2) { setResults([]); setLoading(false); setSearchError(false); return }
+    setLoading(true)
+    setSearchError(false)
+    api.search.publicPersons(trimmed)
+      .then(({ results: r }) => { setResults(r); setFailCount(0) })
+      .catch(() => { setResults([]); setSearchError(true); setFailCount(c => c + 1) })
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Debounced — re-run on each query change.
   useEffect(() => {
-    const trimmed = query.trim()
-    const id = setTimeout(() => {
-      if (trimmed.length < 2) { setResults([]); setLoading(false); return }
-      setLoading(true)
-      api.search.publicPersons(trimmed)
-        .then(({ results: r }) => setResults(r))
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false))
-    }, 280)
+    const id = setTimeout(() => runSearch(query), 280)
     return () => clearTimeout(id)
-  }, [query])
+  }, [query, runSearch])
 
   // Close the results dropdown when clicking outside the search box.
   useEffect(() => {
@@ -234,12 +246,16 @@ export default function Landing() {
               }}
             />
             {loading && (
-              <motion.div
-                animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}
-                style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)' }}
-              >
-                <IconLoader2 size={18} color={MUTED} />
-              </motion.div>
+              <div style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {seconds >= 3 && (
+                  <span style={{ fontSize: 13, fontWeight: 600, color: SAFFRON, fontVariantNumeric: 'tabular-nums' }}>
+                    {seconds}s
+                  </span>
+                )}
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }} style={{ display: 'flex' }}>
+                  <IconLoader2 size={18} color={MUTED} />
+                </motion.div>
+              </div>
             )}
           </div>
 
@@ -292,6 +308,30 @@ export default function Landing() {
                       <IconArrowRight size={15} color={MUTED} style={{ flexShrink: 0 }} />
                     </button>
                   ))
+                ) : searchError && !loading ? (
+                  <div style={{ padding: '20px 16px', textAlign: 'center' }}>
+                    {failCount >= 2 ? (
+                      <p style={{ margin: 0, color: MUTED, fontSize: 13.5, lineHeight: 1.55 }}>
+                        The server isn’t responding right now. Please try again in a little while.
+                      </p>
+                    ) : (
+                      <>
+                        <p style={{ margin: '0 0 10px', color: MUTED, fontSize: 13.5, lineHeight: 1.55 }}>
+                          Couldn’t reach the server — it may be waking up.
+                        </p>
+                        <button
+                          onClick={() => runSearch(query)}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer',
+                            padding: '8px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700, color: '#fff',
+                            background: SAFFRON, fontFamily: 'inherit',
+                          }}
+                        >
+                          <IconRefresh size={14} strokeWidth={2.5} /> Try again
+                        </button>
+                      </>
+                    )}
+                  </div>
                 ) : !loading && touched ? (
                   <div style={{ padding: '22px 16px', textAlign: 'center', color: MUTED, fontSize: 13.5 }}>
                     No public match for “{query.trim()}”.{' '}

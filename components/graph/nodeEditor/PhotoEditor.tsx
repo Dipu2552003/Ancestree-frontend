@@ -73,10 +73,15 @@ export default function PhotoEditor({ photoUrl, altName, isDark, onChange }: Pho
         style={{ display: 'none' }}
         onChange={e => {
           const file = e.target.files?.[0]
-          if (!file) return
-          if (!file.type.startsWith('image/')) { e.target.value = ''; return }
-          setCropSrc(URL.createObjectURL(file))
+          // Reset first so re-picking the same file still fires onChange.
           e.target.value = ''
+          if (!file) return
+          // Some mobile pickers (Android gallery/Files content URIs, some iOS
+          // cases) return a File with an empty MIME type — only reject when the
+          // type is present AND clearly not an image. The input's accept already
+          // constrains the picker to images.
+          if (file.type && !file.type.startsWith('image/')) return
+          setCropSrc(URL.createObjectURL(file))
         }}
       />
 

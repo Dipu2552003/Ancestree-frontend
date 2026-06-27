@@ -27,6 +27,7 @@ import ExplorationBanner from '@/components/graph/ExplorationBanner'
 import GraphHUD from '@/components/graph/GraphHUD'
 import GraphOverlays from '@/components/graph/GraphOverlays'
 import GraphLoading from '@/components/graph/GraphLoading'
+import GraphError from '@/components/graph/GraphError'
 import GraphCanvasArea from '@/components/graph/GraphCanvasArea'
 import { useGraphStore } from '@/store/graphStore'
 import { useGraphData } from '@/hooks/useGraphData'
@@ -86,7 +87,7 @@ function GraphInner() {
     setNodes, setEdges,
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
-    graphLoading, fetchGraph, resetAndFetch,
+    graphLoading, graphError, graphFailCount, fetchGraph, resetAndFetch,
     isMarriedWoman, womanView, onWomanViewChange,
     familyName,
     updateRawNode,
@@ -226,6 +227,7 @@ function GraphInner() {
   }, [resetAndFetch, isExploration, router, setNotifications, s])
 
   if (graphLoading) return <GraphLoading isDark={isDark} />
+  if (graphError)   return <GraphError isDark={isDark} attempts={graphFailCount} onRetry={fetchGraph} />
 
   // Resolve the anchor's "real" id (ghost-stripped) once — used by both wizards.
   const anchorRealId = s.selectedNodeId && isGhostNodeId(s.selectedNodeId)

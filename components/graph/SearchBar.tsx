@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useCallback, KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconSearch, IconX, IconLoader2 } from '@tabler/icons-react'
+import { IconSearch, IconX, IconLoader2, IconRefresh } from '@tabler/icons-react'
 import { api, type SearchResult } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
+import { useElapsedSeconds } from '@/hooks/useElapsedSeconds'
 import { MiniNodeCard, searchMetaPieces } from './NodeCard'
 
 interface SearchBarProps {
@@ -24,6 +25,11 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
   const [loading,   setLoading]   = useState(false)
   const [open,      setOpen]      = useState(false)
   const [cursor,    setCursor]    = useState(-1)   // keyboard-selected row index
+  const [searchError, setSearchError] = useState(false)
+  const [failCount,   setFailCount]   = useState(0)  // consecutive failed searches
+
+  // Elapsed timer beside the spinner — reassures during a slow backend cold start.
+  const seconds = useElapsedSeconds(loading)
 
   const inputRef     = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -36,18 +42,28 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
       setResults([])
       setOpen(false)
       setLoading(false)
+      setSearchError(false)
       return
     }
     setLoading(true)
+    setSearchError(false)
     api.search.persons(q)
       .then(({ results: res }) => {
         setResults(res)
         setOpen(true)
         setCursor(-1)
+        setFailCount(0)
       })
-      .catch(() => setResults([]))
+      .catch(() => {
+        setResults([])
+        setSearchError(true)
+        setOpen(true)
+        setFailCount(c => c + 1)
+      })
       .finally(() => setLoading(false))
   }, [])
+
+  const retrySearch = useCallback(() => search(query), [search, query])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -55,6 +71,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
       setResults([])
       setOpen(false)
       setLoading(false)
+      setSearchError(false)
       return
     }
     setLoading(true)
@@ -152,9 +169,17 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
             fontFamily: 'inherit',
           }}
         />
+        {loading && seconds >= 3 && (
+          <span style={{
+            fontSize: 11, fontWeight: 600, color: 'var(--c-primary)',
+            fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+          }}>
+            {seconds}s
+          </span>
+        )}
         {query && (
           <button
-            onClick={() => { setQuery(''); setOpen(false); setResults([]); inputRef.current?.focus() }}
+            onClick={() => { setQuery(''); setOpen(false); setResults([]); setSearchError(false); inputRef.current?.focus() }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, display: 'flex', padding: 0, flexShrink: 0 }}
           >
             <IconX size={14} />
@@ -276,8 +301,55 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
           </motion.div>
         )}
 
+        {/* Error / cold-start retry */}
+        {open && !loading && searchError && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{    opacity: 0 }}
+            style={{
+              position:     'absolute',
+              top:          '100%',
+              left:         0,
+              right:        0,
+              zIndex:       999,
+              background:   t.cardBg,
+              border:       '1.5px solid var(--c-primary)',
+              borderTop:    `1px solid ${t.controlBorder}`,
+              borderRadius: '0 0 10px 10px',
+              padding:      '14px 12px',
+              textAlign:    'center',
+            }}
+          >
+            {failCount >= 2 ? (
+              <p style={{ margin: 0, fontSize: 12.5, color: t.textMuted, lineHeight: 1.5 }}>
+                It seems something is wrong. Please reach out to the admin.
+              </p>
+            ) : (
+              <>
+                <p style={{ margin: '0 0 10px', fontSize: 12.5, color: t.textMuted, lineHeight: 1.5 }}>
+                  Couldn’t reach the server — it may be waking up.
+                </p>
+                <button
+                  onClick={retrySearch}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    height: 32, padding: '0 14px', borderRadius: 8, border: 'none',
+                    background: 'var(--c-primary)', color: '#fff',
+                    fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                  }}
+                >
+                  <IconRefresh size={13} strokeWidth={2.5} />
+                  Try again
+                </button>
+              </>
+            )}
+          </motion.div>
+        )}
+
         {/* No results */}
-        {open && !loading && query.trim().length >= 2 && results.length === 0 && (
+        {open && !loading && !searchError && query.trim().length >= 2 && results.length === 0 && (
           <motion.div
             key="empty"
             initial={{ opacity: 0 }}

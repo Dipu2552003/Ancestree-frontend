@@ -36,9 +36,12 @@ export default function WizardHeader({
   const hoverOut = (e: React.MouseEvent<HTMLButtonElement>) =>
     (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)')
 
-  // In search mode the left button always goes back to add mode (never closes directly).
-  const leftAction = isSearchMode ? onToggleSearch! : (stepIdx === 0 ? onClose : onBack)
-  const leftIcon   = isSearchMode || stepIdx > 0 ? <IconArrowLeft size={14} /> : <IconX size={14} />
+  // The left slot is a Back button — shown only when there's somewhere to go
+  // back to (search mode → add mode, or a later step → previous step). At the
+  // first step there's no back target, so it's hidden to avoid duplicating the
+  // close (X) button on the right.
+  const canGoBack  = isSearchMode || stepIdx > 0
+  const leftAction = isSearchMode ? onToggleSearch! : onBack
 
   const searchBtnBg = isSearchMode
     ? isDark ? 'rgb(var(--c-primary-rgb) / 0.25)' : 'rgb(var(--c-primary-rgb) / 0.14)'
@@ -50,9 +53,11 @@ export default function WizardHeader({
       borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}`,
       display: 'flex', alignItems: 'center', gap: 12,
     }}>
-      <button onClick={leftAction} style={iconBtn} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
-        {leftIcon}
-      </button>
+      {canGoBack && (
+        <button onClick={leftAction} style={iconBtn} onMouseEnter={hoverIn} onMouseLeave={hoverOut} aria-label="Back">
+          <IconArrowLeft size={14} />
+        </button>
+      )}
 
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.2 }}>
@@ -100,7 +105,7 @@ export default function WizardHeader({
         </button>
       )}
 
-      <button onClick={onClose} style={iconBtn} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+      <button onClick={onClose} style={iconBtn} onMouseEnter={hoverIn} onMouseLeave={hoverOut} aria-label="Close">
         <IconX size={14} />
       </button>
     </div>

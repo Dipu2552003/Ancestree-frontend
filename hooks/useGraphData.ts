@@ -30,6 +30,8 @@ interface GraphDataReturn {
   visibleNodes: Node[]
   displayEdges: Edge[]
   graphLoading: boolean
+  graphError: boolean
+  graphFailCount: number
   fetchGraph: () => Promise<void>
   resetAndFetch: () => Promise<void>
   isMarriedWoman: boolean
@@ -52,6 +54,11 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
   const [graphLoading, setGraphLoading] = useState(true)
+  // Cold-start failure surfacing: `graphError` flips the canvas to a retry
+  // screen; `graphFailCount` counts consecutive failures so the screen can
+  // escalate from "Try again" to "reach out to admin" on the second miss.
+  const [graphError, setGraphError] = useState(false)
+  const [graphFailCount, setGraphFailCount] = useState(0)
   const [womanView, setWomanView] = useState<WomanView>('sasural')
 
   const {
@@ -63,6 +70,8 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
 
   // ── Fetch raw data from backend ───────────────────────────────────────────
   const fetchGraph = useCallback(async () => {
+    setGraphError(false)
+    setGraphLoading(true)
     try {
       const data = await api.graph.fetch(perspectivePersonId, ancestorDepth, descendantDepth)
       setDepthFlags({
@@ -91,8 +100,11 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
 
       setRawNodes(rawN)
       setRawEdges(rawE)
+      setGraphFailCount(0)
     } catch (err) {
       console.error('Failed to fetch graph:', err)
+      setGraphError(true)
+      setGraphFailCount(c => c + 1)
     } finally {
       setGraphLoading(false)
     }
@@ -218,6 +230,10 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const refreshAttempted = useRef(false)
   useEffect(() => {
     if (graphLoading) return
+    // A failed fetch (cold-start timeout, etc.) leaves rawNodes empty but is
+    // NOT a stale-JWT situation — let the retry screen handle it instead of
+    // firing another cold request.
+    if (graphError) return
     if (rawNodes.length > 0) { refreshAttempted.current = false; return }
     if (refreshAttempted.current) return
     refreshAttempted.current = true
@@ -228,7 +244,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
         fetchGraph()
       })
       .catch(() => {})
-  }, [graphLoading, rawNodes.length, fetchGraph])
+  }, [graphLoading, graphError, rawNodes.length, fetchGraph])
 
   // Resets the collapse state so that new family units added by a merge are
   // included in the default-collapse computation on the next fetch.
@@ -254,7 +270,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     setNodes, setEdges,
     onNodesChange, onEdgesChange,
     visibleNodes, displayEdges,
-    graphLoading, fetchGraph, resetAndFetch,
+    graphLoading, graphError, graphFailCount, fetchGraph, resetAndFetch,
     isMarriedWoman, womanView, onWomanViewChange,
     familyName,
     updateRawNode,

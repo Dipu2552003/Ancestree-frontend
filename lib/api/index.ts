@@ -21,6 +21,7 @@ export const api = {
 export {
   setToken, getToken, clearToken,
   ANCESTOR_DEPTH_DEFAULT, DESCENDANT_DEPTH_DEFAULT, DEPTH_LOAD_STEP,
+  COLD_START_TIMEOUT_MS, RequestTimeoutError, isColdStartError,
 } from './client'
 
 // Shared response/payload types

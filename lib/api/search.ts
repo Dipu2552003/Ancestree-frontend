@@ -1,4 +1,4 @@
-import { req } from './client'
+import { req, COLD_START_TIMEOUT_MS } from './client'
 import type { SearchResult } from './types'
 
 export const search = {
@@ -7,11 +7,15 @@ export const search = {
   persons: (q: string, scope: 'own' | 'external' | 'all' = 'all') =>
     req<{ results: SearchResult[] }>(
       `/api/search?q=${encodeURIComponent(q)}&scope=${scope}`,
+      {},
+      { timeoutMs: COLD_START_TIMEOUT_MS },
     ),
 
   /** Public, unauthenticated search of public family trees (landing page). */
   publicPersons: (q: string) =>
     req<{ results: SearchResult[] }>(
       `/api/search/public?q=${encodeURIComponent(q)}`,
+      {},
+      { timeoutMs: COLD_START_TIMEOUT_MS },
     ),
 }

@@ -1,4 +1,4 @@
-import { req, ANCESTOR_DEPTH_DEFAULT, DESCENDANT_DEPTH_DEFAULT } from './client'
+import { req, ANCESTOR_DEPTH_DEFAULT, DESCENDANT_DEPTH_DEFAULT, COLD_START_TIMEOUT_MS } from './client'
 
 export const graph = {
   fetch: (
@@ -21,7 +21,9 @@ export const graph = {
         hasMoreAncestors:         boolean
         hasMoreDescendants:       boolean
       }
-    }>(`/api/graph?${qs.toString()}`)
+      // Tree load is the most common cold-start entry point — bound the wait so
+      // a dead server surfaces a retry prompt instead of spinning forever.
+    }>(`/api/graph?${qs.toString()}`, {}, { timeoutMs: COLD_START_TIMEOUT_MS })
   },
 
   // Public, unauthenticated — read-only graph for the landing-page viewer.
@@ -38,5 +40,9 @@ export const graph = {
         hasMoreAncestors:         boolean
         hasMoreDescendants:       boolean
       }
-    }>(`/api/graph/public?perspective=${encodeURIComponent(perspectiveId)}`),
+    }>(
+      `/api/graph/public?perspective=${encodeURIComponent(perspectiveId)}`,
+      {},
+      { timeoutMs: COLD_START_TIMEOUT_MS },
+    ),
 }

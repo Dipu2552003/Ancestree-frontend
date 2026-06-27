@@ -31,13 +31,17 @@ export default function PhotoCropModal({ src, isDark, onCancel, onApply }: Photo
 
   const imgRef = useRef<HTMLImageElement | null>(null)
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null)
+  const [decodeError, setDecodeError] = useState(false)
   const [zoom,   setZoom]   = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
 
   // Decode once to learn the natural size (the visible <img> just re-uses src).
+  // onerror covers formats the browser can't decode (e.g. an iPhone HEIC/HEIF
+  // outside Safari) so we show a message instead of a blank, dead modal.
   useEffect(() => {
     const img = new Image()
-    img.onload = () => { imgRef.current = img; setImgSize({ w: img.width, h: img.height }) }
+    img.onload  = () => { imgRef.current = img; setImgSize({ w: img.width, h: img.height }) }
+    img.onerror = () => setDecodeError(true)
     img.src = src
   }, [src])
 
@@ -152,19 +156,31 @@ export default function PhotoCropModal({ src, isDark, onCancel, onApply }: Photo
               }}
             />
           )}
-          {/* rule-of-thirds guides */}
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            {[1, 2].map(i => (
-              <div key={`v${i}`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${(i * 100) / 3}%`, width: 1, background: 'rgba(255,255,255,0.22)' }} />
-            ))}
-            {[1, 2].map(i => (
-              <div key={`h${i}`} style={{ position: 'absolute', left: 0, right: 0, top: `${(i * 100) / 3}%`, height: 1, background: 'rgba(255,255,255,0.22)' }} />
-            ))}
-          </div>
+          {/* rule-of-thirds guides — hidden when the image can't be decoded */}
+          {!decodeError && (
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+              {[1, 2].map(i => (
+                <div key={`v${i}`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${(i * 100) / 3}%`, width: 1, background: 'rgba(255,255,255,0.22)' }} />
+              ))}
+              {[1, 2].map(i => (
+                <div key={`h${i}`} style={{ position: 'absolute', left: 0, right: 0, top: `${(i * 100) / 3}%`, height: 1, background: 'rgba(255,255,255,0.22)' }} />
+              ))}
+            </div>
+          )}
+
+          {decodeError && (
+            <div style={{
+              position: 'absolute', inset: 0, padding: 18,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+              fontSize: 12.5, color: t.textMuted, lineHeight: 1.5,
+            }}>
+              This image format isn’t supported. Please choose a JPG or PNG photo.
+            </div>
+          )}
         </div>
 
         <div style={{ fontSize: 11, color: t.textMuted }}>
-          Drag to centre · slide to resize
+          {decodeError ? 'Pick a different photo to continue' : 'Drag to centre · slide to resize'}
         </div>
 
         {/* Zoom slider */}

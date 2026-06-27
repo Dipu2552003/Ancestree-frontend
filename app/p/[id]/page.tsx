@@ -9,18 +9,19 @@
 // The layout pipeline mirrors hooks/useGraphData but without auth, the Zustand
 // collapse state, or "Load more" paging (the backend returns the whole tree).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ReactFlowProvider, useReactFlow, type Node, type Edge } from '@xyflow/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { IconBinaryTree2, IconArrowRight, IconEye, IconLoader2 } from '@tabler/icons-react'
+import { IconBinaryTree2, IconArrowRight, IconEye, IconLoader2, IconRefresh } from '@tabler/icons-react'
 import DotField from '@/components/graph/DotField'
 import GraphCanvasArea from '@/components/graph/GraphCanvasArea'
 import PersonProfileView from '@/components/graph/PersonProfileView'
 import { useGraphStore } from '@/store/graphStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useElapsedSeconds } from '@/hooks/useElapsedSeconds'
 import { getTheme } from '@/lib/theme'
-import { api } from '@/lib/api'
+import { api, isColdStartError } from '@/lib/api'
 import { bfsDelays, buildDisplayEdges } from '@/lib/graph/edgeUtils'
 import { filterGraphBySide } from '@/lib/layouts/familySideFilter'
 import { injectGhostsForIntraFamilyMarriages, isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
@@ -54,20 +55,22 @@ function PublicTreeInner() {
 
   const [rawNodes, setRawNodes] = useState<Node[]>([])
   const [rawEdges, setRawEdges] = useState<Edge[]>([])
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  // 'cold' = backend unreachable / still waking (retryable); 'error' = a real
+  // response such as the tree being private or missing (terminal).
+  const [status, setStatus] = useState<'loading' | 'ready' | 'cold' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState('')
+  const [failCount, setFailCount] = useState(0)   // consecutive cold-start misses
+  const seconds = useElapsedSeconds(status === 'loading')
   // Land on the searched person's profile first; "Back to tree" reveals the canvas.
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(personId || null)
   const [canvasReady, setCanvasReady] = useState(false)
 
   // ── Fetch the public graph ────────────────────────────────────────────────
-  useEffect(() => {
+  const loadTree = useCallback(() => {
     if (!personId) { setStatus('error'); setErrorMsg('No person specified'); return }
-    let cancelled = false
     setStatus('loading')
     api.graph.fetchPublic(personId)
       .then(data => {
-        if (cancelled) return
         const rawE = data.edges.map(e => ({ ...e, type: 'sketchEdge' }))
         const delays = bfsDelays(data.nodes, rawE)
         const rawN = data.nodes.map(n => ({
@@ -78,14 +81,22 @@ function PublicTreeInner() {
         setRawEdges(rawE)
         setSelectedNodeId(personId)
         setStatus('ready')
+        setFailCount(0)
       })
       .catch((err: Error) => {
-        if (cancelled) return
-        setErrorMsg(err.message || 'This tree is not available')
-        setStatus('error')
+        // A cold/unreachable backend is retryable; a real error (private tree,
+        // 404) is terminal and gets the "this tree isn't public" screen.
+        if (isColdStartError(err)) {
+          setFailCount(c => c + 1)
+          setStatus('cold')
+        } else {
+          setErrorMsg(err.message || 'This tree is not available')
+          setStatus('error')
+        }
       })
-    return () => { cancelled = true }
   }, [personId])
+
+  useEffect(() => { loadTree() }, [loadTree])
 
   // ── Layout pipeline (pure) ────────────────────────────────────────────────
   const { laidOutNodes, displayEdges } = useMemo(() => {
@@ -137,10 +148,50 @@ function PublicTreeInner() {
   // ── Loading / error states ────────────────────────────────────────────────
   if (status === 'loading') {
     return (
-      <div style={{ minHeight: '100dvh', background: t.pageBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}>
-          <IconLoader2 size={28} color={SAFFRON} />
-        </motion.div>
+      <div style={{ minHeight: '100dvh', background: t.pageBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}>
+            <IconLoader2 size={28} color={SAFFRON} />
+          </motion.div>
+          <span style={{ fontSize: 15, fontWeight: 600, color: SAFFRON, fontVariantNumeric: 'tabular-nums', minWidth: 34, textAlign: 'left' }}>
+            {seconds}s
+          </span>
+        </div>
+        {seconds >= 5 && (
+          <p style={{ margin: 0, fontSize: 13, color: t.textMuted, maxWidth: 320, lineHeight: 1.5 }}>
+            Waking up the server — the first load after a quiet spell can take up to a minute. Hang tight…
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (status === 'cold') {
+    const exhausted = failCount >= 2
+    return (
+      <div style={{ minHeight: '100dvh', background: t.pageBg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 24, gap: 16 }}>
+        <div style={{ fontSize: 40 }}>🌳</div>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', color: t.text }}>
+            {exhausted ? 'The server isn’t responding' : 'This is taking longer than usual'}
+          </h1>
+          <p style={{ margin: '8px 0 0', fontSize: 15, color: t.textMuted, maxWidth: 360 }}>
+            {exhausted
+              ? 'We couldn’t reach the server after a couple of tries. Please try again in a little while.'
+              : 'The server may be waking up after being idle. Give it a moment, then try again.'}
+          </p>
+        </div>
+        <button
+          onClick={loadTree}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', cursor: 'pointer',
+            padding: '12px 22px', borderRadius: 12, fontSize: 15, fontWeight: 700, color: '#fff',
+            background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
+            boxShadow: '0 4px 16px rgb(var(--c-primary-rgb) / 0.32)', fontFamily: 'inherit',
+          }}
+        >
+          <IconRefresh size={16} strokeWidth={2.5} /> Try again
+        </button>
       </div>
     )
   }
