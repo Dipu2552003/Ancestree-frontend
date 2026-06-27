@@ -15,6 +15,7 @@ import { computeNodeRoles, computeDefaultCollapsedUnits } from '@/lib/layouts/co
 import { bfsDelays, buildDisplayEdges, buildCollapseMap, remapEdgesForCollapse } from '@/lib/graph/edgeUtils'
 import { computeFamilyName } from '@/lib/graph/computeFamilyName'
 import { injectGhostsForIntraFamilyMarriages } from '@/lib/graph/ghostNodes'
+import { injectUnknownParents } from '@/lib/graph/unknownParents'
 import { useGraphStore } from '@/store/graphStore'
 import { LOAD_MORE_NODE_WIDTH, LOAD_MORE_NODE_HEIGHT } from '@/components/graph/LoadMoreNode'
 
@@ -137,18 +138,32 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   )
 
   // ── Family name — topmost blood-line ancestor's first name ───────────────
+  // Computed on the pre-synthetic graph so an injected "Unknown" father below
+  // can never become the family head.
   const familyName = useMemo(
     () => computeFamilyName(ghostedNodes, ghostedEdges),
     [ghostedNodes, ghostedEdges],
   )
 
+  // ── Inject UI-only "Unknown" parents for floating sibling groups ─────────
+  // A sibling added to a parentless anchor links via SIBLING_OF only, which is
+  // never drawn — so the group floats. Anchor it under a render-only father so
+  // it reads as a normal family bracket. rawNodes/rawEdges (used by actions)
+  // are untouched, so this never reaches the backend.
+  const { nodes: anchoredNodes, edges: anchoredEdges } = useMemo(
+    () => ghostedNodes.length > 0
+      ? injectUnknownParents(ghostedNodes, ghostedEdges)
+      : { nodes: ghostedNodes, edges: ghostedEdges },
+    [ghostedNodes, ghostedEdges],
+  )
+
   // ── Layout with collapse ──────────────────────────────────────────────────
   const laidOutNodes = useMemo(() => {
-    if (ghostedNodes.length === 0) return []
+    if (anchoredNodes.length === 0) return []
     let perspective: 'self' | 'mother' | 'spouse' = 'self'
     if (isMarriedWoman && womanView === 'sasural') perspective = 'spouse'
-    return layoutEngine(ghostedNodes, ghostedEdges, perspective, collapsedSet)
-  }, [ghostedNodes, ghostedEdges, isMarriedWoman, womanView, collapsedSet])
+    return layoutEngine(anchoredNodes, anchoredEdges, perspective, collapsedSet)
+  }, [anchoredNodes, anchoredEdges, isMarriedWoman, womanView, collapsedSet])
 
   // ── Inject "Load N more" chips above the top row / below the bottom row ──
   // The chips are React Flow nodes positioned in flow coordinates so they pan
@@ -194,13 +209,13 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
 
   // ── Remap edges for collapsed units ──────────────────────────────────────
   const collapseMap = useMemo(
-    () => buildCollapseMap(ghostedEdges, collapsedSet),
-    [ghostedEdges, collapsedSet],
+    () => buildCollapseMap(anchoredEdges, collapsedSet),
+    [anchoredEdges, collapsedSet],
   )
 
   const remappedEdges = useMemo(
-    () => remapEdgesForCollapse(ghostedEdges, collapseMap),
-    [ghostedEdges, collapseMap],
+    () => remapEdgesForCollapse(anchoredEdges, collapseMap),
+    [anchoredEdges, collapseMap],
   )
 
   // ── Build display edges ───────────────────────────────────────────────────

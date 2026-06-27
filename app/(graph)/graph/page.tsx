@@ -267,6 +267,8 @@ function GraphInner() {
           if (id.startsWith('couple_')) return
           // Synthetic UI chips (load-more) handle their own click — don't open the panel.
           if (id.startsWith('__load_more_')) return
+          // UI-only "Unknown" parent placeholder — not a real person, inert.
+          if (id.startsWith('__unknown_parent__')) return
           // In exploration mode, clicking the highlighted node opens the merge comparison panel.
           if (isExploration && matchHighlightNode && id === matchHighlightNode.id) {
             s.setMatchPanelOpen(true)
@@ -292,6 +294,7 @@ function GraphInner() {
           })
         }}
         onNodeContextMenu={(event, nodeId) => {
+          if (nodeId.startsWith('__unknown_parent__')) return
           const node = nodes.find(n => n.id === nodeId)
           if (!node) return
           s.setSelectedNodeId(null)

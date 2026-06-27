@@ -14,12 +14,13 @@ import '@xyflow/react/dist/style.css'
 import { nodeTypes } from './PersonNode'
 import { collapsedCoupleNodeType } from './CollapsedCoupleNode'
 import { loadMoreNodeType } from './LoadMoreNode'
+import { unknownParentNodeType } from './UnknownParentNode'
 import { edgeTypes } from './SketchEdge'
 import { familyEdgeType } from './FamilyEdge'
 import { useTiltEffect } from '@/hooks/useTiltEffect'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
-const allNodeTypes = { ...nodeTypes, ...collapsedCoupleNodeType, ...loadMoreNodeType }
+const allNodeTypes = { ...nodeTypes, ...collapsedCoupleNodeType, ...loadMoreNodeType, ...unknownParentNodeType }
 const allEdgeTypes = { ...edgeTypes, ...familyEdgeType }
 import { useGraphStore } from '@/store/graphStore'
 
