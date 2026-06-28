@@ -10,8 +10,8 @@ interface FamilyBadgeProps {
   familyName:  string
   memberCount: number
   isDark:      boolean
-  /** Mobile: shrink padding, drop the member count, and let the family name
-   *  truncate so the badge fits the space left of the icon cluster. */
+  /** Mobile: shrink padding and let the family name truncate so the badge fits
+   *  the space left of the icon cluster (member count always stays visible). */
   compact?:    boolean
   /** Community mode: clicking the badge opens the family's admin list. */
   onClick?:    () => void
@@ -53,18 +53,16 @@ export default function FamilyBadge({ familyName, memberCount, isDark, compact =
         </div>
       </div>
 
-      {!compact && (<>
-        <div style={{ width: '1px', height: '22px', background: t.controlBorder, margin: '0 2px' }} aria-hidden="true" />
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: '4px', color: t.textMuted }}
-          title={`${memberCount} ${memberCount === 1 ? 'member' : 'members'} in this family`}
-        >
-          <IconUsers size={14} stroke={1.8} />
-          <span style={{ fontSize: '13px', fontWeight: 700, color: t.text, lineHeight: 1 }}>
-            {memberCount}
-          </span>
-        </div>
-      </>)}
+      <div style={{ width: '1px', height: '22px', background: t.controlBorder, margin: '0 2px', flexShrink: 0 }} aria-hidden="true" />
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: '4px', color: t.textMuted, flexShrink: 0 }}
+        title={`${memberCount} ${memberCount === 1 ? 'member' : 'members'} in this family`}
+      >
+        <IconUsers size={14} stroke={1.8} />
+        <span style={{ fontSize: '13px', fontWeight: 700, color: t.text, lineHeight: 1 }}>
+          {memberCount}
+        </span>
+      </div>
     </div>
   )
 }

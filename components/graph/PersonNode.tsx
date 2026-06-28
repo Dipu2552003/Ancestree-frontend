@@ -40,7 +40,6 @@ function ownerBadge(nodeState: string, isSelf: boolean, firstName: string, isDar
 
 function PersonNode({ id, data, selected }: NodeProps) {
   const isDark     = useGraphStore(s => s.isDark)
-  const gotraMode  = useGraphStore(s => s.gotraMode)
   const isNodeSelected = useGraphStore(s => s.activeNodeId === id)
   const person = data as unknown as PersonData
   const { fullName, isDeceased, nodeState, isSelf, isViewerNode, isPerspectiveView, relationshipToSelf, photoUrl, animDelay, isMatchHighlight } = person
@@ -87,26 +86,25 @@ function PersonNode({ id, data, selected }: NodeProps) {
   }
 
   // ── avatar gradient ──────────────────────────────────────────────
-  // Priority: isSelf and isDeceased always win over gotra highlight.
-  // For all other states, gotra node-mode overrides the default state color.
+  // Priority: isSelf and isDeceased always win over gotra color.
+  // For everyone else the avatar is always tinted by gotra (legend at top),
+  // falling back to the node-state color when the gotra is unknown.
   let avatarFrom = '#C4A882'; let avatarTo = '#9A7B5A'
   if (isSelf)                    { avatarFrom = 'var(--c-primary)'; avatarTo = 'var(--c-primary-strong)' }
   else if (isDeceased)           { avatarFrom = '#94A3B8'; avatarTo = '#64748B' }
-  else if (gotraMode === 'node') {
+  else {
     const gc = gotraColor(person.gotra)
     if (gc) { avatarFrom = gc; avatarTo = darkenHex(gc, 45) }
     else if (nodeState === 'claimed') { avatarFrom = 'var(--c-primary-strong)'; avatarTo = 'var(--c-primary-deep)' }
     else if (nodeState === 'proxy')   { avatarFrom = 'var(--c-secondary)'; avatarTo = 'var(--c-primary)' }
   }
-  else if (nodeState === 'claimed') { avatarFrom = 'var(--c-primary-strong)'; avatarTo = 'var(--c-primary-deep)' }
-  else if (nodeState === 'proxy')   { avatarFrom = 'var(--c-secondary)'; avatarTo = 'var(--c-primary)' }
 
   // ── theme-aware colours ──────────────────────────────────────────
   const t             = getTheme(isDark)
   const stripBg       = isDark ? '#141210' : '#FFFFFF'
   const stripBorder   = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'
-  // In node-gotra mode, replace the left border with a 3px gotra-colored accent.
-  const gotraAccentColor = gotraMode === 'node' ? gotraColor(person.gotra) : null
+  // Gotra-colored 3px card accent (skipped for self, which gets its own border).
+  const gotraAccentColor = gotraColor(person.gotra)
   const cardBorder      = isSelf
     ? '2px solid var(--c-primary)'
     : gotraAccentColor

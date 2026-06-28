@@ -7,12 +7,9 @@ import {
   DEPTH_LOAD_STEP,
 } from '@/lib/api'
 
-export type GotraMode = 'none' | 'node' | 'edge'
-
 interface GraphState {
   currentZoom: number
   isDark: boolean
-  gotraMode: GotraMode
   collapsedUnitIds: string[]
   expandedCouples: string[]
   notifications: AppNotification[]
@@ -28,7 +25,6 @@ interface GraphState {
   hasMoreDescendants: boolean
   setCurrentZoom: (zoom: number) => void
   setIsDark: (dark: boolean) => void
-  setGotraMode: (mode: GotraMode) => void
   toggleCollapse: (key: string) => void
   initCollapseState: (ids: string[]) => void
   expandCouple: (key: string) => void
@@ -46,7 +42,6 @@ export const useGraphStore = create<GraphState>()(
     (set) => ({
       currentZoom: 0.85,
       isDark: false,
-      gotraMode: 'none' as GotraMode,
       collapsedUnitIds: [],
       expandedCouples: [],
       notifications: [],
@@ -72,7 +67,6 @@ export const useGraphStore = create<GraphState>()(
       }),
       setCurrentZoom: (zoom) => set({ currentZoom: zoom }),
       setIsDark: (dark) => set({ isDark: dark }),
-      setGotraMode: (mode) => set({ gotraMode: mode }),
       toggleCollapse: (key) => set(s => ({
         collapsedUnitIds: s.collapsedUnitIds.includes(key)
           ? s.collapsedUnitIds.filter(k => k !== key)
@@ -94,7 +88,7 @@ export const useGraphStore = create<GraphState>()(
     {
       name: 'ancestree-ui',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ isDark: state.isDark, gotraMode: state.gotraMode }),
+      partialize: (state) => ({ isDark: state.isDark }),
     }
   )
 )

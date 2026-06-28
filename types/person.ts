@@ -174,6 +174,7 @@ export interface EdgeData {
    *  When >2, the bracket renders a single horizontal bar under everyone. */
   members?: string[]
   /** Gotra of the source (parent/anchor) node — stamped by buildDisplayEdges.
-   *  Used by SketchEdge / FamilyEdge when gotraMode === 'edge'. */
+   *  ponytail: currently unused (edge gotra-coloring was removed); kept because
+   *  it's harmless and the stamping/gotraMap in edgeUtils would unwind with it. */
   sourceGotra?: string | null
 }

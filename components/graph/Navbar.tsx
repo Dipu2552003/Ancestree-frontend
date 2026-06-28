@@ -22,6 +22,9 @@ interface NavbarProps {
   timeline?: React.ReactNode
   selectedNodeId: string | null
   selectedNodeName: string
+  /** Gender of the selected node — drives the spouse button label
+   *  (male → Wife, female → Husband, unknown → Spouse). */
+  selectedGender?: string | null
   canDeleteSelected: boolean
   /** Tooltip explaining why the trash button is disabled. */
   deleteDisabledReason?: string
@@ -62,7 +65,7 @@ const RELATIONS: {
 type DeleteState = 'idle' | 'confirm' | 'deleting'
 
 export default function Navbar({
-  familyName, timeline, selectedNodeId, selectedNodeName,
+  familyName, timeline, selectedNodeId, selectedNodeName, selectedGender,
   canDeleteSelected, deleteDisabledReason, deleteChildrenNote, panelMode,
   canEditSelected,
   onHome, onStartWizard, onDeleteSelected,
@@ -92,6 +95,12 @@ export default function Navbar({
     closeAdd()
     onStartWizard(action)
   }
+
+  // Spouse's gender is the opposite of the anchor's — label the button
+  // accordingly. Unknown/other anchor → fall back to the neutral "Spouse".
+  const spouseLabel = selectedGender === 'male' ? 'Wife'
+    : selectedGender === 'female' ? 'Husband'
+    : 'Spouse'
 
   useEffect(() => {
     if (!addOpen && deleteState === 'idle') return
@@ -233,7 +242,7 @@ export default function Navbar({
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <span style={{ color: r.color, display: 'flex' }}>{r.icon}</span>
-                  {r.label}
+                  {r.action === 'spouse' ? spouseLabel : r.label}
                 </button>
               ))}
             </div>

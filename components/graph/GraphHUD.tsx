@@ -23,7 +23,6 @@ import ProfileMenu from './ProfileMenu'
 import SearchBar from './SearchBar'
 import HudSlot from './hud/HudSlot'
 import FamilyBadge from './hud/FamilyBadge'
-import GotraToggle from './GotraToggle'
 import { IconButton } from '@/components/ui'
 import { getTheme } from '@/lib/theme'
 
@@ -106,13 +105,6 @@ export default function GraphHUD({
                     <ProfileMenu isDark={isDark} isMobile={false} />
                   </DropdownRow>
 
-                  {/* Gotra / family view — community logins only */}
-                  {isCommunity && (
-                    <DropdownRow label="Family view" isDark={isDark} t={t}>
-                      <GotraToggle isDark={isDark} isMobile={false} />
-                    </DropdownRow>
-                  )}
-
                   <DropdownDivider isDark={isDark} />
 
                   {/* 3D view */}
@@ -189,15 +181,9 @@ export default function GraphHUD({
       ) : (
         /* ── Desktop: individual slots ── */
         <>
-          <HudSlot hudOffset={hudOffset} right={isCommunity ? '256px' : '208px'}>
+          <HudSlot hudOffset={hudOffset} right="208px">
             <ProfileMenu isDark={isDark} isMobile={isMobile} />
           </HudSlot>
-
-          {isCommunity && (
-            <HudSlot hudOffset={hudOffset} right="208px">
-              <GotraToggle isDark={isDark} isMobile={isMobile} />
-            </HudSlot>
-          )}
 
           <HudSlot hudOffset={hudOffset} right="160px">
             <IconButton isDark={isDark} size={iconSize} title="3D view" onClick={onOpen3D}>

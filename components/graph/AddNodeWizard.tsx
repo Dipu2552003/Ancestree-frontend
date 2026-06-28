@@ -45,6 +45,12 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
       ? (anchorGender === 'male' ? 'female' : anchorGender === 'female' ? 'male' : null)
       : null
 
+  // Spouse reads as "Wife"/"Husband" once we know the spouse's gender; every
+  // other relation keeps its fixed config label.
+  const relLabel = relAction === 'spouse'
+    ? (impliedSpouseGender === 'female' ? 'Wife' : impliedSpouseGender === 'male' ? 'Husband' : 'Spouse')
+    : cfg.label
+
   const [wizardMode,       setWizardMode]       = useState<'add' | 'search'>('add')
   const [stepIdx,          setStepIdx]          = useState(0)
   const [dir,              setDir]              = useState(1)
@@ -251,7 +257,7 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
       >
         <WizardHeader
           isDark={isDark} t={t}
-          title={`Add ${cfg.label}`}
+          title={`Add ${relLabel}`}
           anchorName={anchorName}
           stepIdx={stepIdx} steps={steps}
           onBack={goPrev} onClose={onClose}
@@ -280,7 +286,7 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
             {currentStep === 'name' && (
               <StepName
                 dir={dir} isDark={isDark} t={t} styles={styles}
-                relLabel={cfg.label}
+                relLabel={relLabel}
                 fullName={fullName} nameError={nameError} nameRef={nameRef}
                 setFullName={setFullName} setNameError={setNameError}
                 onContinue={handleNameContinue}
@@ -376,7 +382,7 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
             {currentStep === 'review' && (
               <StepReview
                 dir={dir} isDark={isDark} t={t} styles={styles}
-                relAction={relAction} relLabel={cfg.label} anchorName={anchorName}
+                relAction={relAction} relLabel={relLabel} anchorName={anchorName}
                 fullName={fullName} gender={gender} gotra={gotra}
                 birthDate={datePreview} photoUrl={photoUrl}
                 saving={saving} saved={saved}

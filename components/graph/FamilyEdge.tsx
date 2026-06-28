@@ -5,13 +5,12 @@ import { type EdgeProps, useNodes } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
 import type { EdgeData } from '@/types'
 import { getTheme } from '@/lib/theme'
-import { gotraColor } from '@/lib/graph/gotraColors'
 
 const NODE_W = 128
 const NODE_H = 158  // PHOTO_H (118) + STRIP_H (40)
 
 export default function FamilyEdge({ source, target, data }: EdgeProps) {
-  const { isDark, gotraMode } = useGraphStore()
+  const { isDark } = useGraphStore()
   const nodes      = useNodes()
 
   const edgeData       = data as unknown as EdgeData | undefined
@@ -108,9 +107,7 @@ export default function FamilyEdge({ source, target, data }: EdgeProps) {
   }
 
   const themeStroke   = getTheme(isDark).stroke
-  const stroke        = (gotraMode === 'edge')
-    ? (gotraColor(edgeData?.sourceGotra) ?? themeStroke)
-    : themeStroke
+  const stroke        = themeStroke
   const targetOpacity = isDark ? 0.72 : 0.88
 
   return (

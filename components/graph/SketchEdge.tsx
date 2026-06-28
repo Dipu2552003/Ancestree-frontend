@@ -5,22 +5,17 @@ import { type EdgeProps, getSmoothStepPath } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
 import type { EdgeData } from '@/types'
 import { getTheme } from '@/lib/theme'
-import { gotraColor } from '@/lib/graph/gotraColors'
 
 export default function SketchEdge({
   id, sourceX, sourceY, sourcePosition,
   targetX, targetY, targetPosition, data,
 }: EdgeProps) {
-  const { isDark, gotraMode } = useGraphStore()
+  const { isDark } = useGraphStore()
   const themeStroke = getTheme(isDark).stroke
   const edgeData    = data as unknown as EdgeData
   const relType     = edgeData?.relType
   const animDelay   = (edgeData?.animDelay ?? 0) / 1000
-  // Edge gotra-highlight: PARENT_OF edges inherit parent's gotra color.
-  // SPOUSE_OF and SIBLING_OF are intentionally left in theme color.
-  const stroke = (gotraMode === 'edge' && relType === 'PARENT_OF')
-    ? (gotraColor(edgeData?.sourceGotra) ?? themeStroke)
-    : themeStroke
+  const stroke = themeStroke
 
   const [edgePath] = getSmoothStepPath({
     sourceX, sourceY, sourcePosition,

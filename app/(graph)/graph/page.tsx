@@ -360,6 +360,7 @@ function GraphInner() {
           : null}
         selectedNodeId={s.selectedNodeId}
         selectedNodeName={selectedNodeName}
+        selectedGender={asPersonData(selectedNode?.data)?.gender}
         canDeleteSelected={canDeleteSelected}
         deleteDisabledReason={deleteDisabledReason}
         deleteChildrenNote={deleteCheck?.childrenStayWith ?? null}
