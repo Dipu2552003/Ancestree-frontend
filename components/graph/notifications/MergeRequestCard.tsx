@@ -35,6 +35,11 @@ export default function MergeRequestCard({ notification, isDark, onAccepted }: M
   const [actionState, setActionState] = useState<'idle' | 'loading' | 'done' | 'rejected'>('idle')
   const [err, setErr] = useState('')
   const [viewLoading, setViewLoading] = useState(false)
+  // Status discovered at click time: the fan-out sends this notification to
+  // every family member, so someone else may have resolved the request after
+  // this list was fetched. Any action first checks the live record and flips
+  // the card to a status badge instead of acting on a dead request.
+  const [remoteStatus, setRemoteStatus] = useState<'confirmed' | 'rejected' | 'reversed' | null>(null)
 
   // Resolved merge record + open state for the preview modal. Filled in
   // when the user clicks Accept (we need person ids/names that the
@@ -52,6 +57,10 @@ export default function MergeRequestCard({ notification, isDark, onAccepted }: M
     setViewLoading(true)
     try {
       const merge = await api.merges.getById(notification.merge_record_id)
+      if (merge.status !== 'proposed') {
+        setRemoteStatus(merge.status as 'confirmed' | 'rejected' | 'reversed')
+        return
+      }
       const data: PendingMatchData = {
         mode:                'review',
         mergeRecordId:       notification.merge_record_id,
@@ -72,9 +81,10 @@ export default function MergeRequestCard({ notification, isDark, onAccepted }: M
     }
   }
 
-  // If the merge record is already resolved (loaded from backend via merge_status),
-  // show a status badge instead of action buttons.
-  const resolvedStatus = notification.merge_status
+  // If the merge record is already resolved — either known at fetch time
+  // (merge_status joined into the list) or discovered at click time
+  // (remoteStatus) — show a status badge instead of action buttons.
+  const resolvedStatus = remoteStatus ?? notification.merge_status
   const isAlreadyResolved = resolvedStatus === 'confirmed' || resolvedStatus === 'rejected' || resolvedStatus === 'reversed'
 
   if (isAlreadyResolved) {
@@ -119,6 +129,11 @@ export default function MergeRequestCard({ notification, isDark, onAccepted }: M
     setActionState('loading'); setErr('')
     try {
       const merge = await api.merges.getById(notification.merge_record_id)
+      if (merge.status !== 'proposed') {
+        setRemoteStatus(merge.status as 'confirmed' | 'rejected' | 'reversed')
+        setActionState('idle')
+        return
+      }
       setPreview({
         mergeRecordId:   merge.id,
         myPersonId:      merge.canonical_person_id,
@@ -151,6 +166,15 @@ export default function MergeRequestCard({ notification, isDark, onAccepted }: M
       setActionState('rejected')
     } catch (e) {
       setActionState('idle')
+      // "Already resolved" isn't a failure — someone else in the family got
+      // there first. Show the outcome instead of an error.
+      try {
+        const merge = await api.merges.getById(notification.merge_record_id)
+        if (merge.status !== 'proposed') {
+          setRemoteStatus(merge.status as 'confirmed' | 'rejected' | 'reversed')
+          return
+        }
+      } catch { /* fall through to the generic error */ }
       setErr(e instanceof Error ? e.message : 'Failed to reject')
     }
   }

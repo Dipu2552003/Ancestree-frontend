@@ -8,7 +8,7 @@ import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
-import { api, getToken, setToken } from '@/lib/api'
+import { api, getToken, setToken, clearToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
 import { DynamicFields } from '@/components/forms/DynamicField'
 import { fieldsFor, resolveFieldValue, validateFields, PERSON_FIELDS } from '@/lib/forms/personFields'
@@ -33,6 +33,10 @@ const COPY = {
     claim:        'Yes, this is me',
     claimAuthed:  'Claim this node',
     notMe:        'Not me — try a different code',
+
+    signedInAs:   "You're signed in as",
+    alreadyOwn:   'That account is already linked to its own person in the tree. Each account represents one person — to claim this node, log out and create a new account for them.',
+    logoutGo:     'Log out & sign up as a new user',
 
     haveAcct:     'Already have an account?',
     signin:       'Sign in',
@@ -74,6 +78,10 @@ const COPY = {
     claim:        'हाँ, यह मैं हूँ',
     claimAuthed:  'इस नोड का दावा करें',
     notMe:        'मैं नहीं — दूसरा कोड आज़माएँ',
+
+    signedInAs:   'आप साइन इन हैं',
+    alreadyOwn:   'यह खाता पहले से पेड़ में एक व्यक्ति से जुड़ा है। हर खाता एक व्यक्ति होता है — इस नोड का दावा करने के लिए लॉग आउट करके नया खाता बनाएँ।',
+    logoutGo:     'लॉग आउट करके नया खाता बनाएँ',
 
     haveAcct:     'पहले से खाता है?',
     signin:       'साइन इन',
@@ -131,9 +139,27 @@ function InviteInner() {
   const isMobile = useIsMobile()
   const [lang, setLang] = useState<AuthLang>('en')
 
-  // Has the user already got a session?
+  // Has the user already got a session? And does that account already
+  // represent a person node? An account is one person — if it already has a
+  // node, claiming this invite onto it would steal a second identity, so we
+  // steer that user to log out and sign up fresh instead.
   const [authed, setAuthed] = useState(false)
-  useEffect(() => { setAuthed(!!getToken()) }, [])
+  const [ownNode, setOwnNode] = useState<{ has: boolean; name: string } | null>(null)
+  useEffect(() => {
+    const tok = getToken()
+    setAuthed(!!tok)
+    if (!tok) return
+    api.auth.me()
+      .then(u => setOwnNode({ has: !!u.person_id, name: u.display_name }))
+      .catch(() => setOwnNode({ has: false, name: '' }))
+  }, [])
+
+  const handleLogoutForSignup = () => {
+    clearToken()
+    setAuthed(false)
+    setOwnNode(null)
+    setTopErr('')
+  }
 
   // A link of the form /invite?token=… should skip the manual code step entirely:
   // look the token up on mount and jump straight to the preview/claim step.
@@ -475,8 +501,32 @@ function InviteInner() {
                 </div>
               </div>
 
-              {/* Authed path — confirm DOB, then claim */}
-              {authed && (
+              {/* Authed but the account already IS someone — claiming would
+                  steal a second identity. Steer to log out + fresh signup. */}
+              {authed && ownNode?.has && (
+                <>
+                  <div style={{
+                    padding: '12px 14px', borderRadius: 12, marginBottom: 14,
+                    background: isDark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.07)',
+                    border: '1px solid rgba(245,158,11,0.30)',
+                    fontSize: 12.5, color: isDark ? '#FBBF24' : '#92400E', lineHeight: 1.6,
+                  }}>
+                    {c.signedInAs} <strong>{ownNode.name}</strong>. {c.alreadyOwn}
+                  </div>
+                  <motion.button
+                    onClick={handleLogoutForSignup}
+                    whileHover={{ scale: 1.015 }}
+                    whileTap={{ scale: 0.985 }}
+                    style={{ ...ctaStyle(false), marginBottom: 12 }}
+                  >
+                    <IconUserCheck size={17} />
+                    {c.logoutGo}
+                  </motion.button>
+                </>
+              )}
+
+              {/* Authed path — account has no person node yet: confirm DOB, then claim */}
+              {authed && ownNode !== null && !ownNode.has && (
                 <>
                   <div style={{ marginBottom: 14 }}>
                     <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted }}>
