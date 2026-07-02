@@ -15,6 +15,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getTheme } from '@/lib/theme'
 import { Z } from '@/lib/zIndex'
+import type { SearchResult } from '@/lib/api'
+import MergeConfirmModal from './merge/MergeConfirmModal'
 import PhotoCropModal from './nodeEditor/PhotoCropModal'
 import {
   WizardHeader, WizardHero,
@@ -52,6 +54,8 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
     : cfg.label
 
   const [wizardMode,       setWizardMode]       = useState<'add' | 'search'>('add')
+  // Search mode: the picked existing person, pending merge confirmation.
+  const [mergeTarget,      setMergeTarget]      = useState<SearchResult | null>(null)
   const [stepIdx,          setStepIdx]          = useState(0)
   const [dir,              setDir]              = useState(1)
   const [fullName,         setFullName]         = useState('')
@@ -268,8 +272,7 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
         {wizardMode === 'search' && onAddForMerge ? (
           <StepMergeSearch
             isDark={isDark} t={t}
-            relAction={relAction}
-            onAddForMerge={onAddForMerge}
+            onSelectMatch={setMergeTarget}
           />
         ) : (
         <>
@@ -409,6 +412,26 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
           }}
         />
       )}
+
+      {/* Search mode: confirm before creating the node + sending the merge
+          request. Cancel returns to the results with nothing created.
+          stopPropagation: clicks inside must not reach the wizard backdrop's
+          onClose above. */}
+      <div onClick={e => e.stopPropagation()}>
+        <AnimatePresence>
+          {mergeTarget && onAddForMerge && (
+            <MergeConfirmModal
+              key="wizard-merge-confirm"
+              sourceNodeName={mergeTarget.full_name}
+              targetNodeId={mergeTarget.id}
+              targetNodeName={mergeTarget.full_name}
+              onSend={() => onAddForMerge(relAction, mergeTarget)}
+              onClose={() => setMergeTarget(null)}
+              onSent={onClose}
+            />
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   )
 }

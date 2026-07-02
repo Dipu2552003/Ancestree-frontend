@@ -8,10 +8,15 @@ import { api, type SearchResult } from '@/lib/api'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
 import { NodeCard, GhostCard, CARD_W, CARD_H, MiniNodeCard, searchMetaPieces } from '../NodeCard'
+import MergeConfirmModal from './MergeConfirmModal'
 
 interface Props {
   sourceNodeId:   string
   sourceNodeName: string
+  /** Reverse merge: the fixed node is ANOTHER family's — it becomes the
+   *  canonical target, and the search is over the user's OWN tree to pick
+   *  which of their nodes merges into it. */
+  reverse?:       boolean
   onClose:        () => void
 }
 
@@ -68,7 +73,7 @@ function MergeConnector({ isDark }: { isDark: boolean }) {
 }
 
 // ── Main modal ────────────────────────────────────────────────────────────────
-export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose }: Props) {
+export default function MergeSearchModal({ sourceNodeId, sourceNodeName, reverse = false, onClose }: Props) {
   const router = useRouter()
   const { isDark } = useGraphStore()
   const t = getTheme(isDark)
@@ -79,6 +84,8 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
   const [touched,  setTouched]  = useState(false)
   const [hovered,  setHovered]  = useState<SearchResult | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  // Reverse mode only — the own-tree node picked to merge into the foreign one.
+  const [confirmSource, setConfirmSource] = useState<{ id: string; name: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -94,15 +101,20 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
     if (!query.trim()) { setResults([]); return }
     setLoading(true)
     const id = setTimeout(() => {
-      api.search.persons(query.trim(), 'all')
+      api.search.persons(query.trim(), reverse ? 'own' : 'all')
         .then(({ results: r }) => setResults(r))
         .catch(() => setResults([]))
         .finally(() => setLoading(false))
     }, 280)
     return () => clearTimeout(id)
-  }, [query])
+  }, [query, reverse])
 
   function handleSelect(r: SearchResult) {
+    if (reverse) {
+      // Both nodes are known — confirm right here, no tree navigation needed.
+      setConfirmSource({ id: r.id, name: r.full_name })
+      return
+    }
     router.push(`/merge?perspective=${r.id}&source=${sourceNodeId}&sourceName=${encodeURIComponent(sourceNodeName)}`)
     onClose()
   }
@@ -164,7 +176,9 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.2 }}>Merge node</div>
               <div style={{ fontSize: 11.5, color: t.textMuted, marginTop: 2 }}>
-                Linking <span style={{ color: 'var(--c-primary)', fontWeight: 600 }}>{sourceNodeName}</span> to someone from another family
+                {reverse
+                  ? <>Linking someone from your family to <span style={{ color: 'var(--c-primary)', fontWeight: 600 }}>{sourceNodeName}</span></>
+                  : <>Linking <span style={{ color: 'var(--c-primary)', fontWeight: 600 }}>{sourceNodeName}</span> to someone from another family</>}
               </div>
             </div>
           </div>
@@ -197,7 +211,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 24 }}>
                   <NodeCard fullName={sourceNodeName} isDark={isDark} nodeState="proxy" />
                 </motion.div>
-                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Your node</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{reverse ? 'Their node' : 'Your node'}</span>
               </div>
               <MergeConnector isDark={isDark} />
               <div style={{ width: CARD_W, height: CARD_H, position: 'relative', flexShrink: 0 }}>
@@ -229,7 +243,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
                 <NodeCard fullName={sourceNodeName} isDark={isDark} nodeState="proxy" />
               </motion.div>
               <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--c-primary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                Your node
+                {reverse ? 'Their node' : 'Your node'}
               </span>
             </div>
 
@@ -421,7 +435,7 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
             >
               <div style={{ fontSize: 30, marginBottom: 10 }}>🔍</div>
               <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 4 }}>No one found</div>
-              <div style={{ fontSize: 12, color: t.textMuted }}>No match for "{query}" in other families</div>
+              <div style={{ fontSize: 12, color: t.textMuted }}>No match for "{query}" in {reverse ? 'your family' : 'other families'}</div>
             </motion.div>
           )}
 
@@ -431,14 +445,34 @@ export default function MergeSearchModal({ sourceNodeId, sourceNodeName, onClose
               style={{ padding: '20px 8px 8px', textAlign: 'center' }}
             >
               <p style={{ margin: 0, fontSize: 12.5, color: t.textMuted, lineHeight: 1.8 }}>
-                Search for someone from <strong style={{ color: t.text }}>another family's tree</strong>.<br />
-                Hover their name to preview · click to open their tree.
+                {reverse ? (
+                  <>Search <strong style={{ color: t.text }}>your own family's tree</strong> for the node that is the same person as {sourceNodeName}.<br />
+                  Hover to preview · click to send a merge request.</>
+                ) : (
+                  <>Search for someone from <strong style={{ color: t.text }}>another family's tree</strong>.<br />
+                  Hover their name to preview · click to open their tree.</>
+                )}
               </p>
             </motion.div>
           )}
         </div>
       </motion.div>
       </div>
+
+      {/* Reverse mode: both nodes are known — confirm right on top (z 400+) */}
+      <AnimatePresence>
+        {confirmSource && (
+          <MergeConfirmModal
+            key="reverse-confirm"
+            sourceNodeId={confirmSource.id}
+            sourceNodeName={confirmSource.name}
+            targetNodeId={sourceNodeId}
+            targetNodeName={sourceNodeName}
+            onClose={() => setConfirmSource(null)}
+            onSent={() => router.push('/graph')}
+          />
+        )}
+      </AnimatePresence>
     </>
   )
 }

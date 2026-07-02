@@ -23,9 +23,11 @@ export const merges = {
   listSent: () =>
     req<{ requests: SentMergeRequest[] }>('/api/merges/sent'),
 
-  accept: (mergeRecordId: string) =>
+  /** keepData 'merged' keeps the sender's profile details on the surviving node. */
+  accept: (mergeRecordId: string, keepData: 'canonical' | 'merged' = 'canonical') =>
     req<{ canonical_person_id: string; conflicts: MergeConflict[] }>(
-      `/api/merges/${mergeRecordId}/accept`, { method: 'POST' },
+      `/api/merges/${mergeRecordId}/accept`,
+      { method: 'POST', body: JSON.stringify({ keep_data: keepData }) },
     ),
 
   reject: (mergeRecordId: string) =>

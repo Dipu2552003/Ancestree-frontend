@@ -160,6 +160,8 @@ export interface SecondSpouseOverlay {
 export interface MergeSearchOverlay {
   sourceNodeId:   string
   sourceNodeName: string
+  /** Foreign node: it's the canonical target; search own tree for the source. */
+  reverse:        boolean
   onClose:        () => void
 }
 
@@ -373,6 +375,7 @@ export default function GraphOverlays({
             key="merge-search"
             sourceNodeId={mergeSearch.sourceNodeId}
             sourceNodeName={mergeSearch.sourceNodeName}
+            reverse={mergeSearch.reverse}
             onClose={mergeSearch.onClose}
           />
         )}

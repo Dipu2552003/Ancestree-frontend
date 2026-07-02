@@ -313,6 +313,10 @@ export default function MergeAcceptPreviewModal({
   const [committing, setCommitting] = useState(false)
   const [askConfirm, setAskConfirm] = useState(false)
   const [commitError, setCommitError] = useState('')
+  // Whose profile details survive on the merged node. 'canonical' = ours
+  // (default, matches old behaviour); 'merged' = theirs, per column — their
+  // blanks never erase our data.
+  const [keepData, setKeepData] = useState<'canonical' | 'merged'>('canonical')
 
   // ── Load A (our side) ─────────────────────────────────────────────────────
   // Always fetched — A lives in a different family than the one we're viewing.
@@ -402,7 +406,7 @@ export default function MergeAcceptPreviewModal({
   async function commit() {
     setCommitting(true); setCommitError('')
     try {
-      const result = await api.merges.accept(mergeRecordId)
+      const result = await api.merges.accept(mergeRecordId, keepData)
       onAccepted(result.conflicts ?? [])
     } catch (e) {
       setCommitting(false)
@@ -605,7 +609,30 @@ export default function MergeAcceptPreviewModal({
         <div style={{
           padding: '12px 18px', borderTop: `1px solid ${t.borderNeutral}`,
           display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0,
+          alignItems: 'center', flexWrap: 'wrap',
         }}>
+          {/* Keep-data choice — whose profile details survive on the node */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 'auto' }}>
+            <span style={{ fontSize: 11.5, color: t.textMuted, fontWeight: 600 }}>Keep details:</span>
+            {([['canonical', 'Ours'], ['merged', 'Theirs']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setKeepData(val)}
+                disabled={committing}
+                style={{
+                  padding: '0 14px', height: 30, borderRadius: 999,
+                  fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+                  cursor: committing ? 'default' : 'pointer',
+                  border: `1.5px solid ${keepData === val ? 'var(--c-primary)' : t.borderNeutral}`,
+                  background: keepData === val ? 'rgb(var(--c-primary-rgb) / 0.10)' : 'none',
+                  color: keepData === val ? 'var(--c-primary)' : t.textMuted,
+                  transition: 'border-color 0.12s, background 0.12s, color 0.12s',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button
             onClick={onCancel}
             disabled={committing}

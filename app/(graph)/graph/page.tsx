@@ -16,7 +16,7 @@
 //   • Viewport fit          → hooks/useFitViewportOnLoad
 //   • Overlay prop builder  → lib/graph/buildOverlayProps
 
-import { useCallback, useEffect, useMemo, useState, Suspense } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react'
 import { ReactFlowProvider, useReactFlow } from '@xyflow/react'
 import { AnimatePresence } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -76,7 +76,7 @@ function GraphInner() {
   const isReviewEntry = !!(searchParams.get('viewMerge') || searchParams.get('match'))
 
   const { getNodes, setCenter, fitView } = useReactFlow()
-  const { isDark, setIsDark, unreadCount, setNotifications } = useGraphStore()
+  const { isDark, setIsDark, unreadCount, setNotifications, fullView, toggleFullView } = useGraphStore()
   const isMobile = useIsMobile()
   const t = getTheme(isDark)
 
@@ -209,17 +209,26 @@ function GraphInner() {
     s.setPanelMode('edit')
   }, [onAddRelation, s])
 
+  // Node created on a previous Send attempt whose merge request failed —
+  // reused on retry so we don't create a duplicate proxy.
+  const wizardMergeRetry = useRef<{ matchId: string; personId: string } | null>(null)
+
   const handleWizardAddForMerge = useCallback(async (action: RelAction, match: SearchResult) => {
-    // We're explicitly sending a merge request here, so suppress the auto
-    // duplicate modal that would otherwise fire from the create.
-    const personId = await onAddRelation(action, match.full_name, { skipDuplicateCheck: true })
-    if (personId) {
-      try { await api.merges.create({ new_person_id: personId, canonical_person_id: match.id }) }
-      catch { /* merge request non-critical — proxy node already created */ }
+    // Runs from MergeConfirmModal's Send button (wizard search mode). Throws
+    // on failure so the modal surfaces the error; on success the modal's
+    // animation finishes and its onSent closes the wizard.
+    let personId = wizardMergeRetry.current?.matchId === match.id
+      ? wizardMergeRetry.current.personId
+      : null
+    if (!personId) {
+      // Suppress the auto duplicate modal — this IS an explicit merge request.
+      personId = await onAddRelation(action, match.full_name, { skipDuplicateCheck: true })
+      if (!personId) throw new Error('Could not create the node — please try again')
+      wizardMergeRetry.current = { matchId: match.id, personId }
     }
-    s.setWizardAction(null)
-    s.setPanelMode('edit')
-  }, [onAddRelation, s])
+    await api.merges.create({ new_person_id: personId, canonical_person_id: match.id })
+    wizardMergeRetry.current = null
+  }, [onAddRelation])
 
   const onMergeAccepted = useCallback((conflicts: MergeConflict[]) => {
     // Use resetAndFetch so collapse state is recomputed to include the newly-added family unit.
@@ -234,7 +243,11 @@ function GraphInner() {
     if (conflicts.length > 0) s.setMergeConflicts(conflicts)
   }, [resetAndFetch, isExploration, router, setNotifications, s])
 
-  if (graphLoading) return <GraphLoading isDark={isDark} />
+  // Full-screen loader only when there's nothing to show yet (first load, or a
+  // perspective switch — which clears rawNodes). Refetches after add/edit keep
+  // the canvas mounted, so the viewport stays where the user was working
+  // instead of resetting to the self node.
+  if (graphLoading && rawNodes.length === 0) return <GraphLoading isDark={isDark} />
   if (graphError)   return <GraphError isDark={isDark} attempts={graphFailCount} onRetry={fetchGraph} />
 
   // Resolve the anchor's "real" id (ghost-stripped) once — used by both wizards.
@@ -246,9 +259,6 @@ function GraphInner() {
     s, selectedNode, selectedNodeName, matchHighlightNode, anchorRealId,
     nodes, edges, rawNodes, rawEdges,
     router,
-    // Merge requests start only from the user's own tree — not while viewing
-    // another person's tree (perspective mode).
-    canMerge: !perspectiveId,
     isPerspective: !!perspectiveId,
     perspectiveName,
     fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
@@ -319,6 +329,8 @@ function GraphInner() {
         isMobile={isMobile}
         hudOffset={hudOffset}
         onToggleTheme={() => setIsDark(!isDark)}
+        fullView={fullView}
+        onToggleFullView={toggleFullView}
         onToggleNotif={() => { s.setHistoryPanelOpen(false); setAdminsPanelOpen(false); s.setNotifPanelOpen(v => !v) }}
         onToggleHistory={() => { s.setNotifPanelOpen(false); setAdminsPanelOpen(false); s.setPanelMode('none'); s.setHistoryPanelOpen(v => !v) }}
         onOpen3D={onOpen3D}

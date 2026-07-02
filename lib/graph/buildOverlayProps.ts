@@ -63,9 +63,6 @@ interface BuildOverlayPropsArgs {
   rawNodes:           Node[]
   rawEdges:           Edge[]
   router:             RouterLike
-  /** Merge requests may only be started from the user's own tree, never while
-   *  viewing another person's tree (perspective mode). */
-  canMerge:           boolean
   /** True when viewing via ?perspective= — suppresses the "You" treatment in the
    *  profile view and labels relations against the anchor instead. */
   isPerspective:      boolean
@@ -92,14 +89,16 @@ interface BuildOverlayPropsArgs {
 export function buildOverlayProps({
   s, selectedNode, selectedNodeName, matchHighlightNode, anchorRealId,
   nodes, edges, rawNodes, rawEdges,
-  router, canMerge, isPerspective, perspectiveName, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
+  router, isPerspective, perspectiveName, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
   onDeleteNode, canDeleteSelected, deleteDisabledReason, deleteChildrenNote,
   handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
 }: BuildOverlayPropsArgs): OverlayBundles {
   return {
     contextMenu: s.contextMenu && {
       ...s.contextMenu,
-      canMerge,
+      // Merge requests can start from any tree/view. Own-family nodes merge
+      // forward (ours → theirs); foreign nodes flip to reverse mode below.
+      canMerge: true,
       // Adding relations is a family-membership right (any member, any node —
       // including owned/claimed ones), not a profile-edit right. `canEdit` is
       // true for nodes in the viewer's own family, so this also works while
@@ -116,10 +115,16 @@ export function buildOverlayProps({
       },
       onEdit:     () => { s.setSelectedNodeId(s.contextMenu!.nodeId); s.setPanelMode('edit') },
       onMergeNode: () => {
-        if (!canMerge) return  // never start a merge while viewing another tree
         const { nodeId, personData } = s.contextMenu!
         const realNodeId = isGhostNodeId(nodeId) ? realIdFromGhost(nodeId) : nodeId
-        s.setMergeSearchNode({ id: realNodeId, name: personData.fullName })
+        // Own-family node (canEdit) → forward merge: it's the source, search
+        // other families for the canonical target. Foreign node → reverse:
+        // it IS the canonical target, search own tree for the source.
+        s.setMergeSearchNode({
+          id:      realNodeId,
+          name:    personData.fullName,
+          reverse: !(personData.canEdit ?? false),
+        })
       },
       onClose: () => s.setContextMenu(null),
     },
@@ -285,6 +290,7 @@ export function buildOverlayProps({
     mergeSearch: s.mergeSearchNode ? {
       sourceNodeId:   s.mergeSearchNode.id,
       sourceNodeName: s.mergeSearchNode.name,
+      reverse:        s.mergeSearchNode.reverse ?? false,
       onClose:        () => s.setMergeSearchNode(null),
     } : null,
   }

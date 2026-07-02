@@ -5,28 +5,25 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { IconSearch, IconLoader2 } from '@tabler/icons-react'
 import { api } from '@/lib/api'
 import type { SearchResult } from '@/lib/api'
-import type { RelAction } from '@/components/graph/Navbar'
 import { COLORS, type Theme } from '@/lib/theme'
 import { MiniNodeCard, searchMetaPieces } from '@/components/graph/NodeCard'
 
 interface StepMergeSearchProps {
   isDark:        boolean
   t:             Theme
-  relAction:     RelAction
-  onAddForMerge: (action: RelAction, match: SearchResult) => Promise<void>
+  /** Opens the merge-confirm modal for this match — nothing is created here. */
+  onSelectMatch: (match: SearchResult) => void
 }
 
 const stateColor = (s: string) => s === 'claimed' ? '#22C55E' : s === 'invited' ? '#F59E0B' : 'var(--c-secondary)'
 const stateLabel = (s: string) => s === 'claimed' ? 'Claimed' : s === 'invited' ? 'Invited' : 'Proxy'
 
-export default function StepMergeSearch({ isDark, t, relAction, onAddForMerge }: StepMergeSearchProps) {
+export default function StepMergeSearch({ isDark, t, onSelectMatch }: StepMergeSearchProps) {
   const [query,    setQuery]    = useState('')
   const [results,  setResults]  = useState<SearchResult[]>([])
   const [loading,  setLoading]  = useState(false)
   const [touched,  setTouched]  = useState(false)
   const [hovered,  setHovered]  = useState<SearchResult | null>(null)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [saving,   setSaving]   = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 80) }, [])
@@ -43,17 +40,7 @@ export default function StepMergeSearch({ isDark, t, relAction, onAddForMerge }:
     return () => clearTimeout(id)
   }, [query])
 
-  const handleSelect = async (r: SearchResult) => {
-    if (saving) return
-    setSelected(r.id)
-    setSaving(true)
-    try {
-      await onAddForMerge(relAction, r)
-    } catch {
-      setSaving(false)
-      setSelected(null)
-    }
-  }
+  const handleSelect = (r: SearchResult) => onSelectMatch(r)
 
   return (
     <div style={{ padding: '14px 16px 16px' }}>
@@ -100,7 +87,6 @@ export default function StepMergeSearch({ isDark, t, relAction, onAddForMerge }:
         <AnimatePresence>
           {results.map((r, i) => {
             const isHov = hovered?.id === r.id
-            const isSel = selected === r.id
             const meta  = searchMetaPieces(r)
             return (
               <motion.button
@@ -111,17 +97,16 @@ export default function StepMergeSearch({ isDark, t, relAction, onAddForMerge }:
                 onClick={() => handleSelect(r)}
                 onMouseEnter={() => setHovered(r)}
                 onMouseLeave={() => setHovered(null)}
-                disabled={saving}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                   padding: '9px 10px', borderRadius: 12, textAlign: 'left', marginBottom: 4,
-                  border: `1.5px solid ${isHov || isSel
+                  border: `1.5px solid ${isHov
                     ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.3)' : 'rgb(var(--c-primary-rgb) / 0.2)')
                     : 'transparent'}`,
-                  background: isHov || isSel
+                  background: isHov
                     ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.08)' : 'rgb(var(--c-primary-rgb) / 0.05)')
                     : 'transparent',
-                  cursor: saving ? 'wait' : 'pointer',
+                  cursor: 'pointer',
                   transition: 'background 0.12s, border-color 0.12s',
                 }}
               >
@@ -138,11 +123,6 @@ export default function StepMergeSearch({ isDark, t, relAction, onAddForMerge }:
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
                     {r.full_name}
-                    {isSel && saving && (
-                      <span style={{ fontSize: 11, color: COLORS.saffron, marginLeft: 8, fontWeight: 400 }}>
-                        Adding…
-                      </span>
-                    )}
                   </div>
                   {meta.length > 0 && (
                     <div style={{
@@ -193,7 +173,7 @@ export default function StepMergeSearch({ isDark, t, relAction, onAddForMerge }:
           >
             <p style={{ margin: 0, fontSize: 12.5, color: t.textMuted, lineHeight: 1.8 }}>
               Search for someone from <strong style={{ color: t.text }}>another family&apos;s tree</strong>.<br />
-              Selecting them creates a proxy node linked by a merge request.
+              Selecting them asks you to confirm before a merge request is sent.
             </p>
           </motion.div>
         )}

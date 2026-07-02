@@ -229,14 +229,24 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   useEffect(() => { setEdges(remappedEdges) }, [remappedEdges, setEdges])
 
   // ── Boot ──────────────────────────────────────────────────────────────────
+  // Re-runs whenever fetchGraph's identity changes (perspective switch OR a
+  // depth bump from the "load more" chips). Only a perspective change clears
+  // the data — that shows the full-screen loader and refits the viewport.
+  // Depth loads keep the canvas mounted so the viewport (and the user's
+  // manual expand/collapse state) stays put while the new rows stream in.
+  const bootedPerspective = useRef<string | false>(false) // false = never booted
   useEffect(() => {
     if (!getToken()) { router.replace('/login'); return }
-    setGraphLoading(true)
-    setRawNodes([])
-    setRawEdges([])
-    collapseInitialised.current = false
+    const key = perspectivePersonId ?? ''
+    if (bootedPerspective.current !== key) {
+      bootedPerspective.current = key
+      setGraphLoading(true)
+      setRawNodes([])
+      setRawEdges([])
+      collapseInitialised.current = false
+    }
     fetchGraph()
-  }, [fetchGraph, router])
+  }, [fetchGraph, router, perspectivePersonId])
 
   // ── Stale-JWT recovery ────────────────────────────────────────────────────
   // After a merge the user's JWT still contains their old familyId, so the

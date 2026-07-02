@@ -18,7 +18,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconSun, IconMoon, IconBell, IconHistory, IconMenu2, IconX, IconCube3dSphere } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconBell, IconHistory, IconMenu2, IconX, IconCube3dSphere, IconArrowsMaximize, IconArrowsMinimize } from '@tabler/icons-react'
 import ProfileMenu from './ProfileMenu'
 import SearchBar from './SearchBar'
 import HudSlot from './hud/HudSlot'
@@ -36,6 +36,9 @@ interface GraphHUDProps {
   onToggleTheme:     () => void
   onToggleNotif:     () => void
   onToggleHistory:   () => void
+  /** Full view — every couple node expanded into its two people. */
+  fullView:          boolean
+  onToggleFullView:  () => void
   /** Opens the 3D family-graph view (familygraph app) in a new tab. */
   onOpen3D:          () => void
   onSelectPerson:    (personId: string) => boolean
@@ -47,7 +50,8 @@ interface GraphHUDProps {
 
 export default function GraphHUD({
   familyName, memberCount, unreadCount, isDark, isMobile, hudOffset,
-  onToggleTheme, onToggleNotif, onToggleHistory, onOpen3D, onSelectPerson, onFamilyClick,
+  onToggleTheme, onToggleNotif, onToggleHistory, fullView, onToggleFullView,
+  onOpen3D, onSelectPerson, onFamilyClick,
   isCommunity = false,
 }: GraphHUDProps) {
   const t = getTheme(isDark)
@@ -115,6 +119,17 @@ export default function GraphHUD({
                   >
                     <IconButton isDark={isDark} size="desktop" title="3D view">
                       <IconCube3dSphere size={17} />
+                    </IconButton>
+                  </DropdownRow>
+
+                  {/* Full view */}
+                  <DropdownRow
+                    label={fullView ? 'Exit full view' : 'Full view'}
+                    isDark={isDark} t={t}
+                    onClick={() => { setMobileOpen(false); onToggleFullView() }}
+                  >
+                    <IconButton isDark={isDark} size="desktop" title="Full view" active={fullView}>
+                      {fullView ? <IconArrowsMinimize size={17} /> : <IconArrowsMaximize size={17} />}
                     </IconButton>
                   </DropdownRow>
 
@@ -188,6 +203,17 @@ export default function GraphHUD({
           <HudSlot hudOffset={hudOffset} right="160px">
             <IconButton isDark={isDark} size={iconSize} title="3D view" onClick={onOpen3D}>
               <IconCube3dSphere size={17} />
+            </IconButton>
+          </HudSlot>
+
+          <HudSlot hudOffset={hudOffset} right="256px">
+            <IconButton
+              isDark={isDark} size={iconSize}
+              title={fullView ? 'Exit full view (re-pair couples)' : 'Full view (show every person)'}
+              onClick={onToggleFullView}
+              active={fullView}
+            >
+              {fullView ? <IconArrowsMinimize size={17} /> : <IconArrowsMaximize size={17} />}
             </IconButton>
           </HudSlot>
 

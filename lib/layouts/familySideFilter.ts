@@ -181,9 +181,15 @@ export function filterGraphBySide(
       ...n,
       data: {
         ...n.data,
-        nodeRole: d(n.id).isSelf
-          ? 'self'
-          : spouseNodes.has(n.id) ? 'spouse' : 'family',
+        // Sealed beats self: in the sasural view the woman herself is sealed
+        // (married-in on that side), and downstream consumers reason about
+        // blood vs married-in — the unknown-parent guard must see her as
+        // 'spouse' or it fabricates a father above her and her sisters on the
+        // husband's side. The YOU badge reads isSelf, not nodeRole, so the
+        // self treatment is unaffected.
+        nodeRole: spouseNodes.has(n.id)
+          ? 'spouse'
+          : d(n.id).isSelf ? 'self' : 'family',
       },
     }))
 

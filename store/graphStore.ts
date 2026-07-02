@@ -11,6 +11,10 @@ interface GraphState {
   currentZoom: number
   isDark: boolean
   collapsedUnitIds: string[]
+  /** Full view: every couple node expanded. Holds the collapse set aside so
+   *  toggling off restores exactly what the user had. */
+  fullView: boolean
+  savedCollapsedIds: string[] | null
   expandedCouples: string[]
   notifications: AppNotification[]
   unreadCount: number
@@ -27,6 +31,7 @@ interface GraphState {
   setIsDark: (dark: boolean) => void
   toggleCollapse: (key: string) => void
   initCollapseState: (ids: string[]) => void
+  toggleFullView: () => void
   expandCouple: (key: string) => void
   setNotifications: (notifications: AppNotification[], unreadCount: number) => void
   markNotificationRead: (id: string) => void
@@ -43,6 +48,8 @@ export const useGraphStore = create<GraphState>()(
       currentZoom: 0.85,
       isDark: false,
       collapsedUnitIds: [],
+      fullView: false,
+      savedCollapsedIds: null,
       expandedCouples: [],
       notifications: [],
       unreadCount: 0,
@@ -72,7 +79,14 @@ export const useGraphStore = create<GraphState>()(
           ? s.collapsedUnitIds.filter(k => k !== key)
           : [...s.collapsedUnitIds, key],
       })),
-      initCollapseState: (ids) => set({ collapsedUnitIds: ids }),
+      // While full view is on, freshly computed defaults land in the saved set
+      // (restored on toggle-off) so a refetch never re-collapses the canvas.
+      initCollapseState: (ids) => set(s => s.fullView
+        ? { savedCollapsedIds: ids }
+        : { collapsedUnitIds: ids }),
+      toggleFullView: () => set(s => s.fullView
+        ? { fullView: false, collapsedUnitIds: s.savedCollapsedIds ?? [], savedCollapsedIds: null }
+        : { fullView: true,  savedCollapsedIds: s.collapsedUnitIds, collapsedUnitIds: [] }),
       expandCouple: (key) => set(s => ({
         expandedCouples: s.expandedCouples.includes(key)
           ? s.expandedCouples.filter(k => k !== key)

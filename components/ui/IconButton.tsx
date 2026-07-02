@@ -22,9 +22,11 @@ export interface IconButtonProps {
   onClick?:  () => void
   /** Optional unread/notification count shown as a corner badge. 0 = hidden. */
   badge?:    number
+  /** Toggled-on state — filled primary, like the mobile hamburger when open. */
+  active?:   boolean
 }
 
-export function IconButton({ children, isDark, size = 'desktop', title, onClick, badge = 0 }: IconButtonProps) {
+export function IconButton({ children, isDark, size = 'desktop', title, onClick, badge = 0, active = false }: IconButtonProps) {
   const t = getTheme(isDark)
   const px = size === 'mobile' ? 44 : 38
 
@@ -35,8 +37,9 @@ export function IconButton({ children, isDark, size = 'desktop', title, onClick,
       style={{
         position: 'relative',
         width: px, height: px, borderRadius: 8,
-        background: t.toggleBg, color: t.toggleColor,
-        border: `1.5px solid ${t.toggleBorder}`,
+        background: active ? 'var(--c-primary)' : t.toggleBg,
+        color: active ? '#fff' : t.toggleColor,
+        border: `1.5px solid ${active ? 'var(--c-primary)' : t.toggleBorder}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer',
         boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.5)' : '0 2px 8px rgba(0,0,0,0.12)',

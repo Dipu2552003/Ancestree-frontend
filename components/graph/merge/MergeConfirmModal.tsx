@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconGitMerge, IconX, IconLoader2, IconCheck, IconLink } from '@tabler/icons-react'
 import { api } from '@/lib/api'
@@ -10,11 +9,17 @@ import { getTheme } from '@/lib/theme'
 import { NodeCard, cardInitials, CARD_W, CARD_H, CARD_PH, CARD_SH } from '../NodeCard'
 
 interface Props {
-  sourceNodeId:   string
+  /** Optional when onSend is provided (e.g. wizard flow — the source node
+   *  doesn't exist until the override creates it). */
+  sourceNodeId?:  string
   sourceNodeName: string
   targetNodeId:   string
   targetNodeName: string
+  /** Override the default api.merges.create call — e.g. the add-node wizard
+   *  creates the node AND the merge request only after the user confirms. */
+  onSend?:        () => Promise<void>
   onClose:        () => void
+  /** Called after the success animation finishes. */
   onSent:         () => void
 }
 
@@ -98,9 +103,8 @@ function MergedCard({ sourceName, targetName, isDark }: { sourceName: string; ta
 export default function MergeConfirmModal({
   sourceNodeId, sourceNodeName,
   targetNodeId, targetNodeName,
-  onClose, onSent,
+  onSend, onClose, onSent,
 }: Props) {
-  const router = useRouter()
   const { isDark } = useGraphStore()
   const t = getTheme(isDark)
 
@@ -127,19 +131,20 @@ export default function MergeConfirmModal({
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [phase])
 
-  // Phase 2: once 'merged', redirect to the user's own tree after a short pause.
+  // Phase 2: once 'merged', hand off to the caller after a short pause.
   // This must be a separate effect so the cleanup of Phase 1 (which fires when
-  // phase changes to 'merged') does not cancel the navigation timer.
+  // phase changes to 'merged') does not cancel the hand-off timer.
   useEffect(() => {
     if (phase !== 'merged') return
-    const t = setTimeout(() => router.push('/graph'), 900)
+    const t = setTimeout(onSent, 900)
     return () => clearTimeout(t)
-  }, [phase, router])
+  }, [phase, onSent])
 
   async function handleSend() {
     setPhase('sending'); setErr('')
     try {
-      await api.merges.create({ new_person_id: sourceNodeId, canonical_person_id: targetNodeId })
+      if (onSend) await onSend()
+      else await api.merges.create({ new_person_id: sourceNodeId!, canonical_person_id: targetNodeId })
       setPhase('merging')
     } catch (e) {
       setPhase('idle')

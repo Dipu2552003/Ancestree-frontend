@@ -70,8 +70,10 @@ export function useGraphPageState() {
   const [pendingMatch,   setPendingMatch]   = useState<PendingMatchData | null>(null)
   const [matchPanelOpen, setMatchPanelOpen] = useState(false)
 
-  // Merge-search modal (opened from the context menu's "Merge with…").
-  const [mergeSearchNode, setMergeSearchNode] = useState<NamedAnchor | null>(null)
+  // Merge-search modal (opened from the context menu's "Merge node").
+  // reverse: the node is another family's — it becomes the canonical target and
+  // the user searches their OWN tree for the node that merges into it.
+  const [mergeSearchNode, setMergeSearchNode] = useState<(NamedAnchor & { reverse?: boolean }) | null>(null)
 
   // Second-spouse wizard anchor (replaces the regular spouse wizard when the
   // anchor already has an active spouse).

@@ -16,8 +16,9 @@ interface NodeContextMenuProps {
    *  including while viewing a member's tree in perspective. Hidden only on
    *  another family's tree. */
   canAddRelation: boolean
-  /** Merge requests can only start from your own tree, never while viewing
-   *  another person's tree (perspective mode). */
+  /** Merge requests can start from any tree/view: own-family nodes merge
+   *  forward (ours → theirs); foreign nodes flip to a reverse merge where
+   *  they become the canonical target. */
   canMerge: boolean
   isSelf: boolean
   isViewerNode?: boolean
