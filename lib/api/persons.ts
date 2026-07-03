@@ -33,6 +33,7 @@ export const persons = {
     email?: string | null
     current_address?: string | null
     current_city?: string | null
+    current_district?: string | null
     current_state?: string | null
     current_country?: string | null
     current_pincode?: string | null

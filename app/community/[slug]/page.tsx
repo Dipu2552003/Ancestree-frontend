@@ -11,7 +11,11 @@ import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, setToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
 import { DynamicFields } from '@/components/forms/DynamicField'
-import { fieldsFor, resolveFieldValue, validateFields, PERSON_FIELDS } from '@/lib/forms/personFields'
+import { fieldsFor, validateFields, buildPayload } from '@/lib/forms/personFields'
+
+// New community members fill the same required details as signup: gotra +
+// native place + current location. Persisted onto the new member's node.
+const COMMUNITY_DETAIL_FIELDS = ['gotra', 'native_place', 'current_place'] as const
 
 const COPY = {
   en: {
@@ -131,7 +135,13 @@ function CommunityPageInner() {
   // the family /invite page: step 1 confirms the invite code, step 2 collects
   // the new member's details. Plain visitors (no code) see the login/signup tabs.
   const [inviteMode, setInviteMode] = useState(!!search?.get('code'))
-  const [inviteStep, setInviteStep] = useState<'token' | 'join'>('token')
+  // A code in the URL means the invite is already known — skip the "confirm
+  // your code" step and drop straight into the create-account form. The
+  // ?code= validation effect still runs and surfaces the verified/invalid
+  // banner. Manual "Join via invite" (no code) still starts at the code step.
+  const [inviteStep, setInviteStep] = useState<'token' | 'join'>(
+    search?.get('code') ? 'join' : 'token',
+  )
 
   const [email,         setEmail]         = useState(search?.get('email') ?? '')
   const [loading,       setLoading]       = useState(false)
@@ -285,10 +295,9 @@ function CommunityPageInner() {
     if (signupPw.length < 8) { setFormErr(c.errPwLen); return }
     if (signupPw !== signupConfirm) { setFormErr(c.errPwMatch); return }
     if (!inviteCode.trim()) { setFormErr(c.errInvite); return }
-    const gErrs = validateFields(['gotra'], gotraValues, lang)
+    const gErrs = validateFields(COMMUNITY_DETAIL_FIELDS, gotraValues, lang)
     if (Object.keys(gErrs).length > 0) { setGotraErrs(gErrs); setFormErr(''); return }
     setGotraErrs({})
-    const gotra = resolveFieldValue(PERSON_FIELDS.gotra, gotraValues)
     setFormErr(''); setLoading(true)
     try {
       const { token, user } = await api.community.signup(slug, {
@@ -298,9 +307,9 @@ function CommunityPageInner() {
         invite_code:  inviteCode.trim(),
       })
       setToken(token)
-      // community.signup doesn't take gotra, so persist it onto the new member's
-      // person node. Non-fatal: it stays editable in the profile.
-      try { await api.persons.update(user.person_id, { gotra }) } catch { /* non-fatal */ }
+      // community.signup doesn't take these details, so persist them onto the
+      // new member's person node. Non-fatal: they stay editable in the profile.
+      try { await api.persons.update(user.person_id, buildPayload(COMMUNITY_DETAIL_FIELDS, gotraValues)) } catch { /* non-fatal */ }
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify({ person_id: user.person_id, family_id: user.family_id }))
         localStorage.setItem('community_slug', slug)
@@ -493,9 +502,10 @@ function CommunityPageInner() {
                   <input type={showPw ? 'text' : 'password'} value={signupConfirm} onChange={e => { setSignupConfirm(e.target.value); setFormErr('') }} onKeyDown={e => { if (e.key === 'Enter') handleSignup() }} onFocus={() => setPw2Focus(true)} onBlur={() => setPw2Focus(false)} placeholder={c.confirmPh} autoComplete="new-password" style={inputStyle(pw2Focus, false)} />
                 </div>
 
-                {/* Gotra — required, curated dropdown shared with the signup form */}
+                {/* Gotra + native place + current location — required, shared
+                    config with the signup form. */}
                 <DynamicFields
-                  fields={fieldsFor(['gotra'])}
+                  fields={fieldsFor(COMMUNITY_DETAIL_FIELDS)}
                   values={gotraValues}
                   errors={gotraErrs}
                   isDark={isDark}
@@ -821,9 +831,10 @@ function CommunityPageInner() {
                 ) : null}
               </div>
 
-              {/* Gotra — required, curated dropdown shared with the signup form */}
+              {/* Gotra + native place + current location — required, shared
+                  config with the signup form. */}
               <DynamicFields
-                fields={fieldsFor(['gotra'])}
+                fields={fieldsFor(COMMUNITY_DETAIL_FIELDS)}
                 values={gotraValues}
                 errors={gotraErrs}
                 isDark={isDark}

@@ -242,7 +242,7 @@ export default function HistoryPanel({ isDark, onClose, onUndone }: HistoryPanel
                 <span
                   title={op.lock_reason === 'owner'
                     ? `Only ${op.actor_name ?? 'the person who made this change'} or a family admin can undo this`
-                    : 'Undo the most recent change first — actions can only be undone in order'}
+                    : 'Undo the most recent change in this tab first — each list is undone in order'}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '4px',
                     fontSize: '10px', fontWeight: 700, color: t.textMuted,

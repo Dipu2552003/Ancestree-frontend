@@ -12,7 +12,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getTheme } from '@/lib/theme'
-import { OTHER, OTHER_KEY_SUFFIX, type FieldDef, type FormLang } from '@/lib/forms/personFields'
+import { OTHER, OTHER_KEY_SUFFIX, placePrimaryPart, type FieldDef, type FormLang } from '@/lib/forms/personFields'
+import PlaceSearch from './PlaceSearch'
 
 interface CommonProps {
   values:   Record<string, string>
@@ -51,6 +52,26 @@ function DynamicField({ field, values, errors, isDark, lang, onChange, onSubmit 
     boxShadow: foc ? '0 0 0 3.5px rgb(var(--c-primary-rgb) / 0.11)' : isDark ? '0 1px 2px rgba(0,0,0,0.30)' : '0 1px 2px rgba(0,0,0,0.04)',
     transition: 'border-color 0.15s, box-shadow 0.15s, background 0.35s ease',
   })
+
+  // A place field renders its own search + sub-fields (writes several columns).
+  if (field.type === 'place') {
+    const parts = (field.place?.parts ?? []).map(p => ({ role: p.role, key: p.column, label: p.label[lang], half: p.half, default: p.default }))
+    // Required errors are keyed on the location (village/city) column so that
+    // editing it clears the message via the parent's per-field error reset.
+    const errKey = placePrimaryPart(field)?.column ?? field.id
+    return (
+      <PlaceSearch
+        label={field.label[lang]}
+        parts={parts}
+        values={values}
+        onChange={onChange}
+        isDark={isDark}
+        lang={lang}
+        size="lg"
+        error={errors[errKey]}
+      />
+    )
+  }
 
   let control: React.ReactNode
 

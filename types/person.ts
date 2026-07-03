@@ -25,6 +25,7 @@ export interface PersonData {
 
   currentAddress?: string
   currentCity?: string
+  currentDistrict?: string
   currentState?: string
   currentCountry?: string
   currentPincode?: string
@@ -140,6 +141,7 @@ export interface SavePayload {
 
   currentAddress?: string | null
   currentCity?: string | null
+  currentDistrict?: string | null
   currentState?: string | null
   currentCountry?: string | null
   currentPincode?: string | null

@@ -132,16 +132,19 @@ export function layoutEngine(
     return u
   }
 
-  // Stable sort key for spouses: birth year ascending, then name. Determines
-  // which wife is "wife 1" vs "wife 2" in the layout row.
-  const sortSpouses = (ids: string[]): string[] => ids.slice().sort((a, b) => {
+  // Older first: birth year ascending, missing years last, then name, then id.
+  // The single age-order rule for children rows, sibling units, root sibling
+  // clusters, and spouse order (wife 1 vs wife 2).
+  const compareByAge = (a: string, b: string): number => {
     const byA = d(a).birthYear as number | undefined
     const byB = d(b).birthYear as number | undefined
     if (byA != null && byB != null) return byA - byB
     if (byA != null) return -1
     if (byB != null) return 1
-    return ((d(a).fullName as string) ?? '').localeCompare((d(b).fullName as string) ?? '')
-  })
+    const byName = ((d(a).fullName as string) ?? '').localeCompare((d(b).fullName as string) ?? '')
+    return byName !== 0 ? byName : a.localeCompare(b)
+  }
+  const sortSpouses = (ids: string[]): string[] => ids.slice().sort(compareByAge)
 
   // ── Pass 1: multi-spouse anchors get one EXTENDED unit ──────────────────
   // A person with 2+ same-generation spouses becomes the left member of one
@@ -234,14 +237,7 @@ export function layoutEngine(
       }
       shared = [...absorbed]
     }
-    u.children = shared.sort((a, b) => {
-      const byA = d(a).birthYear as number | undefined
-      const byB = d(b).birthYear as number | undefined
-      if (byA !== undefined && byB !== undefined) return byA - byB
-      if (byA !== undefined) return -1
-      if (byB !== undefined) return 1
-      return a.localeCompare(b)
-    })
+    u.children = shared.sort(compareByAge)
   }
 
   // ── Mark collapsed units — treat them as leaves in RT ────────────────────
@@ -357,23 +353,9 @@ export function layoutEngine(
 
   // Sort sibling units left-to-right by the bloodline anchor's birth year
   // (eldest first). u.left is always the child-of-the-parent-unit; u.right is
-  // the spouse who married in, so birth-year sort runs on `left` only.
-  // Comparator mirrors the per-person comparator at the children-assignment
-  // step above so collapse counts and visual order agree.
+  // the spouse who married in, so age sort runs on `left` only.
   for (const [, list] of unitChildren) {
-    list.sort((a, b) => {
-      const byA = d(a.left).birthYear as number | undefined
-      const byB = d(b.left).birthYear as number | undefined
-      if (byA !== undefined && byB !== undefined) return byA - byB
-      if (byA !== undefined) return -1
-      if (byB !== undefined) return 1
-      // Final tie-break: full name, then person id, so the result is stable
-      // and human-meaningful when birth years are missing entirely.
-      const nameA = (d(a.left).fullName as string) ?? ''
-      const nameB = (d(b.left).fullName as string) ?? ''
-      const byName = nameA.localeCompare(nameB)
-      return byName !== 0 ? byName : a.left.localeCompare(b.left)
-    })
+    list.sort((a, b) => compareByAge(a.left, b.left))
     list.forEach((u, i) => { u.index = i })
   }
 
@@ -522,12 +504,13 @@ export function layoutEngine(
     if (!clusterIdx.has(rep)) clusterIdx.set(rep, nextClusterIdx++)
   }
 
-  // Sort so same-cluster roots end up adjacent
+  // Sort so same-cluster roots end up adjacent; within a sibling cluster,
+  // older siblings go left (same age rule as parented sibling rows).
   treeBounds.sort((a, b) => {
     const ca = clusterIdx.get(sibUfFind(a.root))!
     const cb = clusterIdx.get(sibUfFind(b.root))!
     if (ca !== cb) return ca - cb
-    return a.root.left.localeCompare(b.root.left)
+    return compareByAge(a.root.left, b.root.left)
   })
 
   // Place trees left-to-right: H_GAP within a sibling cluster, TREE_GAP between clusters

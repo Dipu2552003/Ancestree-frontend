@@ -69,6 +69,18 @@ export async function req<T>(
     if (timer) clearTimeout(timer)
   }
 
+  // A 401 on a request we authenticated (token was sent) means the token is
+  // stale/expired — drop it and bounce to login instead of looping failed
+  // fetches. A 401 with no token is a normal auth failure (e.g. bad login),
+  // so let it fall through to the thrown error below.
+  if (res.status === 401 && t) {
+    clearToken()
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      window.location.assign('/login')
+    }
+    throw new Error('Session expired')
+  }
+
   const body = await res.json().catch(() => ({ error: res.statusText }))
   if (!res.ok) throw new Error(body.error ?? res.statusText)
   return body as T

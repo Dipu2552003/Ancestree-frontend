@@ -21,7 +21,19 @@ import { titleCase, capFirst } from '@/lib/format/normalize'
 
 export type TreeType = 'public' | 'private' | 'community'
 export type FormLang = 'en' | 'hi'
-export type FieldType = 'text' | 'select' | 'date' | 'gender'
+export type FieldType = 'text' | 'select' | 'date' | 'gender' | 'place'
+
+/** One column a `place` field fills. `role` maps an India-Post result field
+ *  onto this column (see PlaceSearch.partValueFromPO). Sub-values live in the
+ *  form's `values` map under `column` directly (not the parent field id). */
+export interface PlacePart {
+  role: 'village' | 'city' | 'tehsil' | 'district' | 'state' | 'pincode'
+  column: string
+  label: Bilingual
+  half?: boolean
+  /** Pre-selected when the field is empty (e.g. state defaults to Rajasthan). */
+  default?: string
+}
 
 /** Sentinel a <select> uses for its free-text "Other" option. */
 export const OTHER = '__other__'
@@ -52,6 +64,8 @@ export interface FieldDef {
   /** Normalization applied at the save boundary. */
   normalize?: 'titleCase' | 'capFirst' | 'none'
   autoComplete?: string
+  /** For type 'place': the columns this one search-field fills. */
+  place?: { parts: PlacePart[] }
 }
 
 const GOTRAS   = familyOptions.gotras.map(g => g.name)
@@ -107,6 +121,28 @@ export const PERSON_FIELDS: Record<string, FieldDef> = {
     options: GOTRAS, allowOther: true, normalize: 'titleCase',
   },
 
+  // Native place — State (default Rajasthan) → District (dropdown by state) →
+  // Village/Town (search the India Post directory within that district, or type).
+  native_place: {
+    id: 'native_place', column: 'native_village', type: 'place', required: true,
+    label: { en: 'Native place', hi: 'मूल स्थान' },
+    place: { parts: [
+      { role: 'state',    column: 'native_state',    label: { en: 'State',    hi: 'राज्य' }, half: true, default: 'Rajasthan' },
+      { role: 'district', column: 'native_district', label: { en: 'District', hi: 'ज़िला' }, half: true },
+      { role: 'village',  column: 'native_village',  label: { en: 'Village / Town', hi: 'गाँव / कस्बा' } },
+    ] },
+  },
+  // Current place — State → District → City/Town (search within the district).
+  current_place: {
+    id: 'current_place', column: 'current_city', type: 'place', required: true,
+    label: { en: 'Current location', hi: 'वर्तमान स्थान' },
+    place: { parts: [
+      { role: 'state',    column: 'current_state',    label: { en: 'State',    hi: 'राज्य' }, half: true },
+      { role: 'district', column: 'current_district', label: { en: 'District', hi: 'ज़िला' }, half: true },
+      { role: 'city',     column: 'current_city',     label: { en: 'City / Town', hi: 'शहर' } },
+    ] },
+  },
+
   // ── Available but not surfaced by any mode yet ───────────────────────────
   // Add the id to a field set below to switch these on — no renderer changes.
   gender: {
@@ -121,12 +157,18 @@ export const PERSON_FIELDS: Record<string, FieldDef> = {
 
 // ── Field sets — which fields each tree type collects at signup ──────────────
 export const SIGNUP_FIELD_SETS: Record<TreeType, readonly string[]> = {
-  public:    ['first_name', 'middle_name', 'last_name', 'birth_date', 'current_address', 'native_village'],
-  private:   ['first_name', 'middle_name', 'last_name', 'birth_date', 'current_address', 'native_village'],
-  community: ['first_name', 'middle_name', 'last_name', 'birth_date', 'current_address', 'native_village_select', 'gotra'],
+  public:    ['first_name', 'middle_name', 'last_name', 'birth_date', 'native_place', 'current_place'],
+  private:   ['first_name', 'middle_name', 'last_name', 'birth_date', 'native_place', 'current_place'],
+  community: ['first_name', 'middle_name', 'last_name', 'birth_date', 'gotra', 'native_place', 'current_place'],
 }
 
 // ── Helpers (pure) ───────────────────────────────────────────────────────────
+
+/** The part a `place` field is validated on — its village/city, else the first. */
+export function placePrimaryPart(field: FieldDef): PlacePart | undefined {
+  const parts = field.place?.parts ?? []
+  return parts.find(p => p.role === 'village' || p.role === 'city') ?? parts[0]
+}
 
 /** Resolve a set of field ids to their definitions, dropping any unknown ids. */
 export function fieldsFor(set: readonly string[]): FieldDef[] {
@@ -154,6 +196,15 @@ export function resolveFieldValue(field: FieldDef, values: Record<string, string
 export function buildPayload(set: readonly string[], values: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {}
   for (const field of fieldsFor(set)) {
+    // A place field owns several columns; its sub-values are stored under those
+    // column names directly. Pincode stays as typed, everything else title-cased.
+    if (field.type === 'place') {
+      for (const part of field.place?.parts ?? []) {
+        const raw = (values[part.column] ?? '').trim()
+        if (raw) out[part.column] = part.role === 'pincode' ? raw : titleCase(raw)
+      }
+      continue
+    }
     const v = resolveFieldValue(field, values)
     if (v) out[field.column] = v
   }
@@ -168,6 +219,17 @@ export function validateFields(
 ): Record<string, string> {
   const errs: Record<string, string> = {}
   for (const field of fieldsFor(set)) {
+    // A place field is satisfied by its location part — the village / city.
+    // The error is keyed on that column so editing it clears the message.
+    if (field.type === 'place') {
+      const primary = placePrimaryPart(field)
+      if (field.required && primary && !(values[primary.column] ?? '').trim()) {
+        errs[primary.column] = lang === 'hi'
+          ? `${field.label.hi} आवश्यक है`
+          : `${field.label.en} is required`
+      }
+      continue
+    }
     if (field.required && !resolveFieldValue(field, values)) {
       errs[field.id] = lang === 'hi'
         ? `${field.label.hi} आवश्यक है`

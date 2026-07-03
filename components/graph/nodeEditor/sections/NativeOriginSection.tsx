@@ -1,8 +1,10 @@
 'use client'
 
-// Ancestral village + the Indian-administrative-hierarchy fields. Collapsible.
+// Ancestral place — State (default Rajasthan) → District → Village/Town (search
+// within the chosen district, or type). Country kept manual.
 
 import { SectionHeader } from '../'
+import PlaceSearch from '@/components/forms/PlaceSearch'
 import type { FormApi } from '../formApi'
 
 interface NativeOriginSectionProps {
@@ -11,27 +13,33 @@ interface NativeOriginSectionProps {
   onToggle: () => void
 }
 
+const PARTS = [
+  { role: 'state'    as const, key: 'nativeState',    label: 'State',    half: true, default: 'Rajasthan' },
+  { role: 'district' as const, key: 'nativeDistrict', label: 'District', half: true },
+  { role: 'village'  as const, key: 'nativeVillage',  label: 'Village / Town' },
+]
+
 export default function NativeOriginSection({ form, isOpen, onToggle }: NativeOriginSectionProps) {
-  const { draft, isDark, field, row } = form
+  const { draft, setDraft, isDark, field } = form
 
   return (
     <>
       <SectionHeader
         title="Native / Origin" isDark={isDark}
         sectionKey="nativeOrigin" isOpen={isOpen}
-        fields={['nativeVillage', 'nativeTehsil', 'nativeDistrict', 'nativeState', 'nativeCountry']} draft={draft}
+        fields={['nativeVillage', 'nativeDistrict', 'nativeState', 'nativeCountry']} draft={draft}
         onToggle={onToggle}
       />
       {isOpen && (
         <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {row(
-            field('Village', 'nativeVillage', 'Ancestral village', { half: true }),
-            field('Tehsil', 'nativeTehsil', 'Tehsil', { half: true }),
-          )}
-          {row(
-            field('District', 'nativeDistrict', 'District', { half: true }),
-            field('State', 'nativeState', 'State', { half: true }),
-          )}
+          <PlaceSearch
+            label="Native place"
+            parts={PARTS}
+            values={draft as unknown as Record<string, string>}
+            onChange={(k, v) => setDraft(p => ({ ...p, [k]: v }))}
+            isDark={isDark}
+            size="sm"
+          />
           {field('Country', 'nativeCountry', 'India')}
         </div>
       )}

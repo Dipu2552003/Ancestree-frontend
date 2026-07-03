@@ -11,7 +11,11 @@ import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, getToken, setToken, clearToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
 import { DynamicFields } from '@/components/forms/DynamicField'
-import { fieldsFor, resolveFieldValue, validateFields, PERSON_FIELDS } from '@/lib/forms/personFields'
+import { fieldsFor, validateFields, buildPayload } from '@/lib/forms/personFields'
+
+// New users claiming an invite fill the same required details as signup:
+// gotra + native place + current location. Persisted onto the claimed node.
+const CLAIM_DETAIL_FIELDS = ['gotra', 'native_place', 'current_place'] as const
 
 // ── Bilingual copy ────────────────────────────────────────────────────────────
 const COPY = {
@@ -281,11 +285,9 @@ function InviteInner() {
     if (password.length < 8) { setPwErr(c.errPwLen); ok = false } else setPwErr('')
     if (!dn) { setDisplayErr(c.errDisplay); ok = false } else setDisplayErr('')
     if (!dob) { setDobErr(c.errDob); ok = false } else setDobErr('')
-    const gErrs = validateFields(['gotra'], gotraValues, lang)
+    const gErrs = validateFields(CLAIM_DETAIL_FIELDS, gotraValues, lang)
     if (Object.keys(gErrs).length > 0) { setGotraErrs(gErrs); ok = false } else setGotraErrs({})
     if (!ok) return
-
-    const gotra = resolveFieldValue(PERSON_FIELDS.gotra, gotraValues)
 
     setLoading(true); setTopErr('')
     try {
@@ -298,7 +300,7 @@ function InviteInner() {
       // later in the profile if this patch fails for any reason.
       try {
         const personId = (user?.person_id as string | undefined) ?? (await api.auth.me()).person_id
-        if (personId) await api.persons.update(personId, { birth_date: dob, gotra })
+        if (personId) await api.persons.update(personId, { birth_date: dob, ...buildPayload(CLAIM_DETAIL_FIELDS, gotraValues) })
       } catch { /* non-fatal */ }
       router.push('/graph')
     } catch (err) {
@@ -634,9 +636,10 @@ function InviteInner() {
                     </AnimatePresence>
                   </div>
 
-                  {/* Gotra — required, curated dropdown shared with the signup form */}
+                  {/* Gotra + native place + current location — required, shared
+                      config with the signup form. */}
                   <DynamicFields
-                    fields={fieldsFor(['gotra'])}
+                    fields={fieldsFor(CLAIM_DETAIL_FIELDS)}
                     values={gotraValues}
                     errors={gotraErrs}
                     isDark={isDark}
