@@ -125,7 +125,7 @@ export const PERSON_FIELDS: Record<string, FieldDef> = {
   // Village/Town (search the India Post directory within that district, or type).
   native_place: {
     id: 'native_place', column: 'native_village', type: 'place', required: true,
-    label: { en: 'Native place', hi: 'मूल स्थान' },
+    label: { en: 'Village', hi: 'गाँव' },
     place: { parts: [
       { role: 'state',    column: 'native_state',    label: { en: 'State',    hi: 'राज्य' }, half: true, default: 'Rajasthan' },
       { role: 'district', column: 'native_district', label: { en: 'District', hi: 'ज़िला' }, half: true },

@@ -3,14 +3,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // PlaceSearch — cascading location block: State → District → Location.
 //
-//   • State    — dropdown of Indian states (IN_STATES).
-//   • District — dropdown driven by the chosen state (IN_DISTRICTS[state]).
+//   • State    — type-and-search over Indian states (IN_STATES).
+//   • District — type-and-search driven by the chosen state (IN_DISTRICTS[state]).
 //   • Location — a search box (India Post directory) scoped to the chosen
 //                state + district, so picking Rajasthan → Sirohi lets you search
-//                "Abu Road" / "Mungthala". Free typing is always allowed.
+//                "Abu Road" / "Mungthala".
 //
-// Every dropdown has an "Other" option that reveals a text box. Changing the
-// state clears the district + location; changing the district clears location.
+// Every field lets you just type: if what you type isn't in the list, an
+// "Other" row keeps your text and it saves as-is. Changing the state clears the
+// district + location; changing the district clears location.
 //
 // State-key agnostic: each part names the `key` it reads/writes via the given
 // values map + onChange. The signup/invite forms pass DB column names; the node
@@ -20,7 +21,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconSearch, IconLoader2, IconMapPin } from '@tabler/icons-react'
 import { getTheme } from '@/lib/theme'
-import { OTHER, type FormLang } from '@/lib/forms/personFields'
+import type { FormLang } from '@/lib/forms/personFields'
 import { IN_STATES, IN_DISTRICTS } from '@/lib/inRegions'
 
 export type PlaceRole = 'village' | 'city' | 'tehsil' | 'district' | 'state' | 'pincode'
@@ -34,6 +35,8 @@ export interface PlaceFieldPart {
 }
 
 const norm = (s: string) => s.trim().toLowerCase()
+
+type StyleFn = (foc: boolean, err?: boolean) => React.CSSProperties
 
 // ── India Post directory ─────────────────────────────────────────────────────
 interface PostOffice { Name: string; District: string; State: string; Pincode: string }
@@ -53,13 +56,100 @@ async function searchIndiaPost(q: string, signal: AbortSignal): Promise<PostOffi
   return out
 }
 
-// ── Location search box (one field) ──────────────────────────────────────────
+// Shared dropdown chrome.
+function dropdownStyle(isDark: boolean, sm: boolean): React.CSSProperties {
+  return {
+    position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 30,
+    background: isDark ? '#1C1A12' : '#FFFFFF',
+    border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)'}`,
+    borderRadius: sm ? 8 : 12, boxShadow: '0 12px 32px rgba(0,0,0,0.16)',
+    overflow: 'hidden', maxHeight: 250, overflowY: 'auto',
+  }
+}
+
+function rowStyle(): React.CSSProperties {
+  return { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 13px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }
+}
+
+// ── State / District — type-and-search over a static list, free text allowed ──
+interface ComboProps {
+  value: string
+  onChange: (v: string) => void
+  options: readonly string[]
+  placeholder: string
+  style: StyleFn
+  isDark: boolean
+  lang: FormLang
+  sm: boolean
+}
+
+function RegionCombo({ value, onChange, options, placeholder, style, isDark, lang, sm }: ComboProps) {
+  const t = getTheme(isDark)
+  const [open, setOpen] = useState(false)
+  const [foc, setFoc]   = useState(false)
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
+  const q        = norm(value)
+  const filtered = q ? options.filter(o => norm(o).includes(q)) : options
+  const exact    = options.some(o => norm(o) === q)
+  const showOther = value.trim() !== '' && !exact
+
+  return (
+    <div style={{ position: 'relative' }} ref={boxRef}>
+      <input
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true) }}
+        onFocus={() => { setFoc(true); setOpen(true) }}
+        onBlur={() => setFoc(false)}
+        placeholder={placeholder}
+        style={style(foc)}
+      />
+      {open && (filtered.length > 0 || showOther) && (
+        <div style={dropdownStyle(isDark, sm)}>
+          {filtered.map(o => (
+            <button
+              key={o}
+              type="button"
+              onMouseDown={e => { e.preventDefault(); onChange(o); setOpen(false) }}
+              style={rowStyle()}
+              onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              <span style={{ fontSize: sm ? 13 : 14, color: t.text }}>{o}</span>
+            </button>
+          ))}
+          {showOther && (
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); setOpen(false) }}
+              style={{ ...rowStyle(), borderTop: filtered.length ? `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}` : 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              <span style={{ fontSize: sm ? 12.5 : 13.5, color: 'var(--c-primary)', fontWeight: 600 }}>
+                {lang === 'hi' ? 'अन्य — ' : 'Other — keep '}“{value.trim()}”
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Location — India Post search scoped to state + district ───────────────────
 interface LocationProps {
   value: string
   onChange: (v: string) => void
   state: string
   district: string
-  style: (foc: boolean, err?: boolean) => React.CSSProperties
+  style: StyleFn
   isDark: boolean
   lang: FormLang
   sm: boolean
@@ -83,7 +173,6 @@ function LocationSearch({ value, onChange, state, district, style, isDark, lang,
     const id = setTimeout(async () => {
       try {
         let list = await searchIndiaPost(q, ctrl.signal)
-        // Scope to the chosen state (+ district when it's a known one).
         if (state)    { const f = list.filter(p => norm(p.State) === norm(state));       if (f.length) list = f }
         if (district) { const f = list.filter(p => norm(p.District) === norm(district)); if (f.length) list = f }
         setResults(list.slice(0, 8))
@@ -115,13 +204,13 @@ function LocationSearch({ value, onChange, state, district, style, isDark, lang,
       />
       {loading && <IconLoader2 size={sm ? 14 : 16} style={{ position: 'absolute', right: inset, top: '50%', transform: 'translateY(-50%)', color: 'var(--c-primary)', animation: 'placespin 0.8s linear infinite' }} />}
       {open && results.length > 0 && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 30, background: isDark ? '#1C1A12' : '#FFFFFF', border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)'}`, borderRadius: sm ? 8 : 12, boxShadow: '0 12px 32px rgba(0,0,0,0.16)', overflow: 'hidden', maxHeight: 250, overflowY: 'auto' }}>
+        <div style={dropdownStyle(isDark, sm)}>
           {results.map((po, i) => (
             <button
               key={`${po.Name}-${po.Pincode}-${i}`}
               type="button"
               onMouseDown={e => { e.preventDefault(); picked.current = po.Name; onChange(po.Name); setOpen(false) }}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 13px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={rowStyle()}
               onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
@@ -154,14 +243,13 @@ export default function PlaceSearch({ label, parts, values, onChange, isDark, si
   const t = getTheme(isDark)
   const sm = size === 'sm'
 
-  const [otherKeys, setOtherKeys] = useState<Record<string, boolean>>({})
-  const [focused,   setFocused]   = useState<string | null>(null)
+  const [focused, setFocused] = useState<string | null>(null)
 
-  const statePart    = parts.find(p => p.role === 'state')
-  const districtPart  = parts.find(p => p.role === 'district')
-  const stateValue    = statePart    ? (values[statePart.key]    ?? '') : ''
-  const districtValue = districtPart ? (values[districtPart.key] ?? '') : ''
-  const locationKeys  = parts.filter(p => p.role === 'village' || p.role === 'city').map(p => p.key)
+  const statePart     = parts.find(p => p.role === 'state')
+  const districtPart   = parts.find(p => p.role === 'district')
+  const stateValue     = statePart    ? (values[statePart.key]    ?? '') : ''
+  const districtValue  = districtPart ? (values[districtPart.key] ?? '') : ''
+  const locationKeys   = parts.filter(p => p.role === 'village' || p.role === 'city').map(p => p.key)
 
   const inputBg      = isDark ? '#141210' : sm ? t.inputBg : '#FDFAF6'
   const inputBgFocus = isDark ? '#1C1A12' : '#FFFFFF'
@@ -171,7 +259,7 @@ export default function PlaceSearch({ label, parts, values, onChange, isDark, si
   const radius = sm ? 8 : 12
   const fs     = sm ? 13 : 15
 
-  const controlStyle = (foc: boolean, err?: boolean): React.CSSProperties => ({
+  const controlStyle: StyleFn = (foc, err) => ({
     width: '100%', height: H, padding: `0 ${sm ? 10 : 14}px`, fontSize: fs, fontFamily: 'inherit',
     border: `1.5px solid ${err ? '#EF4444' : foc ? 'var(--c-primary)' : inputBorder}`,
     borderRadius: radius, background: foc ? inputBgFocus : inputBg, color: t.text, outline: 'none',
@@ -194,21 +282,16 @@ export default function PlaceSearch({ label, parts, values, onChange, isDark, si
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const setOther = (key: string, on: boolean) => setOtherKeys(prev => ({ ...prev, [key]: on }))
-
-  function onSelect(part: PlaceFieldPart, next: string) {
-    if (next === OTHER) { setOther(part.key, true); onChange(part.key, '') }
-    else                { setOther(part.key, false); onChange(part.key, next) }
-    // State change invalidates district + location; district change → location.
-    if (part.role === 'state' && districtPart) { onChange(districtPart.key, ''); setOther(districtPart.key, false) }
-    if (part.role === 'state' || part.role === 'district') for (const lk of locationKeys) onChange(lk, '')
-  }
-
-  // Options for a select part; district options depend on the chosen state.
-  function selectOptions(part: PlaceFieldPart): readonly string[] {
-    if (part.role === 'state')    return IN_STATES
-    if (part.role === 'district') return stateValue ? IN_DISTRICTS[stateValue] ?? [] : []
-    return []
+  // Editing the state re-scopes district + location; editing district re-scopes
+  // location. Clear the downstream fields so stale values don't linger.
+  function onRegionChange(part: PlaceFieldPart, v: string) {
+    onChange(part.key, v)
+    if (part.role === 'state') {
+      if (districtPart) onChange(districtPart.key, '')
+      for (const lk of locationKeys) onChange(lk, '')
+    } else if (part.role === 'district') {
+      for (const lk of locationKeys) onChange(lk, '')
+    }
   }
 
   // Pair consecutive half-width parts onto one row.
@@ -220,9 +303,7 @@ export default function PlaceSearch({ label, parts, values, onChange, isDark, si
   }
 
   function renderPart(part: PlaceFieldPart) {
-    const value    = values[part.key] ?? ''
-    const foc       = focused === part.key
-    const focOther  = focused === part.key + ':other'
+    const value = values[part.key] ?? ''
 
     // Location field → India Post search scoped to state + district. It's the
     // required part, so it carries the error highlight.
@@ -243,51 +324,22 @@ export default function PlaceSearch({ label, parts, values, onChange, isDark, si
       )
     }
 
-    const options = selectOptions(part)
-    // District with no state chosen yet → let them type freely.
-    if (options.length === 0) {
-      return (
-        <>
-          <label style={subLabelStyle}>{part.label}</label>
-          <input
-            value={value}
-            onChange={e => onChange(part.key, e.target.value)}
-            onFocus={() => setFocused(part.key)}
-            onBlur={() => setFocused(null)}
-            style={controlStyle(foc)}
-          />
-        </>
-      )
-    }
-
-    const isOther     = otherKeys[part.key] || (value !== '' && !options.includes(value))
-    const selectValue = isOther ? OTHER : value
+    // State / District → type-and-search combobox (free text saves as Other).
+    const options = part.role === 'state'
+      ? IN_STATES
+      : (stateValue ? IN_DISTRICTS[stateValue] ?? [] : [])
 
     return (
       <>
         <label style={subLabelStyle}>{part.label}</label>
-        <select
-          value={selectValue}
-          onChange={e => onSelect(part, e.target.value)}
-          onFocus={() => setFocused(part.key)}
-          onBlur={() => setFocused(null)}
-          style={{ ...controlStyle(foc), cursor: 'pointer', color: selectValue ? t.text : t.textMuted }}
-        >
-          <option value="">{lang === 'hi' ? 'चुनें' : 'Select'}</option>
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
-          <option value={OTHER}>{lang === 'hi' ? 'अन्य' : 'Other'}</option>
-        </select>
-        {isOther && (
-          <input
-            value={value}
-            autoFocus
-            onChange={e => onChange(part.key, e.target.value)}
-            onFocus={() => setFocused(part.key + ':other')}
-            onBlur={() => setFocused(null)}
-            placeholder={lang === 'hi' ? 'यहाँ लिखें' : 'Type here'}
-            style={{ ...controlStyle(focOther), marginTop: 6 }}
-          />
-        )}
+        <RegionCombo
+          value={value}
+          onChange={v => onRegionChange(part, v)}
+          options={options}
+          placeholder={lang === 'hi' ? 'खोजें या लिखें' : 'Search or type'}
+          style={controlStyle}
+          isDark={isDark} lang={lang} sm={sm}
+        />
       </>
     )
   }

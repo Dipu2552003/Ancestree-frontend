@@ -25,7 +25,7 @@ export default function NativeOriginSection({ form, isOpen, onToggle }: NativeOr
   return (
     <>
       <SectionHeader
-        title="Native / Origin" isDark={isDark}
+        title="Village" isDark={isDark}
         sectionKey="nativeOrigin" isOpen={isOpen}
         fields={['nativeVillage', 'nativeDistrict', 'nativeState', 'nativeCountry']} draft={draft}
         onToggle={onToggle}
@@ -33,7 +33,7 @@ export default function NativeOriginSection({ form, isOpen, onToggle }: NativeOr
       {isOpen && (
         <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <PlaceSearch
-            label="Native place"
+            label="Village"
             parts={PARTS}
             values={draft as unknown as Record<string, string>}
             onChange={(k, v) => setDraft(p => ({ ...p, [k]: v }))}
