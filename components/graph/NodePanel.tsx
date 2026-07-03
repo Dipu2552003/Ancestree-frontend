@@ -20,14 +20,15 @@ import type { Node, Edge } from '@xyflow/react'
 import type { PersonData, SavePayload, EdgeData } from '@/types'
 import { canEditPersonProfile } from '@/types'
 import { getTheme } from '@/lib/theme'
+import { compareSiblings } from '@/lib/graph/siblingSort'
 import {
   SectionHeader, ReadOnlyNotice, InviteToClaimCard, PhotoEditor,
-  ConnectionsList, AddRelationButton, SaveButton, NodePanelHeader,
+  ConnectionsList, AddRelationButton, ArrangeOrderCard, SaveButton, NodePanelHeader,
   IdentitySection, BirthDeathSection,
   ContactSection, CurrentLocationSection, NativeOriginSection, WorkEducationSection,
   buildFormApi,
   initDraft, draftToPartialPersonData, draftToSavePayload, isDraftDirty, composeFullName,
-  type SectionKey, type Draft, type SaveState, type ConnectionRow,
+  type SectionKey, type Draft, type SaveState, type ConnectionRow, type ArrangePerson,
 } from './nodeEditor'
 
 interface NodePanelProps {
@@ -47,9 +48,11 @@ interface NodePanelProps {
   /** Other-parent name when a deleted parent's children stay linked through them. */
   deleteChildrenNote?: string | null
   onDelete?: () => Promise<void>
+  /** Manual sibling order — saves child_order for ALL of parentId's children. */
+  onReorderChildren?: (parentId: string, orderedChildIds: string[]) => Promise<void>
 }
 
-export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, rawNodes, onViewNode, onRemoveConnection, onRequestAddRelation, canDelete, deleteDisabledReason, deleteChildrenNote, onDelete }: NodePanelProps) {
+export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, rawNodes, onViewNode, onRemoveConnection, onRequestAddRelation, canDelete, deleteDisabledReason, deleteChildrenNote, onDelete, onReorderChildren }: NodePanelProps) {
   const { isDark } = useGraphStore()
   const isMobile = useIsMobile()
   const d = node.data as unknown as PersonData
@@ -103,6 +106,59 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
     () => connections.some(c => c.relLabel === 'Spouse' || c.relLabel === 'Child') ? 'married' : 'single',
     [connections],
   )
+
+  // Arrangeable groups for manual sibling order (birth years unknown):
+  //   • this node's own children  → reorder as their parent
+  //   • this node + its siblings  → reorder via the shared parent
+  // Rows come out in current display order (birthYear → child_order → name → id,
+  // same rule as the layout).
+  const arrangeGroups = useMemo(() => {
+    if (!onReorderChildren || !rawEdges || !rawNodes) return []
+    const nodeMap = new Map(rawNodes.map(n => [n.id, n]))
+    const pd = (id: string) => nodeMap.get(id)?.data as PersonData | undefined
+
+    const childrenOf  = new Map<string, string[]>()
+    const parentsOf   = new Map<string, string[]>()
+    const childOrder  = new Map<string, number>()
+    for (const e of rawEdges) {
+      if ((e.data as unknown as EdgeData)?.relType !== 'PARENT_OF') continue
+      if (!nodeMap.has(e.source) || !nodeMap.has(e.target)) continue
+      childrenOf.set(e.source, [...(childrenOf.get(e.source) ?? []), e.target])
+      parentsOf.set(e.target, [...(parentsOf.get(e.target) ?? []), e.source])
+      const co = (e.data as unknown as EdgeData)?.childOrder
+      if (co != null) childOrder.set(e.target, co)
+    }
+
+    const toPeople = (ids: string[]): ArrangePerson[] =>
+      ids
+        .map(id => ({
+          id,
+          name:       pd(id)?.fullName ?? 'Unknown',
+          birthYear:  pd(id)?.birthYear ?? null,
+          childOrder: childOrder.get(id) ?? null,
+          personCode: pd(id)?.personCode ?? null,
+        }))
+        .sort(compareSiblings)
+
+    const groups: { key: string; title: string; parentId: string; people: ArrangePerson[] }[] = []
+
+    const ownChildren = childrenOf.get(node.id) ?? []
+    if (ownChildren.length >= 2) {
+      groups.push({ key: 'children', title: 'Arrange children', parentId: node.id, people: toPeople(ownChildren) })
+    }
+
+    // Siblings via the parent with the most children (works with one or both
+    // parents known; both parents' edges carry the same child_order).
+    const parents = parentsOf.get(node.id) ?? []
+    const viaParent = parents
+      .map(p => ({ parentId: p, kids: childrenOf.get(p) ?? [] }))
+      .sort((a, b) => b.kids.length - a.kids.length)[0]
+    if (viaParent && viaParent.kids.length >= 2) {
+      groups.push({ key: 'siblings', title: 'Arrange siblings', parentId: viaParent.parentId, people: toPeople(viaParent.kids) })
+    }
+
+    return groups
+  }, [onReorderChildren, rawEdges, rawNodes, node.id])
 
   const nameInputRef = useRef<HTMLInputElement>(null)
 
@@ -239,6 +295,18 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
           onRemoveConnection={onRemoveConnection}
         />
       </>)}
+
+      {/* Manual sibling order — shown when this node has 2+ children or 2+
+          siblings. Ages still win; the order matters for year-less members. */}
+      {arrangeGroups.map(g => (
+        <ArrangeOrderCard
+          key={`${node.id}-${g.key}`}
+          title={g.title}
+          people={g.people}
+          isDark={isDark}
+          onSave={ids => onReorderChildren!(g.parentId, ids)}
+        />
+      ))}
 
       {onRequestAddRelation && (
         <AddRelationButton

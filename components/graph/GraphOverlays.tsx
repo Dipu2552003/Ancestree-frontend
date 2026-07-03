@@ -71,6 +71,8 @@ export interface EditPanelOverlay {
   /** Other-parent name when a deleted parent's children stay linked through them. */
   deleteChildrenNote:   string | null
   onDelete:             () => Promise<void>
+  /** Manual sibling order — saves child_order for ALL of parentId's children. */
+  onReorderChildren:    (parentId: string, orderedChildIds: string[]) => Promise<void>
 }
 
 export interface ViewPanelOverlay {
@@ -227,6 +229,7 @@ export default function GraphOverlays({
             deleteDisabledReason={editPanel.deleteDisabledReason}
             deleteChildrenNote={editPanel.deleteChildrenNote}
             onDelete={editPanel.onDelete}
+            onReorderChildren={editPanel.onReorderChildren}
           />
         )}
       </AnimatePresence>

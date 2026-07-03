@@ -154,6 +154,13 @@ export function buildOverlayProps({
       deleteDisabledReason,
       deleteChildrenNote,
       onDelete:           () => onDeleteNode(selectedNode.id),
+      // Manual sibling order (child_order). Ghost ids (perspective views) map
+      // back to real person ids before hitting the API.
+      onReorderChildren:  async (parentId, orderedChildIds) => {
+        const real = (id: string) => isGhostNodeId(id) ? realIdFromGhost(id) : id
+        await api.persons.reorderChildren(real(parentId), orderedChildIds.map(real))
+        await fetchGraph()
+      },
     } : null,
 
     viewPanel: s.panelMode === 'view' && selectedNode ? {

@@ -16,6 +16,7 @@
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '@/types'
 import { computeGenerations } from './computeGenerations'
+import { personCodeSeq } from '@/lib/graph/siblingSort'
 
 export type PerspectiveType = 'self' | 'mother' | 'spouse'
 
@@ -72,12 +73,19 @@ export function layoutEngine(
     parentsOf.set(n.id, [])
     spousesOf.set(n.id, [])
   }
+  // Manual sibling rank (1 = eldest) from PARENT_OF edges — both parents'
+  // edges carry the same value (kept in sync by the reorder endpoint), so one
+  // entry per child suffices.
+  const childOrderOf = new Map<string, number>()
+
   for (const e of edges) {
     if (!nodeMap.has(e.source) || !nodeMap.has(e.target)) continue
     const rel = (e.data as unknown as EdgeData)?.relType
     if (rel === 'PARENT_OF') {
       childrenOf.get(e.source)!.push(e.target)
       parentsOf.get(e.target)!.push(e.source)
+      const co = (e.data as unknown as EdgeData)?.childOrder
+      if (co != null) childOrderOf.set(e.target, co)
     } else if (rel === 'SPOUSE_OF') {
       const s = spousesOf.get(e.source)!
       const t = spousesOf.get(e.target)!
@@ -132,15 +140,26 @@ export function layoutEngine(
     return u
   }
 
-  // Older first: birth year ascending, missing years last, then name, then id.
-  // The single age-order rule for children rows, sibling units, root sibling
-  // clusters, and spouse order (wife 1 vs wife 2).
+  // Older first: birth year ascending, missing years last; among the year-less,
+  // manual sibling rank (child_order, 1 = eldest), then creation order
+  // (person_code sequence — the order members were added), then name/id. The
+  // single age-order rule for children rows, sibling units, root sibling
+  // clusters, and spouse order (wife 1 vs wife 2). Mirrors
+  // lib/graph/siblingSort.compareSiblings — keep the two in sync.
   const compareByAge = (a: string, b: string): number => {
     const byA = d(a).birthYear as number | undefined
     const byB = d(b).birthYear as number | undefined
     if (byA != null && byB != null) return byA - byB
     if (byA != null) return -1
     if (byB != null) return 1
+    const coA = childOrderOf.get(a)
+    const coB = childOrderOf.get(b)
+    if (coA != null && coB != null && coA !== coB) return coA - coB
+    if (coA != null && coB == null) return -1
+    if (coB != null && coA == null) return 1
+    const sa = personCodeSeq(d(a).personCode as string | undefined)
+    const sb = personCodeSeq(d(b).personCode as string | undefined)
+    if (sa != null && sb != null && sa !== sb) return sa - sb
     const byName = ((d(a).fullName as string) ?? '').localeCompare((d(b).fullName as string) ?? '')
     return byName !== 0 ? byName : a.localeCompare(b)
   }

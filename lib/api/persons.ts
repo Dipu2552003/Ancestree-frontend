@@ -66,4 +66,10 @@ export const persons = {
     req<{ updated: number; skipped: number }>(`/api/persons/${fatherId}/reparent`, {
       method: 'POST', body: JSON.stringify({ changes }),
     }),
+
+  /** Manual sibling order — ALL of the parent's children, eldest first. */
+  reorderChildren: (parentId: string, orderedChildIds: string[]) =>
+    req<{ updated: number }>(`/api/persons/${parentId}/children/reorder`, {
+      method: 'POST', body: JSON.stringify({ ordered_child_ids: orderedChildIds }),
+    }),
 }

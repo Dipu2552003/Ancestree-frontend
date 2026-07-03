@@ -38,9 +38,9 @@ type HistoryTab = 'merge' | 'structure' | 'details'
 const TABS: { id: HistoryTab; label: string }[] = [
   { id: 'merge',     label: 'Merges' },
   { id: 'structure', label: 'Added / Deleted' },
-  // 'Detail edits' is hidden until the backend logs person.update events with
-  // ownership info (so owned-node self-edits can be excluded). Re-add here:
-  // { id: 'details', label: 'Detail edits' },
+  // Proxy detail edits — the backend lists person.update ops with the edited
+  // person's name and excludes owned-node self-edits (see history.service).
+  { id: 'details',   label: 'Detail edits' },
 ]
 
 function categorize(op: HistoryOperation): HistoryTab {

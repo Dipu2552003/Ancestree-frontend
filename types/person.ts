@@ -1,6 +1,8 @@
 export type NodeState = 'proxy' | 'invited' | 'claimed'
 
 export interface PersonData {
+  /** Sequential per-family code (e.g. KHANDE-176) — doubles as creation order. */
+  personCode?: string
   fullName: string
   firstName?: string
   middleName?: string
@@ -170,6 +172,8 @@ export interface EdgeData {
   subType?: string | null
   /** Derived: a SPOUSE_OF marriage that is current (married/partner). */
   isActive?: boolean
+  /** PARENT_OF: manual sibling rank (1 = eldest) when birth years are unknown. */
+  childOrder?: number | null
   animDelay?: number
   sharedChildren?: string[]
   /** Family-bracket member IDs (all parents in the couple group, left-to-right).
