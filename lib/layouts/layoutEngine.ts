@@ -349,6 +349,13 @@ export function layoutEngine(
   const unitChildren = new Map<CoupleUnit, CoupleUnit[]>()
   for (const u of allUnits) unitChildren.set(u, [])
 
+  // The bloodline member of each child unit — the one that is actually a child
+  // of its parent unit. This is NOT always u.left: the male-left/female-right
+  // rule (see makeUnit callers) puts a married-in husband on the left of a
+  // daughter's unit, so age-sorting by u.left would order daughters by their
+  // husband's data instead of their own. We sort by this anchor instead.
+  const anchorOf = new Map<CoupleUnit, string>()
+
   for (const child of allUnits) {
     const ids = child.right ? [child.left, child.right] : [child.left]
     let placed = false
@@ -361,6 +368,7 @@ export function layoutEngine(
           if (!list.includes(child)) {
             list.push(child)
             child.parent = pu
+            anchorOf.set(child, ids.find(c => pu.children.includes(c)) ?? child.left)
             placed = true
           }
           break
@@ -370,11 +378,13 @@ export function layoutEngine(
     }
   }
 
-  // Sort sibling units left-to-right by the bloodline anchor's birth year
-  // (eldest first). u.left is always the child-of-the-parent-unit; u.right is
-  // the spouse who married in, so age sort runs on `left` only.
+  // Sort sibling units left-to-right by the bloodline anchor (eldest first):
+  // birth year, then manual child_order — matching the children-row and the
+  // reorder panel. Keyed on the anchor (the child of the parent), NOT u.left,
+  // so a daughter married to an in-marrying husband still sorts by her own
+  // age/rank rather than his.
   for (const [, list] of unitChildren) {
-    list.sort((a, b) => compareByAge(a.left, b.left))
+    list.sort((a, b) => compareByAge(anchorOf.get(a) ?? a.left, anchorOf.get(b) ?? b.left))
     list.forEach((u, i) => { u.index = i })
   }
 

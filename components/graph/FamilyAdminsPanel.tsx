@@ -8,7 +8,8 @@
 // can't be picked — only people who actually own their profile.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { IconX, IconShieldStar, IconPlus, IconLoader2, IconArrowLeft, IconLink, IconCopy, IconCheck } from '@tabler/icons-react'
+import { useRouter } from 'next/navigation'
+import { IconX, IconShieldStar, IconPlus, IconLoader2, IconArrowLeft, IconLink, IconCopy, IconCheck, IconArrowMerge } from '@tabler/icons-react'
 import type { Node } from '@xyflow/react'
 import { api, type FamilyAdmin } from '@/lib/api'
 import { getFamilyId, getCommunitySlug } from '@/lib/storage'
@@ -29,6 +30,7 @@ interface FamilyAdminsPanelProps {
 export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClose }: FamilyAdminsPanelProps) {
   const t = getTheme(isDark)
   const familyId = getFamilyId()
+  const router = useRouter()
 
   const [admins,    setAdmins]    = useState<FamilyAdmin[]>([])
   const [canManage, setCanManage] = useState(false)
@@ -38,6 +40,18 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
   const [error,     setError]     = useState('')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [copied,     setCopied]     = useState(false)
+  const [isOwner,    setIsOwner]    = useState(false)
+
+  // Community OWNER (creator) gets a link to the community merge console.
+  useEffect(() => {
+    const slug = getCommunitySlug()
+    if (!slug) return
+    let active = true
+    api.community.me(slug)
+      .then(({ is_owner }) => { if (active) setIsOwner(is_owner) })
+      .catch(() => { /* not resolvable — keep the console link hidden */ })
+    return () => { active = false }
+  }, [])
 
   // Fetch the community's shareable invite link. The backend gates the join
   // code behind community-admin permission, so a 403/failure simply leaves the
@@ -154,6 +168,26 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
         {loading && (
           <div style={{ padding: '32px', textAlign: 'center', color: t.textMuted, fontSize: '13px' }}>
             Loading…
+          </div>
+        )}
+
+        {/* ── Community merge console (owner only) ── */}
+        {isOwner && !picking && (
+          <div style={{ padding: '14px 16px', borderBottom: `1px solid ${t.borderNeutral}` }}>
+            <button
+              onClick={() => router.push('/community-merges')}
+              style={{
+                width: '100%', height: 38, borderRadius: 10, border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                background: 'var(--c-primary)', color: '#fff',
+                fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
+              }}
+            >
+              <IconArrowMerge size={15} /> Community merge console
+            </button>
+            <p style={{ margin: '7px 0 0', fontSize: '11px', color: t.textMuted, lineHeight: 1.5 }}>
+              See, accept, and force merges between any trees in the community.
+            </p>
           </div>
         )}
 

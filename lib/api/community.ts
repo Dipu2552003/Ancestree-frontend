@@ -1,4 +1,21 @@
 import { req } from './client'
+import type { MergeConflict } from './types'
+
+export interface CommunityMerge {
+  id:                    string
+  status:                'proposed' | 'confirmed' | 'rejected' | 'reversed'
+  created_at:            string
+  merged_at:             string | null
+  canonical_person_id:   string
+  canonical_person_name: string
+  canonical_family_id:   string
+  canonical_family_name: string
+  merged_person_id:      string
+  merged_person_name:    string
+  merged_family_id:      string
+  merged_family_name:    string
+  initiated_by_name:     string
+}
 
 export interface CommunityInfo {
   id:           string
@@ -77,5 +94,27 @@ export const community = {
     req<{ join_code: string; community_slug: string }>(
       `/api/community/${encodeURIComponent(slug)}/join-code/reset`,
       { method: 'POST' },
+    ),
+
+  /** The requester's own membership — used to reveal owner-only tools. */
+  me: (slug: string) =>
+    req<{ role: 'owner' | 'admin' | 'member' | null; is_owner: boolean }>(
+      `/api/community/${encodeURIComponent(slug)}/me`,
+    ),
+
+  /** Owner-only: every merge request between trees in the community. */
+  listMerges: (slug: string, status: 'proposed' | 'all' = 'all') =>
+    req<{ merges: CommunityMerge[] }>(
+      `/api/community/${encodeURIComponent(slug)}/merges?status=${status}`,
+    ),
+
+  /** Owner-only: merge two community persons in one step (no approval round). */
+  forceMerge: (slug: string, b: {
+    merged_person_id: string; canonical_person_id: string
+    keep_data?: 'canonical' | 'merged'
+  }) =>
+    req<{ merge_record_id: string; canonical_person_id: string; conflicts: MergeConflict[] }>(
+      `/api/community/${encodeURIComponent(slug)}/merges/force`,
+      { method: 'POST', body: JSON.stringify(b) },
     ),
 }
