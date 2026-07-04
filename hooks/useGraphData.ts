@@ -39,6 +39,7 @@ interface GraphDataReturn {
   womanView: WomanView
   onWomanViewChange: (v: WomanView) => void
   familyName: string
+  sideMemberCount: number
   updateRawNode: (id: string, data: Partial<PersonData>) => void
 }
 
@@ -298,6 +299,10 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
     graphLoading, graphError, graphFailCount, fetchGraph, resetAndFetch,
     isMarriedWoman, womanView, onWomanViewChange,
     familyName,
+    // Real persons on the currently-viewed side (post side-filter, before any
+    // couple/ghost/load-more synthetic nodes). Distinct from the raw family
+    // total (rawNodes), which spans both sides + all married-in spouses.
+    sideMemberCount: filteredNodes.length,
     updateRawNode,
   }
 }

@@ -102,6 +102,12 @@ export const community = {
       `/api/community/${encodeURIComponent(slug)}/me`,
     ),
 
+  /** Total person nodes across every tree in the community. */
+  stats: (slug: string) =>
+    req<{ total_persons: number }>(
+      `/api/community/${encodeURIComponent(slug)}/stats`,
+    ),
+
   /** Owner-only: every merge request between trees in the community. */
   listMerges: (slug: string, status: 'proposed' | 'all' = 'all') =>
     req<{ merges: CommunityMerge[] }>(

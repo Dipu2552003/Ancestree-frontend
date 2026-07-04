@@ -41,7 +41,7 @@ import { api, type MergeConflict } from '@/lib/api'
 import { getToken } from '@/lib/api/client'
 import { isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
 import { checkDeletable } from '@/lib/graph/deleteRules'
-import { isDupDismissed, getCommunityId } from '@/lib/storage'
+import { isDupDismissed, getCommunityId, getCommunitySlug } from '@/lib/storage'
 import FamilyAdminsPanel from '@/components/graph/FamilyAdminsPanel'
 import { buildOverlayProps } from '@/lib/graph/buildOverlayProps'
 import type { PersonData } from '@/types'
@@ -53,6 +53,9 @@ import type { SearchResult } from '@/lib/api'
 function asPersonData(data: unknown): PersonData {
   return data as PersonData
 }
+
+// Family-badge count views, cycled by clicking the number.
+type CountMode = 'side' | 'family' | 'community'
 
 export default function GraphPage() {
   return (
@@ -96,6 +99,7 @@ function GraphInner() {
     graphLoading, graphError, graphFailCount, fetchGraph, resetAndFetch,
     isMarriedWoman, womanView, onWomanViewChange,
     familyName,
+    sideMemberCount,
     updateRawNode,
   } = useGraphData(perspectiveId)
 
@@ -109,6 +113,40 @@ function GraphInner() {
     ).length,
     [rawNodes],
   )
+
+  // Family-badge count has three views the user cycles by clicking the number:
+  //   'side'      — people on the side currently shown (bloodline/view rule)
+  //   'family'    — everyone in this family record (both sides + married-in)
+  //   'community' — total people across all trees in the community
+  // 'community' is only offered inside a community.
+  const [communityCount, setCommunityCount] = useState<number | null>(null)
+  useEffect(() => {
+    if (!communityId) return
+    const slug = getCommunitySlug()
+    if (!slug) return
+    let active = true
+    api.community.stats(slug)
+      .then(({ total_persons }) => { if (active) setCommunityCount(total_persons) })
+      .catch(() => { /* leave community view unavailable */ })
+    return () => { active = false }
+  }, [communityId, rawNodes.length])
+
+  const countModes = useMemo<CountMode[]>(
+    () => (communityId && communityCount != null ? ['side', 'family', 'community'] : ['side', 'family']),
+    [communityId, communityCount],
+  )
+  const [countMode, setCountMode] = useState<CountMode>('side')
+  const cycleCount = useCallback(() => {
+    setCountMode(prev => {
+      const i = countModes.indexOf(prev)
+      return countModes[(i + 1) % countModes.length]
+    })
+  }, [countModes])
+
+  const badgeCount =
+    countMode === 'community' ? (communityCount ?? memberCount)
+    : countMode === 'family'  ? memberCount
+    :                           sideMemberCount
 
   const { onUpdateNode, onSaveNode, onDeleteNode, onAddRelation } = useNodeActions(
     rawNodes, rawEdges, setNodes, setEdges, fetchGraph, s.selectedNodeId, s.setSelectedNodeId,
@@ -323,7 +361,9 @@ function GraphInner() {
 
       <GraphHUD
         familyName={familyName}
-        memberCount={memberCount}
+        memberCount={badgeCount}
+        countMode={countMode}
+        onCycleCount={cycleCount}
         unreadCount={unreadCount}
         isDark={isDark}
         isMobile={isMobile}

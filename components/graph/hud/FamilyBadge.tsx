@@ -6,9 +6,22 @@
 import { IconUsers } from '@tabler/icons-react'
 import { getTheme, COLORS } from '@/lib/theme'
 
+type CountMode = 'side' | 'family' | 'community'
+
+// What each count view means — used for the label under the number and the
+// hover tooltip.
+const COUNT_META: Record<CountMode, { label: string; title: (n: number) => string }> = {
+  side:      { label: 'in view',   title: n => `${n} shown on the side you're viewing — click to switch count` },
+  family:    { label: 'this tree', title: n => `${n} in this whole family tree (both sides + married-in) — click to switch count` },
+  community: { label: 'community', title: n => `${n} across all trees in the community — click to switch count` },
+}
+
 interface FamilyBadgeProps {
   familyName:  string
   memberCount: number
+  /** Which count is shown; clicking the number cycles side → family → community. */
+  countMode?:  CountMode
+  onCycleCount?: () => void
   isDark:      boolean
   /** Mobile: shrink padding and let the family name truncate so the badge fits
    *  the space left of the icon cluster (member count always stays visible). */
@@ -17,8 +30,9 @@ interface FamilyBadgeProps {
   onClick?:    () => void
 }
 
-export default function FamilyBadge({ familyName, memberCount, isDark, compact = false, onClick }: FamilyBadgeProps) {
+export default function FamilyBadge({ familyName, memberCount, countMode, onCycleCount, isDark, compact = false, onClick }: FamilyBadgeProps) {
   const t = getTheme(isDark)
+  const meta = countMode ? COUNT_META[countMode] : null
 
   return (
     <div
@@ -55,13 +69,27 @@ export default function FamilyBadge({ familyName, memberCount, isDark, compact =
 
       <div style={{ width: '1px', height: '22px', background: t.controlBorder, margin: '0 2px', flexShrink: 0 }} aria-hidden="true" />
       <div
-        style={{ display: 'flex', alignItems: 'center', gap: '4px', color: t.textMuted, flexShrink: 0 }}
-        title={`${memberCount} ${memberCount === 1 ? 'member' : 'members'} in this family`}
+        onClick={onCycleCount ? (e => { e.stopPropagation(); onCycleCount() }) : undefined}
+        role={onCycleCount ? 'button' : undefined}
+        tabIndex={onCycleCount ? 0 : undefined}
+        onKeyDown={onCycleCount ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onCycleCount() } }) : undefined}
+        title={meta ? meta.title(memberCount) : `${memberCount} ${memberCount === 1 ? 'member' : 'members'} in this family`}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '4px', color: t.textMuted, flexShrink: 0,
+          cursor: onCycleCount ? 'pointer' : undefined,
+          padding: onCycleCount ? '2px 4px' : undefined,
+          borderRadius: '6px',
+        }}
       >
         <IconUsers size={14} stroke={1.8} />
         <span style={{ fontSize: '13px', fontWeight: 700, color: t.text, lineHeight: 1 }}>
           {memberCount}
         </span>
+        {meta && !compact && (
+          <span style={{ fontSize: '8.5px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: t.textMuted, marginLeft: '1px' }}>
+            {meta.label}
+          </span>
+        )}
       </div>
     </div>
   )

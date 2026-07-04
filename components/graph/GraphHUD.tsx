@@ -29,6 +29,9 @@ import { getTheme } from '@/lib/theme'
 interface GraphHUDProps {
   familyName:        string
   memberCount:       number
+  /** Which count the badge is showing — cycled by clicking the number. */
+  countMode?:        'side' | 'family' | 'community'
+  onCycleCount?:     () => void
   unreadCount:       number
   isDark:            boolean
   isMobile:          boolean
@@ -49,7 +52,7 @@ interface GraphHUDProps {
 }
 
 export default function GraphHUD({
-  familyName, memberCount, unreadCount, isDark, isMobile, hudOffset,
+  familyName, memberCount, countMode, onCycleCount, unreadCount, isDark, isMobile, hudOffset,
   onToggleTheme, onToggleNotif, onToggleHistory, fullView, onToggleFullView,
   onOpen3D, onSelectPerson, onFamilyClick,
   isCommunity = false,
@@ -73,7 +76,7 @@ export default function GraphHUD({
     <>
       {/* Family badge — on mobile it takes the space left of the hamburger button */}
       <HudSlot hudOffset={hudOffset} left="16px" right={isMobile ? '72px' : undefined}>
-        <FamilyBadge familyName={familyName} memberCount={memberCount} isDark={isDark} compact={isMobile} onClick={onFamilyClick} />
+        <FamilyBadge familyName={familyName} memberCount={memberCount} countMode={countMode} onCycleCount={onCycleCount} isDark={isDark} compact={isMobile} onClick={onFamilyClick} />
       </HudSlot>
 
       {isMobile ? (
