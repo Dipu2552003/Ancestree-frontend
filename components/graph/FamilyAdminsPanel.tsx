@@ -63,10 +63,15 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
     api.community.getJoinCode(slug)
       .then(({ join_code, site_url }) => {
         if (!active) return
-        // Prefer the community's own website host; fall back to the current
-        // origin for communities without a dedicated site.
-        const base = site_url || (typeof window !== 'undefined' ? window.location.origin : '')
-        setInviteLink(`${base}/community/${slug}?code=${join_code}`)
+        // A community with its own branded frontend owns a /signup?invite= flow
+        // that prefills the code — send invitees there. Communities without a
+        // dedicated site fall back to the generic Ancestree join page here.
+        const origin = typeof window !== 'undefined' ? window.location.origin : ''
+        setInviteLink(
+          site_url
+            ? `${site_url}/signup?invite=${join_code}`
+            : `${origin}/community/${slug}?code=${join_code}`,
+        )
       })
       .catch(() => { /* not a community admin — hide the invite control */ })
     return () => { active = false }
