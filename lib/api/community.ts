@@ -24,6 +24,8 @@ export interface CommunityInfo {
   description:  string | null
   member_count: number
   member_limit?: number
+  /** Custom website host for this community; null = use the current origin. */
+  site_url?:    string | null
 }
 
 export interface CommunityInviteInfo {
@@ -86,7 +88,7 @@ export const community = {
     }),
 
   getJoinCode: (slug: string) =>
-    req<{ join_code: string; community_slug: string }>(
+    req<{ join_code: string; community_slug: string; site_url: string | null }>(
       `/api/community/${encodeURIComponent(slug)}/join-code`,
     ),
 

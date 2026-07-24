@@ -61,10 +61,12 @@ export default function FamilyAdminsPanel({ isDark, familyName, rawNodes, onClos
     if (!slug) return
     let active = true
     api.community.getJoinCode(slug)
-      .then(({ join_code }) => {
+      .then(({ join_code, site_url }) => {
         if (!active) return
-        const origin = typeof window !== 'undefined' ? window.location.origin : ''
-        setInviteLink(`${origin}/community/${slug}?code=${join_code}`)
+        // Prefer the community's own website host; fall back to the current
+        // origin for communities without a dedicated site.
+        const base = site_url || (typeof window !== 'undefined' ? window.location.origin : '')
+        setInviteLink(`${base}/community/${slug}?code=${join_code}`)
       })
       .catch(() => { /* not a community admin — hide the invite control */ })
     return () => { active = false }
