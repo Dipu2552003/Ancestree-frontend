@@ -78,7 +78,7 @@ function GraphInner() {
   // de-facto "merge-review endpoint"; without it we're just browsing a tree.
   const isReviewEntry = !!(searchParams.get('viewMerge') || searchParams.get('match'))
 
-  const { getNodes, setCenter, fitView } = useReactFlow()
+  const { getNodes, setCenter, fitView, getViewport } = useReactFlow()
   const { isDark, setIsDark, unreadCount, setNotifications, fullView, toggleFullView } = useGraphStore()
   const isMobile = useIsMobile()
   const t = getTheme(isDark)
@@ -90,6 +90,21 @@ function GraphInner() {
   const [communityId, setCommunityId] = useState<string | null>(null)
   useEffect(() => { setCommunityId(getCommunityId()) }, [])
   const [adminsPanelOpen, setAdminsPanelOpen] = useState(false)
+
+  // Community users can jump back to their community's website via a second
+  // Home press (see onHome). Resolve the target once: the community's custom
+  // site_url, or the on-origin community landing when none is configured.
+  const [communitySiteUrl, setCommunitySiteUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!communityId) return
+    const slug = getCommunitySlug()
+    if (!slug) return
+    let active = true
+    api.community.getInfo(slug)
+      .then(info => { if (active) setCommunitySiteUrl(info.site_url ?? `/community/${slug}`) })
+      .catch(() => { /* leave the jump-out disabled if it can't resolve */ })
+    return () => { active = false }
+  }, [communityId])
 
   const {
     nodes, edges, rawNodes, rawEdges,
@@ -226,10 +241,45 @@ function GraphInner() {
   }, [])
 
   const onHome = useCallback(() => {
-    const self = getNodes().find(n => asPersonData(n.data)?.isSelf)
-    if (self) setCenter(self.position.x + 64, self.position.y + 70, { zoom: 1, duration: 600 })
-    else fitView({ padding: 0.35, duration: 600 })
-  }, [getNodes, setCenter, fitView])
+    // Self may be a standalone node OR collapsed inside a couple card, where
+    // isSelf lives on data.person1/person2 rather than the node itself — the
+    // reason centering used to silently miss for married users in paired view.
+    const selfNode = getNodes().find(n => {
+      const d = n.data as Record<string, unknown>
+      if (asPersonData(d)?.isSelf) return true
+      if (n.type === 'collapsedCouple')
+        return !!(asPersonData(d.person1)?.isSelf || asPersonData(d.person2)?.isSelf)
+      return false
+    })
+
+    if (!selfNode) { fitView({ padding: 0.35, duration: 600 }); return }
+
+    const w  = selfNode.measured?.width  ?? (selfNode.width  as number | undefined) ?? 128
+    const h  = selfNode.measured?.height ?? (selfNode.height as number | undefined) ?? 140
+    const cx = selfNode.position.x + w / 2
+    const cy = selfNode.position.y + h / 2
+
+    // Already centered on your own node? A second Home press takes community
+    // users out to their community's website. Detect "home" by checking that
+    // the self node currently sits at the pane centre at ~1× zoom.
+    if (communitySiteUrl) {
+      const pane = typeof document !== 'undefined'
+        ? (document.querySelector('.react-flow') as HTMLElement | null) : null
+      const rect = pane?.getBoundingClientRect()
+      const vp   = getViewport()
+      const homed = !!rect
+        && Math.abs(cx * vp.zoom + vp.x - rect.width  / 2) < 40
+        && Math.abs(cy * vp.zoom + vp.y - rect.height / 2) < 40
+        && Math.abs(vp.zoom - 1) < 0.06
+      if (homed) {
+        if (/^https?:\/\//i.test(communitySiteUrl)) window.location.href = communitySiteUrl
+        else router.push(communitySiteUrl)
+        return
+      }
+    }
+
+    setCenter(cx, cy, { zoom: 1, duration: 600 })
+  }, [getNodes, setCenter, fitView, getViewport, communitySiteUrl, router])
 
   const handleSearchSelect = useCallback((personId: string): boolean => {
     const canvasNodes = getNodes()

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -113,20 +114,30 @@ export default function ProfileMenu({ isDark, isMobile }: Props) {
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && (() => {
+          const panel = (
           <motion.div
             ref={panelRef}
+            // Keep taps inside the panel from reaching the document-level
+            // outside-click handlers (this component's and the parent HUD's),
+            // which would otherwise close the hamburger dropdown that owns us.
+            onMouseDown={e => e.stopPropagation()}
             initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0,  scale: 1 }}
             exit={{    opacity: 0, y: -8, scale: 0.97 }}
             transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
             style={{
-              position:     'absolute',
+              // On mobile this menu lives inside the transformed hamburger
+              // dropdown; a transform ancestor becomes the containing block for
+              // even fixed children, so we portal to <body> to anchor the panel
+              // to the viewport instead of the tiny dropdown (which shifted it
+              // off-screen on iPhone).
+              position:     isMobile ? 'fixed' : 'absolute',
               top:          isMobile ? 70 : 64,
               right:        16,
               width:        panelW,
               maxWidth:     'calc(100vw - 32px)',
-              zIndex:       60,
+              zIndex:       isMobile ? 70 : 60,
               background:   panelBg,
               border:       `1.5px solid ${panelBd}`,
               borderRadius: 14,
@@ -197,7 +208,11 @@ export default function ProfileMenu({ isDark, isMobile }: Props) {
               />
             )}
           </motion.div>
-        )}
+          )
+          return isMobile && typeof document !== 'undefined'
+            ? createPortal(panel, document.body)
+            : panel
+        })()}
       </AnimatePresence>
     </>
   )

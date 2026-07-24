@@ -109,7 +109,7 @@ export default function GraphHUD({
                 >
                   {/* Profile */}
                   <DropdownRow label="Account" isDark={isDark} t={t}>
-                    <ProfileMenu isDark={isDark} isMobile={false} />
+                    <ProfileMenu isDark={isDark} isMobile={true} />
                   </DropdownRow>
 
                   <DropdownDivider isDark={isDark} />
