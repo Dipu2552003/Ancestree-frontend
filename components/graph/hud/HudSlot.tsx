@@ -28,7 +28,9 @@ export default function HudSlot({
   return (
     <div style={{
       position:   'absolute',
-      top:        `${16 + hudOffset + topExtra}px`,
+      // env(safe-area-inset-top) keeps the strip clear of the iPhone notch /
+      // status bar now that the viewport extends under it (viewport-fit=cover).
+      top:        `calc(env(safe-area-inset-top) + ${16 + hudOffset + topExtra}px)`,
       ...(centered
         ? { left: '50%', transform: 'translateX(-50%)' }
         : { left, right }),

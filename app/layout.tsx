@@ -15,6 +15,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // Extend under the iPhone notch/home-indicator so env(safe-area-inset-*)
+  // resolves to real values — the Navbar and HUD rely on those insets to keep
+  // controls out from under the system UI.
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -29,7 +33,7 @@ export default function RootLayout({
     // mismatch warning for <html>'s own attributes only — not its subtree.
     <html lang="en" className={`${inter.className} ${fraunces.variable}`} suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         {/* Runs synchronously before first paint — prevents dark-mode flash */}
         <script dangerouslySetInnerHTML={{ __html: `
           try {
@@ -41,7 +45,7 @@ export default function RootLayout({
         `}} />
       </head>
       <body>
-        <div className="min-h-screen" style={{ backgroundColor: 'var(--c-page)' }}>
+        <div className="min-h-dvh-safe" style={{ backgroundColor: 'var(--c-page)' }}>
           {children}
         </div>
       </body>

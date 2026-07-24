@@ -51,6 +51,13 @@ html, body { overscroll-behavior: none; }
 .app-viewport { height: 100vh; }
 @supports (height: 100dvh) { .app-viewport { height: 100dvh; } }
 
+/* Global page wrapper min-height. Using 100vh here made the body taller than
+   the visible viewport on iOS (100vh ignores the collapsible toolbar), so the
+   whole page could scroll/rubber-band behind the fixed canvas. 100dvh matches
+   the visible area and keeps it still; 100vh is the fallback for old browsers. */
+.min-h-dvh-safe { min-height: 100vh; }
+@supports (min-height: 100dvh) { .min-h-dvh-safe { min-height: 100dvh; } }
+
 /*
  * Mobile touch support for the canvas.
  * @xyflow/react v12 ships no touch-action rules at all, so on touch devices
