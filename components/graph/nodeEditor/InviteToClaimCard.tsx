@@ -2,8 +2,8 @@
 
 // InviteToClaimCard — green CTA card shown near the top of NodePanel when the
 // viewer can invite this proxy person to claim their node. Generates a single
-// shareable /invite link that drops the invitee straight onto their node.
-// The link is valid for 5 minutes; after that a new one must be generated.
+// shareable claim link that drops the invitee straight onto their node.
+// The link is valid for 7 days; after that a new one must be generated.
 // Hidden once the person has joined (parent gates on d.canInvite).
 
 import { useCallback, useEffect, useState } from 'react'
@@ -11,6 +11,7 @@ import { motion } from 'framer-motion'
 import { IconCheck, IconLoader2, IconClock, IconRefresh, IconLink } from '@tabler/icons-react'
 import { api } from '@/lib/api'
 import { isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
+import { getCommunitySlug } from '@/lib/storage'
 import { getTheme } from '@/lib/theme'
 
 interface InviteToClaimCardProps {
@@ -20,7 +21,14 @@ interface InviteToClaimCardProps {
 }
 
 // Keep in sync with the backend invite-token expiry window (auth/invite services).
-const TTL_SECONDS = 5 * 60
+const TTL_SECONDS = 7 * 24 * 60 * 60
+
+// Coarse remaining-time label: days / hours, falling back to mm:ss near the end.
+function formatRemaining(sec: number): string {
+  if (sec >= 86400) return `${Math.ceil(sec / 86400)}d`
+  if (sec >= 3600)  return `${Math.ceil(sec / 3600)}h`
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
+}
 
 export default function InviteToClaimCard({ nodeId, fullName, isDark }: InviteToClaimCardProps) {
   const t = getTheme(isDark)
@@ -29,6 +37,20 @@ export default function InviteToClaimCard({ nodeId, fullName, isDark }: InviteTo
   const [inviteCopied, setInviteCopied] = useState(false)
   const [generatedAt, setGeneratedAt] = useState<number | null>(null)
   const [remaining, setRemaining] = useState(TTL_SECONDS)
+
+  // When this community has its own website, the claim link lives on their
+  // branded /claim page (which prefills the token). Otherwise fall back to the
+  // generic Ancestree /invite page. Resolved once from the stored slug.
+  const [claimBase, setClaimBase] = useState<string | null>(null)
+  useEffect(() => {
+    const slug = getCommunitySlug()
+    if (!slug) return
+    let active = true
+    api.community.getInfo(slug)
+      .then(info => { if (active && info.site_url) setClaimBase(info.site_url) })
+      .catch(() => { /* no site_url — keep the Ancestree fallback */ })
+    return () => { active = false }
+  }, [])
 
   const handleGenerateInvite = useCallback(async () => {
     setInviteGenerating(true)
@@ -66,12 +88,16 @@ export default function InviteToClaimCard({ nodeId, fullName, isDark }: InviteTo
   }, [generatedAt])
 
   const expired = inviteCode != null && remaining <= 0
-  const mmss = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`
+  const mmss = formatRemaining(remaining)
 
-  // The shareable link drops the invitee straight onto the /invite preview —
-  // no code to type.
+  // The shareable link drops the invitee straight onto the claim preview — no
+  // code to type. Branded community site (/claim) when one exists, else the
+  // generic Ancestree /invite page.
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const inviteLink = inviteCode
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/invite?token=${inviteCode}`
+    ? claimBase
+      ? `${claimBase}/claim?token=${inviteCode}`
+      : `${origin}/invite?token=${inviteCode}`
     : null
 
   const handleCopyInvite = useCallback(async () => {
