@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, type ReactNode } from 'react'
-import { IconEye, IconPencil, IconGitMerge, IconUserCircle, IconUserPlus } from '@tabler/icons-react'
+import { IconEye, IconPencil, IconGitMerge, IconUserCircle, IconUserPlus, IconBinaryTree2, IconChecklist } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
 import { getTheme } from '@/lib/theme'
 
@@ -22,18 +22,25 @@ interface NodeContextMenuProps {
   canMerge: boolean
   isSelf: boolean
   isViewerNode?: boolean
+  /** Community/family admin — unlocks the bulk-selection tools. */
+  isAdmin?: boolean
   onViewProfile: () => void
   onViewTree: () => void
   onAddRelation: () => void
   onEdit: () => void
   onMergeNode: () => void
+  /** Select this node's whole paternal bloodline for a bulk gotra/village edit. */
+  onSelectBloodline?: () => void
+  /** Begin a manual multi-select starting from this node. */
+  onSelectMultiple?: () => void
   onClose: () => void
 }
 
 export default function NodeContextMenu({
   nodeId, x, y, personName, gender,
-  canEdit, canAddRelation, canMerge, isSelf, isViewerNode,
-  onViewProfile, onViewTree, onAddRelation, onEdit, onMergeNode, onClose,
+  canEdit, canAddRelation, canMerge, isSelf, isViewerNode, isAdmin,
+  onViewProfile, onViewTree, onAddRelation, onEdit, onMergeNode,
+  onSelectBloodline, onSelectMultiple, onClose,
 }: NodeContextMenuProps) {
   const { isDark } = useGraphStore()
   const t = getTheme(isDark)
@@ -65,11 +72,13 @@ export default function NodeContextMenu({
   // Clamp to viewport
   // Base: header (~50px) + list padding (8px) = 58px. Each item ~34px.
   const MENU_W = 220
+  const adminTools = !!isAdmin && (!!onSelectBloodline || !!onSelectMultiple)
   const itemCount = 1 // View profile — always present
     + (canMerge ? 1 : 0)
     + (!isSelf && !isViewerNode ? 1 : 0)
     + (canAddRelation ? 1 : 0)
     + (canEdit ? 1 : 0)
+    + (adminTools ? 2 : 0)
   const MENU_H = 58 + itemCount * 34
   const left = x + MENU_W > window.innerWidth  ? x - MENU_W : x
   const top  = y + MENU_H > window.innerHeight ? y - MENU_H : y
@@ -139,6 +148,15 @@ export default function NodeContextMenu({
         {canAddRelation && item(<IconUserPlus size={14} />, 'Add relation', onAddRelation)}
         {canEdit && item(<IconPencil size={14} />, 'Edit details', onEdit)}
         {canMerge && item(<IconGitMerge size={14} />, 'Merge node', onMergeNode)}
+
+        {/* Admin-only bulk-selection tools */}
+        {adminTools && (
+          <div role="presentation" style={{ height: 1, background: divider, margin: '4px 6px' }} />
+        )}
+        {adminTools && onSelectBloodline &&
+          item(<IconBinaryTree2 size={14} />, 'Select bloodline family', onSelectBloodline)}
+        {adminTools && onSelectMultiple &&
+          item(<IconChecklist size={14} />, 'Select multiple people', onSelectMultiple)}
       </div>
     </div>
   )

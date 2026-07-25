@@ -69,6 +69,8 @@ export interface PersonData {
   nodeRole?: 'self' | 'spouse' | 'family'
   isMatchHighlight?: boolean
   isSelected?: boolean
+  /** Highlighted as part of an admin bulk selection (bloodline or multi-select). */
+  isBulkSelected?: boolean
 }
 
 /**

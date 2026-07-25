@@ -44,6 +44,8 @@ import { checkDeletable } from '@/lib/graph/deleteRules'
 import { isDupDismissed, getCommunityId, getCommunitySlug } from '@/lib/storage'
 import FamilyAdminsPanel from '@/components/graph/FamilyAdminsPanel'
 import OnboardingTour, { ONBOARDING_DONE_KEY } from '@/components/graph/onboarding/OnboardingTour'
+import BulkEditPanel, { type BulkChanges } from '@/components/graph/BulkEditPanel'
+import { computeBloodline } from '@/lib/graph/bloodline'
 import { buildOverlayProps } from '@/lib/graph/buildOverlayProps'
 import type { PersonData } from '@/types'
 import { canEditPersonProfile } from '@/types'
@@ -283,6 +285,77 @@ function GraphInner() {
     router.replace('/graph')
   }, [router])
 
+  // ── Admin bulk selection (bloodline auto-select + manual multi-select) ───────
+  const [bulkScope,   setBulkScope]   = useState<'bloodline' | 'selection' | null>(null)
+  const [bulkIds,     setBulkIds]     = useState<Set<string>>(new Set())
+  const [bulkPanelOpen, setBulkPanelOpen] = useState(false)
+  const [bulkApplying, setBulkApplying] = useState(false)
+  const [bulkError,   setBulkError]   = useState('')
+  // Manual multi-select is active when scope is 'selection' and the panel isn't
+  // open yet — clicks then toggle membership instead of opening the node panel.
+  const selectionMode = bulkScope === 'selection' && !bulkPanelOpen
+
+  const realIdOf = useCallback((id: string) => (isGhostNodeId(id) ? realIdFromGhost(id) : id), [])
+
+  const exitBulk = useCallback(() => {
+    setBulkScope(null); setBulkIds(new Set()); setBulkPanelOpen(false); setBulkError('')
+  }, [])
+
+  // "Select bloodline family" — resolve the paternal line from the anchor and go
+  // straight to the edit panel.
+  const onSelectBloodline = useCallback((nodeId: string) => {
+    const ids = computeBloodline(nodeId, rawNodes, rawEdges)
+    if (ids.size === 0) return
+    setBulkScope('bloodline'); setBulkIds(ids); setBulkPanelOpen(true); setBulkError('')
+  }, [rawNodes, rawEdges])
+
+  // "Select multiple people" — enter manual selection mode seeded with the anchor.
+  const onSelectMultiple = useCallback((nodeId: string) => {
+    setBulkScope('selection'); setBulkIds(new Set([realIdOf(nodeId)])); setBulkPanelOpen(false); setBulkError('')
+  }, [realIdOf])
+
+  const toggleBulkId = useCallback((nodeId: string) => {
+    const id = realIdOf(nodeId)
+    setBulkIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [realIdOf])
+
+  const applyBulk = useCallback(async (changes: BulkChanges) => {
+    if (!bulkScope) return
+    setBulkApplying(true); setBulkError('')
+    try {
+      await api.persons.bulkUpdate({ person_ids: [...bulkIds], scope: bulkScope, ...changes })
+      exitBulk()
+      await resetAndFetch()
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : 'Failed to apply changes')
+    } finally {
+      setBulkApplying(false)
+    }
+  }, [bulkScope, bulkIds, exitBulk, resetAndFetch])
+
+  // Names for the panel chips, resolved from the raw person set.
+  const bulkPeople = useMemo(() => {
+    if (bulkIds.size === 0) return [] as { id: string; name: string }[]
+    return [...bulkIds].map(id => {
+      const n = rawNodes.find(rn => realIdOf(rn.id) === id)
+      return { id, name: asPersonData(n?.data)?.fullName ?? 'Unknown' }
+    })
+  }, [bulkIds, rawNodes, realIdOf])
+
+  // Paint the emerald bulk-selection ring onto whichever visible nodes are in the
+  // set (built on top of the exploration-highlight layer).
+  const canvasNodes = useMemo(() => {
+    if (bulkIds.size === 0) return explorationNodes
+    return explorationNodes.map(n =>
+      bulkIds.has(realIdOf(n.id))
+        ? { ...n, data: { ...n.data, isBulkSelected: true } }
+        : n)
+  }, [explorationNodes, bulkIds, realIdOf])
+
   // Open the 3D family-graph view (familygraph app, a separate Vite app on its
   // own origin). localStorage can't be shared across origins, so we hand the
   // session over in the URL hash — familygraph persists it and skips its login.
@@ -406,6 +479,9 @@ function GraphInner() {
     onDeleteNode, canDeleteSelected, deleteDisabledReason,
     deleteChildrenNote: deleteCheck?.childrenStayWith ?? null,
     handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
+    isAdmin,
+    onSelectBloodline: isAdmin ? onSelectBloodline : undefined,
+    onSelectMultiple:  isAdmin ? onSelectMultiple  : undefined,
   })
 
   return (
@@ -414,16 +490,21 @@ function GraphInner() {
 
       <GraphCanvasArea
         isDark={isDark} isMobile={isMobile} canvasReady={canvasReady}
-        nodes={explorationNodes} edges={displayEdges}
+        nodes={canvasNodes} edges={displayEdges}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onPaneClick={() => {
           s.setContextMenu(null)
+          // Don't clear an in-progress multi-selection on a background click.
+          if (selectionMode) return
           s.setSelectedNodeId(null)
           s.setPanelMode('none')
         }}
         onNodeClick={(id, coords) => {
           s.setContextMenu(null)
           if (id.startsWith('couple_')) return
+          // In manual multi-select mode a tap toggles membership instead of
+          // opening the node panel.
+          if (selectionMode) { toggleBulkId(id); return }
           // Synthetic UI chips (load-more) handle their own click — don't open the panel.
           if (id.startsWith('__load_more_')) return
           // UI-only "Unknown" parent placeholder — not a real person, inert.
@@ -559,6 +640,52 @@ function GraphInner() {
           isDark={isDark}
           onStart={selectSelf}
           onFinish={finishTour}
+        />
+      )}
+
+      {/* Manual multi-select toolbar — appears while picking people. */}
+      {selectionMode && (
+        <div style={{
+          position: 'fixed', top: isMobile ? 'auto' : 20, bottom: isMobile ? 20 : 'auto',
+          left: '50%', transform: 'translateX(-50%)', zIndex: 1200,
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: isDark ? '#141210' : '#fff',
+          border: `1px solid ${t.borderNeutral}`, borderRadius: 999,
+          boxShadow: isDark ? '0 6px 28px rgba(0,0,0,0.6)' : '0 6px 20px rgba(0,0,0,0.16)',
+          padding: '8px 10px 8px 16px', maxWidth: 'calc(100vw - 24px)',
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: 'nowrap' }}>
+            {bulkIds.size} selected · tap people to add or remove
+          </span>
+          <button
+            onClick={exitBulk}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, padding: '6px 10px' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { if (bulkIds.size > 0) setBulkPanelOpen(true) }}
+            disabled={bulkIds.size === 0}
+            style={{
+              height: 34, padding: '0 18px', borderRadius: 999, border: 'none',
+              cursor: bulkIds.size === 0 ? 'default' : 'pointer', opacity: bulkIds.size === 0 ? 0.5 : 1,
+              background: '#10B981', color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+            }}
+          >
+            Done
+          </button>
+        </div>
+      )}
+
+      {bulkScope && bulkPanelOpen && (
+        <BulkEditPanel
+          scope={bulkScope}
+          people={bulkPeople}
+          isDark={isDark}
+          applying={bulkApplying}
+          error={bulkError}
+          onApply={applyBulk}
+          onClose={() => (bulkScope === 'bloodline' ? exitBulk() : setBulkPanelOpen(false))}
         />
       )}
     </div>

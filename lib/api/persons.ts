@@ -72,4 +72,22 @@ export const persons = {
     req<{ updated: number }>(`/api/persons/${parentId}/children/reorder`, {
       method: 'POST', body: JSON.stringify({ ordered_child_ids: orderedChildIds }),
     }),
+
+  /**
+   * Admin bulk edit over a set of person ids, recorded as one undoable operation.
+   *   scope 'bloodline' — a paternal line (gotra/village only).
+   *   scope 'selection' — a hand-picked set (gotra/village + current location).
+   */
+  bulkUpdate: (b: {
+    person_ids: string[]
+    scope: 'bloodline' | 'selection'
+    gotra?: string
+    native_village?: string
+    current_city?: string
+    current_district?: string
+    current_state?: string
+    current_country?: string
+  }) => req<{ updated: number; family_id: string; fields: string[] }>('/api/persons/bulk-update', {
+    method: 'POST', body: JSON.stringify(b),
+  }),
 }

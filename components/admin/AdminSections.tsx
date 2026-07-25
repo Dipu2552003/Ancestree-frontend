@@ -9,9 +9,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   IconUsers, IconHome, IconUserCircle, IconShieldStar, IconSearch,
   IconLoader2, IconArrowMerge, IconCopy, IconCheck,
-  IconRefresh, IconDeviceFloppy, IconChevronRight,
+  IconRefresh, IconDeviceFloppy, IconChevronRight, IconAlertTriangle,
 } from '@tabler/icons-react'
-import { api, type CommunityMember, type CommunityFamily } from '@/lib/api'
+import { api, type CommunityMember, type CommunityFamily, type CommunityHealth } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
 import { getInitials } from '@/lib/format/initials'
 import type { AdminTab } from './AdminDashboard'
@@ -71,6 +71,81 @@ function Loading({ isDark }: { isDark: boolean }) {
   )
 }
 
+// ══ Data-health warning ══════════════════════════════════════════════════════
+// Surfaces the 1:1 ownership issue that made migration 028 skip its unique index
+// (some account owns more than one node). Non-blocking — explains the problem and
+// who to look at so an admin can fix it later.
+
+function HealthWarning({ slug, isDark, onOpenPerson }: {
+  slug: string; isDark: boolean; onOpenPerson: (personId: string) => void
+}) {
+  const t = getTheme(isDark)
+  const [health, setHealth] = useState<CommunityHealth | null>(null)
+
+  useEffect(() => {
+    let active = true
+    api.community.health(slug)
+      .then(h => { if (active) setHealth(h) })
+      .catch(() => { /* endpoint unavailable / not admin — hide the banner */ })
+    return () => { active = false }
+  }, [slug])
+
+  if (!health) return null
+  const dupeOwners = health.duplicate_owners
+  const dupeLinks  = health.duplicate_person_links
+  const hasIssue = dupeOwners.length > 0 || dupeLinks.length > 0 || !health.ownership_constraint_active
+  if (!hasIssue) return null
+
+  const amber = isDark ? '#FCD34D' : '#B45309'
+  const bg    = isDark ? 'rgba(180,83,9,0.12)' : '#FFFBEB'
+  const bd    = isDark ? 'rgba(180,83,9,0.4)' : '#FDE68A'
+
+  return (
+    <div style={{ background: bg, border: `1px solid ${bd}`, borderRadius: 14, padding: 16, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
+        <IconAlertTriangle size={18} style={{ color: amber, flexShrink: 0 }} />
+        <span style={{ fontSize: 14, fontWeight: 800, color: amber }}>Needs attention · data health</span>
+      </div>
+
+      {dupeOwners.length > 0 ? (
+        <>
+          <p style={{ margin: '0 0 8px', fontSize: 12.5, color: t.text, lineHeight: 1.55 }}>
+            {dupeOwners.length === 1 ? 'An account owns' : `${dupeOwners.length} accounts own`} more than one person node.
+            One account should map to exactly one node, so the automatic “one-account-one-node” safeguard couldn’t be switched on.
+            Review each account below and un-claim the extra node(s); it can be fixed later.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+            {dupeOwners.map(o => (
+              <div key={o.user_id} style={{ fontSize: 12, color: t.text, lineHeight: 1.5 }}>
+                <span style={{ fontWeight: 700 }}>{o.display_name || o.email}</span>{' '}
+                <span style={{ color: t.textMuted }}>owns {o.node_count}:</span>{' '}
+                {o.node_names.map((nm, i) => (
+                  <button
+                    key={o.node_ids[i]}
+                    onClick={() => onOpenPerson(o.node_ids[i])}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--c-primary)', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, textDecoration: 'underline' }}
+                  >
+                    {nm}{i < o.node_names.length - 1 ? ', ' : ''}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : dupeLinks.length > 0 ? (
+        <p style={{ margin: 0, fontSize: 12.5, color: t.text, lineHeight: 1.55 }}>
+          {dupeLinks.length} person node{dupeLinks.length === 1 ? ' is' : 's are'} linked to more than one account.
+          The “one-account-one-node” safeguard is off until this is resolved.
+        </p>
+      ) : (
+        <p style={{ margin: 0, fontSize: 12.5, color: t.text, lineHeight: 1.55 }}>
+          The one-account-one-node database safeguard isn’t active yet. It will switch on automatically once the data is clean.
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ══ Overview ═════════════════════════════════════════════════════════════════
 
 export function OverviewSection({ slug, isOwner, isDark, onNavigate, onOpenMerges, onOpenPerson }: SectionProps) {
@@ -110,6 +185,8 @@ export function OverviewSection({ slug, isOwner, isDark, onNavigate, onOpenMerge
   return (
     <div>
       <ErrorNote msg={error} isDark={isDark} />
+
+      <HealthWarning slug={slug} isDark={isDark} onOpenPerson={onOpenPerson} />
 
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 22 }}>

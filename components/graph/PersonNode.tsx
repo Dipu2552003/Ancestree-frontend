@@ -42,7 +42,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
   const isDark     = useGraphStore(s => s.isDark)
   const isNodeSelected = useGraphStore(s => s.activeNodeId === id)
   const person = data as unknown as PersonData
-  const { fullName, isDeceased, nodeState, isSelf, isViewerNode, isPerspectiveView, relationshipToSelf, photoUrl, animDelay, isMatchHighlight } = person
+  const { fullName, isDeceased, nodeState, isSelf, isViewerNode, isPerspectiveView, relationshipToSelf, photoUrl, animDelay, isMatchHighlight, isBulkSelected } = person
   const firstName = fullName.trim().split(/\s+/)[0] ?? ''
   const [hovered, setHovered] = useState(false)
   const badge = ownerBadge(nodeState, isSelf, firstName, isDark)
@@ -110,9 +110,14 @@ function PersonNode({ id, data, selected }: NodeProps) {
     : gotraAccentColor
       ? `3px solid ${gotraAccentColor}`
       : isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)'
-  const cardShadow      = isNodeSelected
-    ? `0 0 0 2.5px var(--c-primary), ${isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'}`
-    : isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'
+  // Admin bulk-selection ring (emerald) — distinct from the saffron self/selected
+  // ring so it reads as a different, multi-node selection.
+  const baseShadow = isDark ? '0 6px 28px rgba(0,0,0,0.70), 0 2px 6px rgba(0,0,0,0.40)' : '0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)'
+  const cardShadow      = isBulkSelected
+    ? `0 0 0 3px #10B981, ${baseShadow}`
+    : isNodeSelected
+      ? `0 0 0 2.5px var(--c-primary), ${baseShadow}`
+      : baseShadow
 
   return (
     <motion.div

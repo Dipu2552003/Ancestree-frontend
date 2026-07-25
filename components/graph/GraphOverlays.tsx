@@ -52,6 +52,10 @@ export interface ContextMenuOverlay {
   onEdit:        () => void
   onMergeNode:   () => void
   onClose:       () => void
+  /** Community/family admin — unlocks the bulk-selection tools. */
+  isAdmin?:          boolean
+  onSelectBloodline?: () => void
+  onSelectMultiple?: () => void
 }
 
 export interface EditPanelOverlay {
@@ -207,6 +211,9 @@ export default function GraphOverlays({
           onAddRelation={contextMenu.onAddRelation}
           onEdit={contextMenu.onEdit}
           onMergeNode={contextMenu.onMergeNode}
+          isAdmin={contextMenu.isAdmin}
+          onSelectBloodline={contextMenu.onSelectBloodline}
+          onSelectMultiple={contextMenu.onSelectMultiple}
           onClose={contextMenu.onClose}
         />
       )}

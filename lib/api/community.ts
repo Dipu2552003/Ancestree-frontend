@@ -58,6 +58,20 @@ export interface CommunityFamily {
   view_person_name: string | null
 }
 
+export interface CommunityHealth {
+  /** Both uniqueness indexes are in place (one-account-one-node is enforced). */
+  ownership_constraint_active: boolean
+  /** Accounts that own more than one active node. */
+  duplicate_owners: {
+    user_id: string; display_name: string | null; email: string
+    node_count: number; node_names: string[]; node_ids: string[]
+  }[]
+  /** Nodes linked by more than one account. */
+  duplicate_person_links: {
+    person_id: string; full_name: string; user_count: number; emails: string[]
+  }[]
+}
+
 export type CommunitySession = {
   token: string
   user: {
@@ -152,6 +166,11 @@ export const community = {
     req<{ families: CommunityFamily[] }>(
       `/api/community/${encodeURIComponent(slug)}/families`,
     ),
+
+  /** Admin-only: data-health report — 1:1 ownership issues + whether the
+   *  ownership constraint is live (see migration 028). */
+  health: (slug: string) =>
+    req<CommunityHealth>(`/api/community/${encodeURIComponent(slug)}/health`),
 
   /** Admin-only: promote/demote a member (owner can grant admin). */
   setMemberRole: (slug: string, userId: string, role: 'admin' | 'member') =>

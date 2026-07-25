@@ -84,6 +84,12 @@ interface BuildOverlayPropsArgs {
   handleWizardAdd:        (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
   handleWizardAddForMerge?: (action: RelAction, match: SearchResult) => Promise<void>
   onMergeAccepted:        (conflicts: MergeConflict[]) => void
+  /** Community/family admin — unlocks the context-menu bulk-selection tools. */
+  isAdmin?:               boolean
+  /** Select a node's paternal bloodline for a bulk gotra/village edit. */
+  onSelectBloodline?:     (nodeId: string) => void
+  /** Start a manual multi-select anchored on a node. */
+  onSelectMultiple?:      (nodeId: string) => void
 }
 
 export function buildOverlayProps({
@@ -92,10 +98,14 @@ export function buildOverlayProps({
   router, isPerspective, perspectiveName, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
   onDeleteNode, canDeleteSelected, deleteDisabledReason, deleteChildrenNote,
   handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
+  isAdmin, onSelectBloodline, onSelectMultiple,
 }: BuildOverlayPropsArgs): OverlayBundles {
   return {
     contextMenu: s.contextMenu && {
       ...s.contextMenu,
+      isAdmin,
+      onSelectBloodline: onSelectBloodline ? () => onSelectBloodline(s.contextMenu!.nodeId) : undefined,
+      onSelectMultiple:  onSelectMultiple  ? () => onSelectMultiple(s.contextMenu!.nodeId)  : undefined,
       // Merge requests can start from any tree/view. Own-family nodes merge
       // forward (ours → theirs); foreign nodes flip to reverse mode below.
       canMerge: true,

@@ -32,4 +32,4 @@ export type {
 
 export type { HistoryOperation, UndoResult } from './history'
 export type { FamilyAdmin, FamilyAdminsResponse } from './family'
-export type { CommunityMerge, CommunityInfo, CommunityMember, CommunityFamily } from './community'
+export type { CommunityMerge, CommunityInfo, CommunityMember, CommunityFamily, CommunityHealth } from './community'
