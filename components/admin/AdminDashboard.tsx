@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   IconLayoutDashboard, IconUsers, IconHome, IconSettings, IconArrowMerge,
-  IconArrowLeft, IconShieldStar, IconLoader2, IconChevronLeft,
+  IconArrowLeft, IconShieldStar, IconLoader2, IconChevronLeft, IconListDetails,
 } from '@tabler/icons-react'
 import { api } from '@/lib/api'
 import { getCommunitySlug } from '@/lib/storage'
@@ -20,13 +20,15 @@ import { useGraphStore } from '@/store/graphStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { getTheme } from '@/lib/theme'
 import { OverviewSection, MembersSection, FamiliesSection, SettingsSection } from './AdminSections'
+import FieldsSection from './FieldsSection'
 
-export type AdminTab = 'overview' | 'members' | 'families' | 'settings'
+export type AdminTab = 'overview' | 'members' | 'families' | 'fields' | 'settings'
 
 const NAV: { tab: AdminTab; label: string; icon: React.ReactNode }[] = [
   { tab: 'overview', label: 'Overview', icon: <IconLayoutDashboard size={18} /> },
   { tab: 'members',  label: 'Members',  icon: <IconUsers size={18} /> },
   { tab: 'families', label: 'Families', icon: <IconHome size={18} /> },
+  { tab: 'fields',   label: 'Fields',   icon: <IconListDetails size={18} /> },
   { tab: 'settings', label: 'Settings', icon: <IconSettings size={18} /> },
 ]
 
@@ -86,6 +88,7 @@ export default function AdminDashboard() {
   const content =
     tab === 'members'  ? <MembersSection  {...sectionProps} />
     : tab === 'families' ? <FamiliesSection {...sectionProps} />
+    : tab === 'fields'   ? <FieldsSection slug={slug!} isDark={isDark} />
     : tab === 'settings' ? <SettingsSection {...sectionProps} />
     :                      <OverviewSection {...sectionProps} />
 
@@ -170,6 +173,7 @@ const TITLES: Record<AdminTab, { title: string; sub: string }> = {
   overview: { title: 'Overview',        sub: 'A snapshot of your community at a glance.' },
   members:  { title: 'Members',         sub: 'Everyone who has signed up — click anyone to open their tree.' },
   families: { title: 'Families',        sub: 'Every family tree in the community — click one to open it.' },
+  fields:   { title: 'Fields',          sub: 'Choose which details members fill in, and set dropdown values.' },
   settings: { title: 'Settings',        sub: 'Community details and the shared invite link.' },
 }
 

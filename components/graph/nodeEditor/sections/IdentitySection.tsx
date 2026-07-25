@@ -11,6 +11,9 @@ import { GENDERS } from '../helpers'
 import { composeFullName } from '../draft'
 import type { FormApi } from '../formApi'
 import familyOptions from '@/lib/familyOptions.json'
+import {
+  type FieldConfig, enumOptions, isFieldHidden,
+} from '@/lib/community/fieldConfig'
 
 const GOTRAS = familyOptions.gotras.map(g => g.name)
 
@@ -19,12 +22,22 @@ interface IdentitySectionProps {
   nameInputRef: React.RefObject<HTMLInputElement | null>
   /** Derived from connections: married when a spouse or child exists. */
   maritalStatus: 'single' | 'married'
+  /** Community field rules — dropdown values, constants, hidden fields. */
+  fieldConfig?: FieldConfig | null
 }
 
-export default function IdentitySection({ form, nameInputRef, maritalStatus }: IdentitySectionProps) {
+export default function IdentitySection({ form, nameInputRef, maritalStatus, fieldConfig }: IdentitySectionProps) {
   const { draft, setDraft, setFocused, nameError, setNameError, isDark, t, labelStyle, inputStyle, field, row } = form
 
   const fullName = composeFullName(draft)
+
+  // Community-driven behaviour for the custom controls here (gotra dropdown,
+  // gender pills). Plain text fields (last name, religion, nickname, middle name)
+  // go through `field()`, which already honors hide/constant. All no-ops without
+  // a config.
+  const gotraOpts  = enumOptions(fieldConfig, 'gotra')   // {value,label}[] | undefined
+  const hideGotra  = isFieldHidden(fieldConfig, 'gotra')
+  const hideGender = isFieldHidden(fieldConfig, 'gender')
 
   return (
     <>
@@ -68,6 +81,7 @@ export default function IdentitySection({ form, nameInputRef, maritalStatus }: I
 
         {field('Nickname / Known as', 'nickname', 'e.g. Bablu, Pinky')}
 
+        {!hideGender && (
         <div>
           <label style={labelStyle}>Gender</label>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -90,6 +104,7 @@ export default function IdentitySection({ form, nameInputRef, maritalStatus }: I
             ))}
           </div>
         </div>
+        )}
 
         {/* Marital status — derived, not editable: married when the person has
             a spouse connection or any child; single otherwise. */}
@@ -112,25 +127,40 @@ export default function IdentitySection({ form, nameInputRef, maritalStatus }: I
           </span>
         </div>
 
-        {row(
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <label style={labelStyle}>Gotra</label>
-            <select
-              value={draft.gotra}
-              onChange={e => setDraft(p => ({ ...p, gotra: e.target.value }))}
-              onFocus={() => setFocused('gotra')} onBlur={() => setFocused(null)}
-              style={{ ...inputStyle('gotra'), padding: '0 6px', cursor: 'pointer' }}
-            >
-              <option value="">Select gotra</option>
-              {/* Keep a value saved outside the standard list (signup "Other") selectable */}
-              {draft.gotra && !GOTRAS.includes(draft.gotra) && (
-                <option value={draft.gotra}>{draft.gotra}</option>
-              )}
-              {GOTRAS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>,
-          field('Religion', 'religion', 'e.g. Hindu', { half: true }),
-        )}
+        {(() => {
+          // Gotra dropdown — options from the community config when present, else
+          // the built-in list. Hidden when the community disables it.
+          const gotraNode = hideGotra ? null : (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label style={labelStyle}>Gotra</label>
+              <select
+                value={draft.gotra}
+                onChange={e => setDraft(p => ({ ...p, gotra: e.target.value }))}
+                onFocus={() => setFocused('gotra')} onBlur={() => setFocused(null)}
+                style={{ ...inputStyle('gotra'), padding: '0 6px', cursor: 'pointer' }}
+              >
+                <option value="">Select gotra</option>
+                {gotraOpts ? (<>
+                  {/* Keep a saved value outside the community list selectable */}
+                  {draft.gotra && !gotraOpts.some(o => o.value === draft.gotra) && (
+                    <option value={draft.gotra}>{draft.gotra}</option>
+                  )}
+                  {gotraOpts.map(o => <option key={o.value} value={o.value}>{o.label ? `${o.value} (${o.label})` : o.value}</option>)}
+                </>) : (<>
+                  {draft.gotra && !GOTRAS.includes(draft.gotra) && (
+                    <option value={draft.gotra}>{draft.gotra}</option>
+                  )}
+                  {GOTRAS.map(g => <option key={g} value={g}>{g}</option>)}
+                </>)}
+              </select>
+            </div>
+          )
+          // Religion — field() handles hide/constant/free-text.
+          const religionNode = field('Religion', 'religion', 'e.g. Hindu', { half: true })
+
+          if (!gotraNode && !religionNode) return null
+          return row(gotraNode, religionNode)
+        })()}
       </div>
     </>
   )

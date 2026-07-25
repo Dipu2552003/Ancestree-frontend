@@ -13,9 +13,12 @@ import { getTheme, type Theme } from '@/lib/theme'
 import { Z } from '@/lib/zIndex'
 import { getInitials } from '@/lib/format/initials'
 import type { RelationGroup, RelatedPerson } from '@/lib/graph/personRelations'
+import { type FieldConfig, isFieldHidden } from '@/lib/community/fieldConfig'
 
 interface PersonProfileViewProps {
   node: Node
+  /** Community field rules — hidden fields are dropped from the profile too. */
+  fieldConfig?: FieldConfig | null
   /** True when viewing via ?perspective= — the "You"/relation-to-self labels
    *  are suppressed and relations are expressed against the anchor instead. */
   isPerspective?: boolean
@@ -44,8 +47,12 @@ function fmtDate(iso?: string): string | null {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function PersonProfileView({ node, isPerspective = false, perspectiveName = '', relations = [], onBack, onEdit, onAddRelation, onViewPerson }: PersonProfileViewProps) {
+export default function PersonProfileView({ node, fieldConfig, isPerspective = false, perspectiveName = '', relations = [], onBack, onEdit, onAddRelation, onViewPerson }: PersonProfileViewProps) {
   const { isDark } = useGraphStore()
+  // A field the community hid is dropped from the profile too. `show(col, val)`
+  // returns the value unless hidden. No-op without a config.
+  const shown = (col: string, val: string | undefined | null): string | null =>
+    val && !isFieldHidden(fieldConfig, col) ? val : null
   const isMobile = useIsMobile()
   const d = node.data as unknown as PersonData
   const {
@@ -119,10 +126,10 @@ export default function PersonProfileView({ node, isPerspective = false, perspec
     .filter(Boolean).join(', ')
 
   const contacts = [
-    phone    && { icon: <IconPhone size={15} stroke={2.2} />,         text: phone,    href: `tel:${phone}` },
-    whatsapp && { icon: <IconBrandWhatsapp size={15} stroke={2.2} />, text: whatsapp, href: `https://wa.me/${whatsapp.replace(/\D/g, '')}` },
-    email    && { icon: <IconMail size={15} stroke={2.2} />,          text: email,    href: `mailto:${email}` },
-    address  && { icon: <IconMapPin size={15} stroke={2.2} />,        text: address },
+    shown('phone', phone)       && { icon: <IconPhone size={15} stroke={2.2} />,         text: phone,    href: `tel:${phone}` },
+    whatsapp && !isFieldHidden(fieldConfig, 'whatsapp') && { icon: <IconBrandWhatsapp size={15} stroke={2.2} />, text: whatsapp, href: `https://wa.me/${whatsapp.replace(/\D/g, '')}` },
+    shown('email', email)       && { icon: <IconMail size={15} stroke={2.2} />,          text: email,    href: `mailto:${email}` },
+    address                     && { icon: <IconMapPin size={15} stroke={2.2} />,        text: address },
   ].filter(Boolean) as { icon: ReactNode; text: string; href?: string }[]
 
   const born = [fmtDate(birthDate) ?? (birthYear ? String(birthYear) : null), birthPlace]
@@ -137,26 +144,26 @@ export default function PersonProfileView({ node, isPerspective = false, perspec
   ].filter(Boolean) as { label: string; value: string }[]
 
   const workRows = [
-    occupation       && { label: 'Occupation', value: occupation },
-    occupationDetail && { label: 'Works at',   value: occupationDetail },
-    education        && { label: 'Education',  value: education },
+    shown('occupation', occupation)               && { label: 'Occupation', value: occupation },
+    shown('occupation_detail', occupationDetail)  && { label: 'Works at',   value: occupationDetail },
+    shown('education', education)                 && { label: 'Education',  value: education },
   ].filter(Boolean) as { label: string; value: string }[]
 
   const identityRows = [
     // The anchor's relation to itself is meaningless — omit the row entirely.
     !isAnchor && { label: 'Relation', value: showYou ? 'You' : (relationLabel || '—') },
-    nickname && { label: 'Nickname', value: nickname },
-    gender   && { label: 'Gender',   value: cap(gender) },
-    religion && { label: 'Religion', value: cap(religion) },
-    gotra    && { label: 'Gotra',    value: gotra },
+    shown('nickname', nickname) && { label: 'Nickname', value: nickname },
+    shown('gender', gender)     && { label: 'Gender',   value: cap(gender) },
+    shown('religion', religion) && { label: 'Religion', value: cap(religion) },
+    shown('gotra', gotra)       && { label: 'Gotra',    value: gotra },
   ].filter(Boolean) as { label: string; value: string }[]
 
   const nativeRows = [
-    nativeVillage  && { label: 'Village',  value: nativeVillage },
-    nativeTehsil   && { label: 'Tehsil',   value: nativeTehsil },
-    nativeDistrict && { label: 'District', value: nativeDistrict },
-    nativeState    && { label: 'State',    value: nativeState },
-    nativeCountry  && { label: 'Country',  value: nativeCountry },
+    shown('native_village', nativeVillage)   && { label: 'Village',  value: nativeVillage },
+    shown('native_tehsil', nativeTehsil)     && { label: 'Tehsil',   value: nativeTehsil },
+    shown('native_district', nativeDistrict) && { label: 'District', value: nativeDistrict },
+    shown('native_state', nativeState)       && { label: 'State',    value: nativeState },
+    shown('native_country', nativeCountry)   && { label: 'Country',  value: nativeCountry },
   ].filter(Boolean) as { label: string; value: string }[]
 
   // ── Polaroid sizing — same proportions as the canvas node cards ──

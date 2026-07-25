@@ -90,7 +90,9 @@ export default function GraphHUD({
           gap: 8, alignItems: isMobile ? 'center' : 'flex-start', maxWidth: '100%',
         }}>
           <FamilyBadge familyName={familyName} memberCount={memberCount} countMode={countMode} onCycleCount={onCycleCount} isDark={isDark} compact={isMobile} onClick={onFamilyClick} />
-          {isAdmin && onOpenAdmin && (
+          {/* Desktop only — on mobile the Admin entry lives in the hamburger menu,
+              so we don't duplicate it beside the family badge. */}
+          {isAdmin && onOpenAdmin && !isMobile && (
             <button
               data-tour="admin-entry"
               onClick={onOpenAdmin}

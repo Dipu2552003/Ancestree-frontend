@@ -15,6 +15,7 @@
 import { AnimatePresence } from 'framer-motion'
 import type { Node, Edge } from '@xyflow/react'
 import { canEditPersonProfile } from '@/types'
+import type { FieldConfig } from '@/lib/community/fieldConfig'
 import NodeContextMenu from './NodeContextMenu'
 import NodePanel from './NodePanel'
 import PersonProfileView from './PersonProfileView'
@@ -62,6 +63,7 @@ export interface EditPanelOverlay {
   node:                 Node
   rawEdges?:            Edge[]
   rawNodes?:            Node[]
+  fieldConfig?:         FieldConfig | null
   onClose:              () => void
   onUpdate:             (id: string, data: Partial<PersonData>) => void
   onSave:               (id: string, data: SavePayload) => Promise<void>
@@ -81,6 +83,7 @@ export interface EditPanelOverlay {
 
 export interface ViewPanelOverlay {
   node:            Node
+  fieldConfig?:    FieldConfig | null
   isPerspective:   boolean
   perspectiveName: string
   /** This person's relations (parents/siblings/spouse/children) from the loaded
@@ -229,6 +232,7 @@ export default function GraphOverlays({
             onSave={editPanel.onSave}
             rawEdges={editPanel.rawEdges}
             rawNodes={editPanel.rawNodes}
+            fieldConfig={editPanel.fieldConfig}
             onViewNode={editPanel.onViewNode}
             onRemoveConnection={editPanel.onRemoveConnection}
             onRequestAddRelation={editPanel.onRequestAddRelation}
@@ -247,6 +251,7 @@ export default function GraphOverlays({
           <PersonProfileView
             key={viewPanel.node.id}
             node={viewPanel.node}
+            fieldConfig={viewPanel.fieldConfig}
             isPerspective={viewPanel.isPerspective}
             perspectiveName={viewPanel.perspectiveName}
             relations={viewPanel.relations}

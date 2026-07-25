@@ -42,7 +42,7 @@ import { getToken } from '@/lib/api/client'
 import { isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
 import { checkDeletable } from '@/lib/graph/deleteRules'
 import { isDupDismissed, getCommunityId, getCommunitySlug } from '@/lib/storage'
-import FamilyAdminsPanel from '@/components/graph/FamilyAdminsPanel'
+import type { FieldConfig } from '@/lib/community/fieldConfig'
 import OnboardingTour, { ONBOARDING_DONE_KEY } from '@/components/graph/onboarding/OnboardingTour'
 import BulkEditPanel, { type BulkChanges } from '@/components/graph/BulkEditPanel'
 import { computeBloodline } from '@/lib/graph/bloodline'
@@ -92,7 +92,6 @@ function GraphInner() {
   // the family badge becomes clickable and opens the admin list panel.
   const [communityId, setCommunityId] = useState<string | null>(null)
   useEffect(() => { setCommunityId(getCommunityId()) }, [])
-  const [adminsPanelOpen, setAdminsPanelOpen] = useState(false)
 
   // Community owner/admin — reveals the top-left Admin entry that opens the
   // full admin dashboard (/admin). Resolved once the community is known.
@@ -105,6 +104,21 @@ function GraphInner() {
     api.community.me(slug)
       .then(({ role }) => { if (active) setIsAdmin(role === 'owner' || role === 'admin') })
       .catch(() => { /* not an admin — keep the entry hidden */ })
+    return () => { active = false }
+  }, [communityId])
+
+  // Community field config — drives the node editor (which fields show, dropdown
+  // values, auto-filled constants). Null for non-community trees → editor uses
+  // its built-in defaults.
+  const [fieldConfig, setFieldConfig] = useState<FieldConfig | null>(null)
+  useEffect(() => {
+    if (!communityId) return
+    const slug = getCommunitySlug()
+    if (!slug) return
+    let active = true
+    api.community.fieldConfig(slug)
+      .then(cfg => { if (active) setFieldConfig(cfg) })
+      .catch(() => { /* fall back to the editor's built-in fields */ })
     return () => { active = false }
   }, [communityId])
 
@@ -502,6 +516,7 @@ function GraphInner() {
     onDeleteNode, canDeleteSelected, deleteDisabledReason,
     deleteChildrenNote: deleteCheck?.childrenStayWith ?? null,
     handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
+    fieldConfig,
     isAdmin,
     onSelectBloodline: isAdmin ? onSelectBloodline : undefined,
     onSelectMultiple:  isAdmin ? onSelectMultiple  : undefined,
@@ -578,32 +593,15 @@ function GraphInner() {
         onToggleTheme={() => setIsDark(!isDark)}
         fullView={fullView}
         onToggleFullView={toggleFullView}
-        onToggleNotif={() => { s.setHistoryPanelOpen(false); setAdminsPanelOpen(false); s.setNotifPanelOpen(v => !v) }}
-        onToggleHistory={() => { s.setNotifPanelOpen(false); setAdminsPanelOpen(false); s.setPanelMode('none'); s.setHistoryPanelOpen(v => !v) }}
+        onToggleNotif={() => { s.setHistoryPanelOpen(false); s.setNotifPanelOpen(v => !v) }}
+        onToggleHistory={() => { s.setNotifPanelOpen(false); s.setPanelMode('none'); s.setHistoryPanelOpen(v => !v) }}
         onOpen3D={onOpen3D}
         onReplayTour={replayTour}
         onSelectPerson={handleSearchSelect}
         isCommunity={!!communityId}
         isAdmin={isAdmin}
         onOpenAdmin={() => router.push('/admin')}
-        onFamilyClick={communityId ? () => {
-          s.setNotifPanelOpen(false)
-          s.setHistoryPanelOpen(false)
-          setAdminsPanelOpen(v => !v)
-        } : undefined}
       />
-
-      {/* Family admin list — community mode only */}
-      <AnimatePresence>
-        {adminsPanelOpen && (
-          <FamilyAdminsPanel
-            isDark={isDark}
-            familyName={familyName}
-            rawNodes={rawNodes}
-            onClose={() => setAdminsPanelOpen(false)}
-          />
-        )}
-      </AnimatePresence>
 
       {perspectiveId && isExploration && s.pendingMatch && (
         <ExplorationBanner
@@ -708,6 +706,7 @@ function GraphInner() {
           isDark={isDark}
           applying={bulkApplying}
           error={bulkError}
+          fieldConfig={fieldConfig}
           onApply={applyBulk}
           onClose={() => (bulkScope === 'bloodline' ? exitBulk() : setBulkPanelOpen(false))}
         />

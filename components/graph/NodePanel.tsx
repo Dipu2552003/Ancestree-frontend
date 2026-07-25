@@ -38,6 +38,9 @@ interface NodePanelProps {
   onSave?: (id: string, data: SavePayload) => Promise<void>
   rawEdges?: Edge[]
   rawNodes?: Node[]
+  /** Community field rulebook + option lists — tailors which fields show, their
+   *  dropdown values, and auto-filled constants. Null → built-in fields. */
+  fieldConfig?: import('@/lib/community/fieldConfig').FieldConfig | null
   onViewNode?: (id: string) => void
   onRemoveConnection?: (edgeId: string) => Promise<void>
   onRequestAddRelation?: () => void
@@ -52,7 +55,7 @@ interface NodePanelProps {
   onReorderChildren?: (parentId: string, orderedChildIds: string[]) => Promise<void>
 }
 
-export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, rawNodes, onViewNode, onRemoveConnection, onRequestAddRelation, canDelete, deleteDisabledReason, deleteChildrenNote, onDelete, onReorderChildren }: NodePanelProps) {
+export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, rawNodes, fieldConfig, onViewNode, onRemoveConnection, onRequestAddRelation, canDelete, deleteDisabledReason, deleteChildrenNote, onDelete, onReorderChildren }: NodePanelProps) {
   const { isDark } = useGraphStore()
   const isMobile = useIsMobile()
   const d = node.data as unknown as PersonData
@@ -245,7 +248,7 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
   }, [onDelete])
 
   const t    = getTheme(isDark)
-  const form = buildFormApi({ draft, setDraft, focused, setFocused, nameError, setNameError, isDark })
+  const form = buildFormApi({ draft, setDraft, focused, setFocused, nameError, setNameError, isDark, fieldConfig })
 
   return (
     <motion.div
@@ -293,11 +296,11 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
           onChange={(dataUrl, thumbUrl) => setDraft(p => ({ ...p, photoUrl: dataUrl, photoThumbnailUrl: thumbUrl }))}
         />
 
-        <IdentitySection      form={form} nameInputRef={nameInputRef} maritalStatus={maritalStatus} />
+        <IdentitySection      form={form} nameInputRef={nameInputRef} maritalStatus={maritalStatus} fieldConfig={fieldConfig} />
         <BirthDeathSection    form={form} />
         <ContactSection         form={form} isOpen={sectionsOpen.contact}         onToggle={() => setSectionsOpen(p => ({ ...p, contact: !p.contact }))} />
         <CurrentLocationSection form={form} isOpen={sectionsOpen.currentLocation} onToggle={() => setSectionsOpen(p => ({ ...p, currentLocation: !p.currentLocation }))} />
-        <NativeOriginSection    form={form} isOpen={sectionsOpen.nativeOrigin}    onToggle={() => setSectionsOpen(p => ({ ...p, nativeOrigin: !p.nativeOrigin }))} />
+        <NativeOriginSection    form={form} fieldConfig={fieldConfig} isOpen={sectionsOpen.nativeOrigin}    onToggle={() => setSectionsOpen(p => ({ ...p, nativeOrigin: !p.nativeOrigin }))} />
         <WorkEducationSection   form={form} isOpen={sectionsOpen.workEducation}   onToggle={() => setSectionsOpen(p => ({ ...p, workEducation: !p.workEducation }))} />
 
         <SaveButton saveState={saveState} isDirty={isDirty} isDark={isDark} onSave={handleSave} auto />

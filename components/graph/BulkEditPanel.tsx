@@ -13,6 +13,7 @@ import { motion } from 'framer-motion'
 import { IconX, IconLoader2, IconBinaryTree2, IconChecklist } from '@tabler/icons-react'
 import familyOptions from '@/lib/familyOptions.json'
 import { getTheme } from '@/lib/theme'
+import { type FieldConfig, enumOptions } from '@/lib/community/fieldConfig'
 
 const GOTRAS: string[] = (familyOptions.gotras as { name: string }[]).map(g => g.name)
 const OTHER = '__other__'
@@ -30,12 +31,18 @@ interface BulkEditPanelProps {
   isDark:   boolean
   applying: boolean
   error:    string
+  /** Community field config — sources the gotra/village dropdown values from the DB. */
+  fieldConfig?: FieldConfig | null
   onApply:  (changes: BulkChanges) => void
   onClose:  () => void
 }
 
-export default function BulkEditPanel({ scope, people, isDark, applying, error, onApply, onClose }: BulkEditPanelProps) {
+export default function BulkEditPanel({ scope, people, isDark, applying, error, fieldConfig, onApply, onClose }: BulkEditPanelProps) {
   const t = getTheme(isDark)
+  // Prefer the community's DB lists; fall back to the built-in gotra list / free
+  // text when there's no community config.
+  const gotraOpts   = enumOptions(fieldConfig, 'gotra')
+  const villageOpts = enumOptions(fieldConfig, 'native_village')
   const [gotraSel, setGotraSel] = useState('')      // '' = leave unchanged
   const [gotraOther, setGotraOther] = useState('')
   const [village, setVillage] = useState('')
@@ -125,7 +132,9 @@ export default function BulkEditPanel({ scope, people, isDark, applying, error, 
           <label style={label}>Gotra</label>
           <select value={gotraSel} onChange={e => setGotraSel(e.target.value)} style={field}>
             <option value="">Leave unchanged</option>
-            {GOTRAS.map(g => <option key={g} value={g}>{g}</option>)}
+            {gotraOpts
+              ? gotraOpts.map(o => <option key={o.value} value={o.value}>{o.label ? `${o.value} (${o.label})` : o.value}</option>)
+              : GOTRAS.map(g => <option key={g} value={g}>{g}</option>)}
             <option value={OTHER}>Other…</option>
           </select>
           {gotraSel === OTHER && (
@@ -139,7 +148,14 @@ export default function BulkEditPanel({ scope, people, isDark, applying, error, 
         {/* Village */}
         <div style={{ marginBottom: scope === 'selection' ? 14 : 18 }}>
           <label style={label}>Native village</label>
-          <input value={village} onChange={e => setVillage(e.target.value)} placeholder="Leave blank to keep as-is" style={field} />
+          {villageOpts ? (
+            <select value={village} onChange={e => setVillage(e.target.value)} style={field}>
+              <option value="">Leave unchanged</option>
+              {villageOpts.map(o => <option key={o.value} value={o.value}>{o.label ? `${o.value} (${o.label})` : o.value}</option>)}
+            </select>
+          ) : (
+            <input value={village} onChange={e => setVillage(e.target.value)} placeholder="Leave blank to keep as-is" style={field} />
+          )}
         </div>
 
         {/* Current location (selection scope only) */}

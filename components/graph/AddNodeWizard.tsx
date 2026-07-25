@@ -58,7 +58,9 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
   const [mergeTarget,      setMergeTarget]      = useState<SearchResult | null>(null)
   const [stepIdx,          setStepIdx]          = useState(0)
   const [dir,              setDir]              = useState(1)
-  const [fullName,         setFullName]         = useState('')
+  const [firstName,        setFirstName]        = useState('')
+  const [lastName,         setLastName]         = useState('')
+  const fullName = [firstName, lastName].map(s => s.trim()).filter(Boolean).join(' ')
   const [nameError,        setNameError]        = useState('')
   const [gender,           setGender]           = useState<string>(cfg.impliedGender ?? impliedSpouseGender ?? '')
   const [birthDay,         setBirthDay]         = useState('')
@@ -290,8 +292,9 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
               <StepName
                 dir={dir} isDark={isDark} t={t} styles={styles}
                 relLabel={relLabel}
-                fullName={fullName} nameError={nameError} nameRef={nameRef}
-                setFullName={setFullName} setNameError={setNameError}
+                firstName={firstName} lastName={lastName}
+                nameError={nameError} nameRef={nameRef}
+                setFirstName={setFirstName} setLastName={setLastName} setNameError={setNameError}
                 onContinue={handleNameContinue}
               />
             )}

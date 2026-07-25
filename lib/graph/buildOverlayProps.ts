@@ -14,6 +14,7 @@ import { isGhostNodeId, realIdFromGhost, realEdgeId } from '@/lib/graph/ghostNod
 import { computeMotherOptions, computeFatherName, computeInheritedGotra } from '@/lib/graph/wizardOptions'
 import { computePersonRelations } from '@/lib/graph/personRelations'
 import { markDupDismissed } from '@/lib/storage'
+import type { FieldConfig } from '@/lib/community/fieldConfig'
 import {
   deriveActiveSpousesFromEdges,
   deriveChildrenFromEdges,
@@ -84,6 +85,9 @@ interface BuildOverlayPropsArgs {
   handleWizardAdd:        (action: RelAction, fullName: string, extras: WizardExtras) => Promise<void>
   handleWizardAddForMerge?: (action: RelAction, match: SearchResult) => Promise<void>
   onMergeAccepted:        (conflicts: MergeConflict[]) => void
+  /** Community field rulebook + option lists — tailors the edit panel. Null on
+   *  non-community trees, where the editor uses its built-in fields. */
+  fieldConfig?:           FieldConfig | null
   /** Community/family admin — unlocks the context-menu bulk-selection tools. */
   isAdmin?:               boolean
   /** Select a node's paternal bloodline for a bulk gotra/village edit. */
@@ -98,6 +102,7 @@ export function buildOverlayProps({
   router, isPerspective, perspectiveName, fetchGraph, resetAndFetch, onUpdateNode, onSaveNode,
   onDeleteNode, canDeleteSelected, deleteDisabledReason, deleteChildrenNote,
   handleWizardAdd, handleWizardAddForMerge, onMergeAccepted,
+  fieldConfig,
   isAdmin, onSelectBloodline, onSelectMultiple,
 }: BuildOverlayPropsArgs): OverlayBundles {
   return {
@@ -143,6 +148,7 @@ export function buildOverlayProps({
       node: selectedNode,
       rawEdges,
       rawNodes,
+      fieldConfig,
       onClose:              () => s.setPanelMode('none'),
       onUpdate:             onUpdateNode,
       onSave:               onSaveNode,
@@ -175,6 +181,7 @@ export function buildOverlayProps({
 
     viewPanel: s.panelMode === 'view' && selectedNode ? {
       node:   selectedNode,
+      fieldConfig,
       isPerspective,
       perspectiveName,
       // All relations from the full loaded family graph (ghost id → real id).

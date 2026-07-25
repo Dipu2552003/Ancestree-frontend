@@ -90,6 +90,30 @@ export const community = {
   getInfo: (slug: string) =>
     req<CommunityInfo>(`/api/community/${encodeURIComponent(slug)}`),
 
+  /** Public: the community's field rulebook + enum option catalogs, used to
+   *  tailor the node editor (which fields show, dropdown values, constants). */
+  fieldConfig: (slug: string) =>
+    req<import('@/lib/community/fieldConfig').FieldConfig>(
+      `/api/community/${encodeURIComponent(slug)}/field-config`,
+    ),
+
+  /** Admin: set which fields show and how (settings.fields). */
+  updateFieldConfig: (slug: string, fields: Record<string, unknown>) =>
+    req<import('@/lib/community/fieldConfig').FieldConfig>(
+      `/api/community/${encodeURIComponent(slug)}/field-config`,
+      { method: 'PUT', body: JSON.stringify({ fields }) },
+    ),
+
+  /** Admin: replace the dropdown values for one enum field. */
+  setFieldOptions: (
+    slug: string, key: string,
+    options: { value: string; label?: string | null }[],
+  ) =>
+    req<import('@/lib/community/fieldConfig').FieldConfig>(
+      `/api/community/${encodeURIComponent(slug)}/field-options/${encodeURIComponent(key)}`,
+      { method: 'PUT', body: JSON.stringify({ options }) },
+    ),
+
   /** Admin-only: update community settings (name, description, site_url…). */
   update: (slug: string, b: {
     name?: string; description?: string; site_url?: string | null; member_limit?: number
