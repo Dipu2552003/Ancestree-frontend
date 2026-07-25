@@ -63,13 +63,32 @@ export function computeBloodline(anchorId: string, nodes: Node[], edges: Edge[])
   const addFull = (id: string) => { if (!included.has(id)) { included.add(id); queue.push(id) } }
   const addSealed = (id: string) => { if (!included.has(id)) { included.add(id); sealed.add(id) } }
 
+  // A married daughter takes her husband's gotra — she AND her descendants belong
+  // to his lineage, not this one. So we never descend through a married woman, and
+  // a married daughter reached as a child/sibling is sealed (excluded from the
+  // change). "Married" = female with any spouse link in the loaded graph.
+  const isMarriedWoman = (id: string): boolean =>
+    d(id).gender === 'female' && (spousesOf.get(id)?.length ?? 0) > 0
+
   addFull(anchor)
 
   while (queue.length > 0) {
     const cur = queue.shift()!
 
-    for (const cid of childrenOf.get(cur) ?? []) addFull(cid)
-    for (const sid of siblingsOf.get(cur) ?? []) addFull(sid)
+    // Descend to children only through men and unmarried women. (The explicitly
+    // chosen anchor is still seeded above even if she is a married woman, but we
+    // stop here so her children — her husband's gotra — are left untouched.)
+    if (!isMarriedWoman(cur)) {
+      for (const cid of childrenOf.get(cur) ?? []) {
+        if (isMarriedWoman(cid)) addSealed(cid)
+        else addFull(cid)
+      }
+    }
+    // Siblings — a married sister carries her husband's gotra, so seal her.
+    for (const sid of siblingsOf.get(cur) ?? []) {
+      if (isMarriedWoman(sid)) addSealed(sid)
+      else addFull(sid)
+    }
 
     // Parents — couple rule (male blood, female married-in) when both are new.
     const parentIds = parentsOf.get(cur) ?? []

@@ -79,19 +79,23 @@ export default function GraphHUD({
   return (
     <>
       {/* Family badge — on mobile it takes the space left of the hamburger button.
-          The Admin entry (owner/admin only) stacks just beneath it on desktop;
-          on mobile it lives in the hamburger dropdown to save top-bar space. */}
+          The Admin entry (owner/admin only) sits right beside it on both mobile
+          and desktop (top-left), so the dashboard is always one tap away. */}
       <HudSlot hudOffset={hudOffset} left="16px" right={isMobile ? '72px' : undefined}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'row' : 'column',
+          gap: 8, alignItems: isMobile ? 'center' : 'flex-start', maxWidth: '100%',
+        }}>
           <FamilyBadge familyName={familyName} memberCount={memberCount} countMode={countMode} onCycleCount={onCycleCount} isDark={isDark} compact={isMobile} onClick={onFamilyClick} />
-          {!isMobile && isAdmin && onOpenAdmin && (
+          {isAdmin && onOpenAdmin && (
             <button
               data-tour="admin-entry"
               onClick={onOpenAdmin}
               title="Open the admin dashboard"
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '5px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                padding: isMobile ? '6px 10px' : '5px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
                 fontSize: 12, fontWeight: 700, letterSpacing: '0.01em',
                 background: 'var(--c-primary)', color: '#fff', border: 'none',
                 boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.45)' : '0 2px 8px rgba(0,0,0,0.12)',
