@@ -18,7 +18,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconSun, IconMoon, IconBell, IconHistory, IconMenu2, IconX, IconCube3dSphere, IconArrowsMaximize, IconArrowsMinimize } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconBell, IconHistory, IconMenu2, IconX, IconCube3dSphere, IconArrowsMaximize, IconArrowsMinimize, IconShieldStar } from '@tabler/icons-react'
 import ProfileMenu from './ProfileMenu'
 import SearchBar from './SearchBar'
 import HudSlot from './hud/HudSlot'
@@ -49,13 +49,17 @@ interface GraphHUDProps {
   onFamilyClick?:    () => void
   /** Community logins only — gates community-specific controls (gotra toggle). */
   isCommunity?:      boolean
+  /** Community owner/admin — reveals the top-left Admin entry. */
+  isAdmin?:          boolean
+  /** Opens the full admin dashboard. */
+  onOpenAdmin?:      () => void
 }
 
 export default function GraphHUD({
   familyName, memberCount, countMode, onCycleCount, unreadCount, isDark, isMobile, hudOffset,
   onToggleTheme, onToggleNotif, onToggleHistory, fullView, onToggleFullView,
   onOpen3D, onSelectPerson, onFamilyClick,
-  isCommunity = false,
+  isCommunity = false, isAdmin = false, onOpenAdmin,
 }: GraphHUDProps) {
   const t = getTheme(isDark)
   const iconSize = isMobile ? 'mobile' : 'desktop'
@@ -74,9 +78,29 @@ export default function GraphHUD({
 
   return (
     <>
-      {/* Family badge — on mobile it takes the space left of the hamburger button */}
+      {/* Family badge — on mobile it takes the space left of the hamburger button.
+          The Admin entry (owner/admin only) stacks just beneath it on desktop;
+          on mobile it lives in the hamburger dropdown to save top-bar space. */}
       <HudSlot hudOffset={hudOffset} left="16px" right={isMobile ? '72px' : undefined}>
-        <FamilyBadge familyName={familyName} memberCount={memberCount} countMode={countMode} onCycleCount={onCycleCount} isDark={isDark} compact={isMobile} onClick={onFamilyClick} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+          <FamilyBadge familyName={familyName} memberCount={memberCount} countMode={countMode} onCycleCount={onCycleCount} isDark={isDark} compact={isMobile} onClick={onFamilyClick} />
+          {!isMobile && isAdmin && onOpenAdmin && (
+            <button
+              data-tour="admin-entry"
+              onClick={onOpenAdmin}
+              title="Open the admin dashboard"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '5px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: 12, fontWeight: 700, letterSpacing: '0.01em',
+                background: 'var(--c-primary)', color: '#fff', border: 'none',
+                boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.45)' : '0 2px 8px rgba(0,0,0,0.12)',
+              }}
+            >
+              <IconShieldStar size={14} /> Admin
+            </button>
+          )}
+        </div>
       </HudSlot>
 
       {isMobile ? (
@@ -107,6 +131,22 @@ export default function GraphHUD({
                     gap:          '2px',
                   }}
                 >
+                  {/* Admin dashboard (owner/admin only) */}
+                  {isAdmin && onOpenAdmin && (
+                    <>
+                      <DropdownRow
+                        label="Admin dashboard"
+                        isDark={isDark} t={t}
+                        onClick={() => { setMobileOpen(false); onOpenAdmin() }}
+                      >
+                        <IconButton isDark={isDark} size="desktop" title="Admin dashboard">
+                          <IconShieldStar size={17} />
+                        </IconButton>
+                      </DropdownRow>
+                      <DropdownDivider isDark={isDark} />
+                    </>
+                  )}
+
                   {/* Profile */}
                   <DropdownRow label="Account" isDark={isDark} t={t}>
                     <ProfileMenu isDark={isDark} isMobile={true} />
@@ -175,6 +215,7 @@ export default function GraphHUD({
 
             {/* Hamburger trigger button */}
             <button
+              data-tour="hud-actions"
               onClick={() => setMobileOpen(v => !v)}
               style={{
                 width:           44,
@@ -233,9 +274,11 @@ export default function GraphHUD({
           </HudSlot>
 
           <HudSlot hudOffset={hudOffset} right="16px">
-            <IconButton isDark={isDark} size={iconSize} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={onToggleTheme}>
-              {isDark ? <IconSun size={17} /> : <IconMoon size={17} />}
-            </IconButton>
+            <div data-tour="hud-actions" style={{ display: 'flex' }}>
+              <IconButton isDark={isDark} size={iconSize} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={onToggleTheme}>
+                {isDark ? <IconSun size={17} /> : <IconMoon size={17} />}
+              </IconButton>
+            </div>
           </HudSlot>
         </>
       )}

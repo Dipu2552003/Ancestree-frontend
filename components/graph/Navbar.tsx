@@ -433,7 +433,7 @@ export default function Navbar({
       }}>
 
         {/* Home */}
-        <NavItem isDark={isDark} onClick={onHome} label="Home">
+        <NavItem isDark={isDark} onClick={onHome} label="Home" dataTour="nav-home">
           <IconHome2 size={19} color={t.textMuted} />
         </NavItem>
 
@@ -442,6 +442,7 @@ export default function Navbar({
         {/* + Add */}
         <div style={{ padding: '0 2px' }}>
           <motion.button
+            data-tour="nav-add"
             onClick={() => { if (!addEnabled) { nudgeSelect(); return } if (addOpen) closeAdd(); else setAddOpen(true) }}
             whileHover={addEnabled ? { scale: 1.04 } : {}}
             whileTap={addEnabled ? { scale: 0.96 } : {}}
@@ -468,6 +469,7 @@ export default function Navbar({
         {editVisible && (
         <div style={{ padding: '0 2px' }}>
           <motion.button
+            data-tour="nav-edit"
             onClick={() => editEnabled ? onEdit() : nudgeSelect()}
             whileHover={editEnabled ? { scale: 1.04 } : {}}
             whileTap={editEnabled ? { scale: 0.96 } : {}}
@@ -557,17 +559,19 @@ export default function Navbar({
   )
 }
 
-function NavItem({ children, onClick, label, isDark }: {
+function NavItem({ children, onClick, label, isDark, dataTour }: {
   children: React.ReactNode
   onClick: () => void
   label?: string
   isDark: boolean
+  dataTour?: string
 }) {
   const [hovered, setHovered] = useState(false)
   const hoverBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
 
   return (
     <button
+      data-tour={dataTour}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

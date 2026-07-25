@@ -43,6 +43,7 @@ import { isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
 import { checkDeletable } from '@/lib/graph/deleteRules'
 import { isDupDismissed, getCommunityId, getCommunitySlug } from '@/lib/storage'
 import FamilyAdminsPanel from '@/components/graph/FamilyAdminsPanel'
+import OnboardingTour, { ONBOARDING_DONE_KEY } from '@/components/graph/onboarding/OnboardingTour'
 import { buildOverlayProps } from '@/lib/graph/buildOverlayProps'
 import type { PersonData } from '@/types'
 import { canEditPersonProfile } from '@/types'
@@ -90,6 +91,20 @@ function GraphInner() {
   const [communityId, setCommunityId] = useState<string | null>(null)
   useEffect(() => { setCommunityId(getCommunityId()) }, [])
   const [adminsPanelOpen, setAdminsPanelOpen] = useState(false)
+
+  // Community owner/admin — reveals the top-left Admin entry that opens the
+  // full admin dashboard (/admin). Resolved once the community is known.
+  const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => {
+    if (!communityId) return
+    const slug = getCommunitySlug()
+    if (!slug) return
+    let active = true
+    api.community.me(slug)
+      .then(({ role }) => { if (active) setIsAdmin(role === 'owner' || role === 'admin') })
+      .catch(() => { /* not an admin — keep the entry hidden */ })
+    return () => { active = false }
+  }, [communityId])
 
   // Community users can jump back to their community's website via a second
   // Home press (see onHome). Resolve the target once: the community's custom
@@ -229,6 +244,44 @@ function GraphInner() {
     visibleNodesCount: visibleNodes.length,
     perspectiveId,
   })
+
+  // ── First-time onboarding tour ─────────────────────────────────────────────
+  // New members arriving from an invite claim carry ?onboarding=1. Run the
+  // guided walkthrough once, then persist completion and strip the flag.
+  // Derived once from the URL flag + prior completion — no effect needed (and
+  // finishTour flips it off + strips the flag, so we don't want to re-trigger).
+  const [tourActive, setTourActive] = useState(() => {
+    if (typeof window === 'undefined') return false
+    if (searchParams.get('onboarding') !== '1') return false
+    return !localStorage.getItem(ONBOARDING_DONE_KEY)
+  })
+
+  // Select the viewer's own node (centered, panel closed) so the Add/Edit/Home
+  // steps point at live, enabled controls.
+  const selectSelf = useCallback(() => {
+    const selfNode = getNodes().find(n => {
+      const d = n.data as Record<string, unknown>
+      if (asPersonData(d)?.isSelf) return true
+      if (n.type === 'collapsedCouple')
+        return !!(asPersonData(d.person1)?.isSelf || asPersonData(d.person2)?.isSelf)
+      return false
+    })
+    if (!selfNode) return
+    const w = selfNode.measured?.width  ?? (selfNode.width  as number | undefined) ?? 128
+    const h = selfNode.measured?.height ?? (selfNode.height as number | undefined) ?? 140
+    setCenter(selfNode.position.x + w / 2, selfNode.position.y + h / 2, { zoom: 1, duration: 600 })
+    // Only a real person node can be the navbar's selection target (couples aren't).
+    if (!selfNode.id.startsWith('couple_')) {
+      s.setSelectedNodeId(selfNode.id)
+      s.setPanelMode('none')
+    }
+  }, [getNodes, setCenter, s])
+
+  const finishTour = useCallback(() => {
+    try { localStorage.setItem(ONBOARDING_DONE_KEY, '1') } catch { /* storage unavailable */ }
+    setTourActive(false)
+    router.replace('/graph')
+  }, [router])
 
   // Open the 3D family-graph view (familygraph app, a separate Vite app on its
   // own origin). localStorage can't be shared across origins, so we hand the
@@ -426,6 +479,8 @@ function GraphInner() {
         onOpen3D={onOpen3D}
         onSelectPerson={handleSearchSelect}
         isCommunity={!!communityId}
+        isAdmin={isAdmin}
+        onOpenAdmin={() => router.push('/admin')}
         onFamilyClick={communityId ? () => {
           s.setNotifPanelOpen(false)
           s.setHistoryPanelOpen(false)
@@ -497,6 +552,15 @@ function GraphInner() {
       />
 
       <GraphOverlays isDark={isDark} {...overlays} />
+
+      {tourActive && canvasReady && (
+        <OnboardingTour
+          active
+          isDark={isDark}
+          onStart={selectSelf}
+          onFinish={finishTour}
+        />
+      )}
     </div>
   )
 }

@@ -1,8 +1,11 @@
 'use client'
 
-// Segmented day / month / year input. The visible month value flips between
-// the digit input and a short label ("OCT") once a valid month is entered.
+// Birthdate step. Year is the primary field (for most family records it's the
+// only thing known — the copy says "a year is fine"); month is a plain dropdown
+// of names (no guessing numbers) and day is an optional number. Nothing is
+// hidden or overlaid, so what you enter is always what you see.
 
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { COLORS, type Theme } from '@/lib/theme'
 import { MONTH_NAMES } from '../config'
@@ -35,11 +38,33 @@ interface StepBirthdateProps {
 
 export default function StepBirthdate({
   dir, isDark, t, styles,
-  birthDay, birthMonth, birthYear, dateError, dateFieldFocused, datePreview, ageHint,
-  dayRef, monthRef, yearRef,
+  birthDay, birthMonth, birthYear, dateError, datePreview, ageHint,
+  dayRef, yearRef,
   setBirthDay, setBirthMonth, setBirthYear, setDateError, setDateFieldFocused,
   onContinue, onSkip,
 }: StepBirthdateProps) {
+  const [focused, setFocused] = useState<'year' | 'month' | 'day' | null>(null)
+
+  const border = (on: boolean) =>
+    `1.5px solid ${
+      dateError ? COLORS.error
+      : on      ? COLORS.saffron
+      : isDark  ? 'rgb(var(--c-primary-rgb) / 0.35)'
+      :           'rgb(var(--c-primary-rgb) / 0.28)'
+    }`
+
+  const ring = (on: boolean) =>
+    on && !dateError ? '0 0 0 3px rgb(var(--c-primary-rgb) / 0.10)' : 'none'
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block', marginBottom: 6,
+    fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em',
+    textTransform: 'uppercase', color: t.textMuted,
+  }
+
+  const onFocus = (f: 'year' | 'month' | 'day') => { setFocused(f); setDateFieldFocused(true) }
+  const onBlur  = () => { setFocused(null); setDateFieldFocused(false) }
+
   return (
     <motion.div key="birthdate" custom={dir} variants={slide} initial="enter" animate="center" exit="exit"
       transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
@@ -50,158 +75,72 @@ export default function StepBirthdate({
           When were they born?
         </h2>
         <p style={{ margin: '5px 0 0', fontSize: 12.5, color: t.textMuted }}>
-          Day and month are optional — a year is fine.
+          Only the year is needed — add the month and day if you know them.
         </p>
       </div>
 
-      {/* ── Segmented date input ── */}
-      <div style={{
-        display: 'flex', alignItems: 'stretch',
-        borderRadius: 13,
-        border: `1.5px solid ${
-          dateError       ? COLORS.error
-          : dateFieldFocused ? COLORS.saffron
-          : isDark        ? 'rgb(var(--c-primary-rgb) / 0.35)'
-          : 'rgb(var(--c-primary-rgb) / 0.28)'
-        }`,
-        boxShadow: dateFieldFocused && !dateError ? '0 0 0 3px rgb(var(--c-primary-rgb) / 0.10)' : 'none',
-        background: isDark ? 'rgba(255,255,255,0.05)' : '#fff',
-        overflow: 'hidden',
-        transition: 'border-color 0.15s, box-shadow 0.15s',
-      }}>
+      {/* ── Year — the primary field ── */}
+      <div>
+        <label style={labelStyle}>Year of birth</label>
+        <input
+          ref={yearRef}
+          value={birthYear}
+          onChange={e => { setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4)); setDateError('') }}
+          onKeyDown={e => { if (e.key === 'Enter') onContinue() }}
+          onFocus={() => onFocus('year')}
+          onBlur={onBlur}
+          placeholder="e.g. 1985"
+          inputMode="numeric"
+          style={{
+            ...styles.inputStyle, height: 52,
+            fontSize: 18, fontWeight: 700, letterSpacing: '0.04em',
+            border: border(focused === 'year'), boxShadow: ring(focused === 'year'),
+          }}
+        />
+      </div>
 
-        {/* Day */}
-        <div style={{
-          flex: '0 0 72px', display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          padding: '14px 0 10px',
-          borderRight: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}`,
-        }}>
+      {/* ── Month + Day — optional refinements ── */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ flex: '1.5 1 0' }}>
+          <label style={labelStyle}>Month <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0, opacity: 0.7 }}>· optional</span></label>
+          <select
+            value={birthMonth}
+            onChange={e => { setBirthMonth(e.target.value); setDateError('') }}
+            onFocus={() => onFocus('month')}
+            onBlur={onBlur}
+            style={{
+              ...styles.inputStyle, cursor: 'pointer', appearance: 'none',
+              paddingRight: 34,
+              color: birthMonth ? t.text : (isDark ? 'rgba(237,232,227,0.45)' : 'rgba(26,10,0,0.42)'),
+              border: border(focused === 'month'), boxShadow: ring(focused === 'month'),
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23${isDark ? '9A8A72' : '9A6C3C'}' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 12px center',
+            }}
+          >
+            <option value="">Unknown</option>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={String(i + 1)}>{m}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ flex: '1 1 0' }}>
+          <label style={labelStyle}>Day <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0, opacity: 0.7 }}>· optional</span></label>
           <input
             ref={dayRef}
             value={birthDay}
-            onChange={e => {
-              const v = e.target.value.replace(/\D/g, '').slice(0, 2)
-              setBirthDay(v)
-              setDateError('')
-              if (v.length === 2) monthRef.current?.focus()
-            }}
-            onKeyDown={e => {
-              if (e.key === 'Enter') onContinue()
-            }}
-            onFocus={() => setDateFieldFocused(true)}
-            onBlur={() => setDateFieldFocused(false)}
+            onChange={e => { setBirthDay(e.target.value.replace(/\D/g, '').slice(0, 2)); setDateError('') }}
+            onKeyDown={e => { if (e.key === 'Enter') onContinue() }}
+            onFocus={() => onFocus('day')}
+            onBlur={onBlur}
             placeholder="DD"
             inputMode="numeric"
             style={{
-              width: 44, textAlign: 'center',
-              fontSize: 24, fontWeight: 700, letterSpacing: '0.04em',
-              background: 'transparent', border: 'none', outline: 'none',
-              color: birthDay ? t.text : isDark ? 'rgba(237,232,227,0.20)' : 'rgba(26,10,0,0.20)',
-              fontFamily: 'inherit', lineHeight: 1,
+              ...styles.inputStyle, textAlign: 'center', letterSpacing: '0.04em',
+              border: border(focused === 'day'), boxShadow: ring(focused === 'day'),
             }}
           />
-          <span style={{
-            marginTop: 5, fontSize: 9, fontWeight: 600,
-            letterSpacing: '0.09em', textTransform: 'uppercase',
-            color: t.textMuted,
-          }}>Day</span>
-        </div>
-
-        {/* Month */}
-        <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          padding: '14px 0 10px',
-          borderRight: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}`,
-          position: 'relative',
-        }}>
-          <AnimatePresence mode="wait">
-            {birthMonth ? (
-              <motion.span
-                key="month-name"
-                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                style={{
-                  fontSize: 13, fontWeight: 700, color: COLORS.saffron,
-                  letterSpacing: '0.02em', lineHeight: 1,
-                  position: 'absolute', top: '50%', transform: 'translateY(-65%)',
-                }}
-              >
-                {(() => {
-                  const m = parseInt(birthMonth)
-                  return (!isNaN(m) && m >= 1 && m <= 12) ? MONTH_NAMES[m - 1].slice(0, 3).toUpperCase() : birthMonth
-                })()}
-              </motion.span>
-            ) : null}
-          </AnimatePresence>
-          <input
-            ref={monthRef}
-            value={birthMonth}
-            onChange={e => {
-              const v = e.target.value.replace(/\D/g, '').slice(0, 2)
-              setBirthMonth(v)
-              setDateError('')
-              const n = parseInt(v)
-              if (v.length === 2 || (v.length === 1 && n >= 2)) yearRef.current?.focus()
-            }}
-            onKeyDown={e => {
-              if (e.key === 'Backspace' && birthMonth === '') dayRef.current?.focus()
-              if (e.key === 'Enter') onContinue()
-            }}
-            onFocus={() => setDateFieldFocused(true)}
-            onBlur={() => setDateFieldFocused(false)}
-            placeholder="MM"
-            inputMode="numeric"
-            style={{
-              width: 44, textAlign: 'center',
-              fontSize: 24, fontWeight: 700, letterSpacing: '0.04em',
-              background: 'transparent', border: 'none', outline: 'none',
-              // hide numeric value when showing month name above
-              color: birthMonth ? 'transparent' : isDark ? 'rgba(237,232,227,0.20)' : 'rgba(26,10,0,0.20)',
-              fontFamily: 'inherit', lineHeight: 1,
-            }}
-          />
-          <span style={{
-            marginTop: 5, fontSize: 9, fontWeight: 600,
-            letterSpacing: '0.09em', textTransform: 'uppercase',
-            color: t.textMuted,
-          }}>Month</span>
-        </div>
-
-        {/* Year */}
-        <div style={{
-          flex: '0 0 96px', display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          padding: '14px 0 10px',
-        }}>
-          <input
-            ref={yearRef}
-            value={birthYear}
-            onChange={e => {
-              setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))
-              setDateError('')
-            }}
-            onKeyDown={e => {
-              if (e.key === 'Backspace' && birthYear === '') monthRef.current?.focus()
-              if (e.key === 'Enter') onContinue()
-            }}
-            onFocus={() => setDateFieldFocused(true)}
-            onBlur={() => setDateFieldFocused(false)}
-            placeholder="YYYY"
-            inputMode="numeric"
-            style={{
-              width: 64, textAlign: 'center',
-              fontSize: 24, fontWeight: 700, letterSpacing: '0.04em',
-              background: 'transparent', border: 'none', outline: 'none',
-              color: birthYear ? t.text : isDark ? 'rgba(237,232,227,0.20)' : 'rgba(26,10,0,0.20)',
-              fontFamily: 'inherit', lineHeight: 1,
-            }}
-          />
-          <span style={{
-            marginTop: 5, fontSize: 9, fontWeight: 600,
-            letterSpacing: '0.09em', textTransform: 'uppercase',
-            color: t.textMuted,
-          }}>Year</span>
         </div>
       </div>
 

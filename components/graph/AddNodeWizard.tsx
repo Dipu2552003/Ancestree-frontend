@@ -128,7 +128,7 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
   useEffect(() => {
     const id = setTimeout(() => {
       if (currentStep === 'name')      nameRef.current?.focus()
-      if (currentStep === 'birthdate') dayRef.current?.focus()
+      if (currentStep === 'birthdate') yearRef.current?.focus()
     }, 260)
     return () => clearTimeout(id)
   }, [currentStep])

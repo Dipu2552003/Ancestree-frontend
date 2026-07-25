@@ -120,6 +120,8 @@ function PersonNode({ id, data, selected }: NodeProps) {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4, delay: (animDelay ?? 0) / 1000 }}
       style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
+      // Anchor for the first-time onboarding tour ("This is your card").
+      {...(isSelf ? { 'data-tour': 'self-node' } : {})}
     >
       <Handle id="top"   type="target" position={Position.Top}   style={{ opacity: 0, width: 1, height: 1, minWidth: 1, minHeight: 1 }} />
       <Handle id="left"  type="target" position={Position.Left}  style={{ opacity: 0, width: 1, height: 1, minWidth: 1, minHeight: 1 }} />

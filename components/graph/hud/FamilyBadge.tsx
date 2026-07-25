@@ -36,6 +36,7 @@ export default function FamilyBadge({ familyName, memberCount, countMode, onCycl
 
   return (
     <div
+      data-tour="family-badge"
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}

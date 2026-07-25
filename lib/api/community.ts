@@ -35,6 +35,29 @@ export interface CommunityInviteInfo {
   invited_email:   string | null
 }
 
+export interface CommunityMember {
+  id:           string          // user id
+  email:        string
+  display_name: string | null
+  role:         'owner' | 'admin' | 'member'
+  joined_at:    string
+  person_id:    string | null   // their own node — deep-link target
+  person_name:  string | null
+  photo_url:    string | null
+  family_id:    string | null
+}
+
+export interface CommunityFamily {
+  id:               string
+  name:             string
+  name_prefix:      string
+  created_at:       string
+  person_count:     number
+  member_count:     number
+  view_person_id:   string | null   // representative node to open on click
+  view_person_name: string | null
+}
+
 export type CommunitySession = {
   token: string
   user: {
@@ -52,6 +75,14 @@ export const community = {
 
   getInfo: (slug: string) =>
     req<CommunityInfo>(`/api/community/${encodeURIComponent(slug)}`),
+
+  /** Admin-only: update community settings (name, description, site_url…). */
+  update: (slug: string, b: {
+    name?: string; description?: string; site_url?: string | null; member_limit?: number
+  }) =>
+    req<CommunityInfo>(`/api/community/${encodeURIComponent(slug)}`, {
+      method: 'PATCH', body: JSON.stringify(b),
+    }),
 
   create: (
     b: {
@@ -108,6 +139,32 @@ export const community = {
   stats: (slug: string) =>
     req<{ total_persons: number }>(
       `/api/community/${encodeURIComponent(slug)}/stats`,
+    ),
+
+  /** Admin-only: every member/signup (newest first) with photo + node link. */
+  members: (slug: string) =>
+    req<{ members: CommunityMember[] }>(
+      `/api/community/${encodeURIComponent(slug)}/members`,
+    ),
+
+  /** Admin-only: every family in the community with counts + a node to open. */
+  families: (slug: string) =>
+    req<{ families: CommunityFamily[] }>(
+      `/api/community/${encodeURIComponent(slug)}/families`,
+    ),
+
+  /** Admin-only: promote/demote a member (owner can grant admin). */
+  setMemberRole: (slug: string, userId: string, role: 'admin' | 'member') =>
+    req<{ success: true }>(
+      `/api/community/${encodeURIComponent(slug)}/members/${encodeURIComponent(userId)}`,
+      { method: 'PUT', body: JSON.stringify({ role }) },
+    ),
+
+  /** Admin-only: remove a member from the community. */
+  removeMember: (slug: string, userId: string) =>
+    req<{ success: true }>(
+      `/api/community/${encodeURIComponent(slug)}/members/${encodeURIComponent(userId)}`,
+      { method: 'DELETE' },
     ),
 
   /** Owner-only: every merge request between trees in the community. */
