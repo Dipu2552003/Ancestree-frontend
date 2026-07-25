@@ -82,7 +82,6 @@ function HealthWarning({ slug, isDark, onOpenPerson }: {
   const t = getTheme(isDark)
   const [health, setHealth] = useState<CommunityHealth | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [confirmId, setConfirmId] = useState<string | null>(null)
   const [actionErr, setActionErr] = useState('')
 
   const load = useCallback(() => {
@@ -93,21 +92,11 @@ function HealthWarning({ slug, isDark, onOpenPerson }: {
 
   useEffect(() => { load() }, [load])
 
-  // Un-claim: strip ownership so the account no longer maps to this node (and the
-  // node becomes deletable). Delete: un-claim then remove the node entirely.
+  // Un-claim: strip ownership so the account no longer maps to this node.
   const unclaim = async (personId: string) => {
     setBusyId(personId); setActionErr('')
     try { await api.community.revokeOwnership(slug, personId); load() }
     catch (e) { setActionErr((e as Error).message || 'Could not un-claim') }
-    finally { setBusyId(null) }
-  }
-  const del = async (personId: string) => {
-    setBusyId(personId); setActionErr('')
-    try {
-      await api.community.revokeOwnership(slug, personId)
-      await api.community.deleteNode(slug, personId)
-      setConfirmId(null); load()
-    } catch (e) { setActionErr((e as Error).message || 'Could not delete') }
     finally { setBusyId(null) }
   }
 
@@ -123,8 +112,6 @@ function HealthWarning({ slug, isDark, onOpenPerson }: {
 
   const linkBtn: React.CSSProperties = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--c-primary)', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, textDecoration: 'underline' }
   const pillBtn: React.CSSProperties = { padding: '3px 9px', borderRadius: 7, border: `1px solid ${t.borderNeutral}`, background: 'transparent', color: t.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer' }
-  const dangerBtn: React.CSSProperties = { padding: '3px 9px', borderRadius: 7, border: 'none', background: '#EF4444', color: '#fff', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer' }
-  const dangerGhost: React.CSSProperties = { ...pillBtn, color: '#EF4444', borderColor: 'rgba(239,68,68,0.35)' }
 
   return (
     <div style={{ background: bg, border: `1px solid ${bd}`, borderRadius: 14, padding: 16, marginBottom: 20 }}>
@@ -155,17 +142,6 @@ function HealthWarning({ slug, isDark, onOpenPerson }: {
                         <button onClick={() => unclaim(pid)} disabled={busy} style={{ ...pillBtn, opacity: busy ? 0.6 : 1 }}>
                           {busy ? '…' : 'Un-claim'}
                         </button>
-                        {confirmId === pid ? (
-                          <>
-                            <span style={{ fontSize: 11, color: t.textMuted }}>Delete this node?</span>
-                            <button onClick={() => del(pid)} disabled={busy} style={{ ...dangerBtn, opacity: busy ? 0.6 : 1 }}>
-                              {busy ? '…' : 'Yes, delete'}
-                            </button>
-                            <button onClick={() => setConfirmId(null)} disabled={busy} style={pillBtn}>Cancel</button>
-                          </>
-                        ) : (
-                          <button onClick={() => { setConfirmId(pid); setActionErr('') }} style={dangerGhost}>Delete</button>
-                        )}
                       </div>
                     )
                   })}
@@ -336,11 +312,14 @@ export function MembersSection({ slug, isOwner, isDark, onOpenPerson }: SectionP
     finally { setBusyId(null) }
   }
 
-  const remove = async (m: CommunityMember) => {
-    if (!window.confirm(`Remove ${m.person_name || m.display_name || m.email} from the community?`)) return
+  // Delete user: revoke all access — un-claims their node(s) (kept in the tree),
+  // drops their membership so they can't log in, and anonymises the account.
+  const deleteUser = async (m: CommunityMember) => {
+    const who = m.person_name || m.display_name || m.email
+    if (!window.confirm(`Delete ${who}?\n\nThis removes their login and wipes their account data, and un-claims their node (the node STAYS in the tree). This can’t be undone.`)) return
     setBusyId(m.id); setError('')
-    try { await api.community.removeMember(slug, m.id); load() }
-    catch (e) { setError(e instanceof Error ? e.message : 'Failed to remove member') }
+    try { await api.community.deleteUser(slug, m.id); load() }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to delete user') }
     finally { setBusyId(null) }
   }
 
@@ -395,7 +374,7 @@ export function MembersSection({ slug, isOwner, isDark, onOpenPerson }: SectionP
                         {isOwner && (m.role === 'member'
                           ? <MiniBtn onClick={() => changeRole(m, 'admin')} isDark={isDark}>Make admin</MiniBtn>
                           : <MiniBtn onClick={() => changeRole(m, 'member')} isDark={isDark}>Remove admin</MiniBtn>)}
-                        <MiniBtn onClick={() => remove(m)} isDark={isDark} danger>Remove</MiniBtn>
+                        <MiniBtn onClick={() => deleteUser(m)} isDark={isDark} danger>Delete user</MiniBtn>
                       </div>
                     )}
                   </>

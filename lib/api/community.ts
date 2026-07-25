@@ -210,6 +210,14 @@ export const community = {
       { method: 'DELETE' },
     ),
 
+  /** Admin: delete a user — revoke all access + anonymise the account (the node
+   *  is kept). Not undoable. */
+  deleteUser: (slug: string, userId: string) =>
+    req<{ success: boolean }>(
+      `/api/community/${encodeURIComponent(slug)}/users/${encodeURIComponent(userId)}`,
+      { method: 'DELETE' },
+    ),
+
   /** Admin-only: promote/demote a member (owner can grant admin). */
   setMemberRole: (slug: string, userId: string, role: 'admin' | 'member') =>
     req<{ success: true }>(
