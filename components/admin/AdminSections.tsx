@@ -81,14 +81,35 @@ function HealthWarning({ slug, isDark, onOpenPerson }: {
 }) {
   const t = getTheme(isDark)
   const [health, setHealth] = useState<CommunityHealth | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [actionErr, setActionErr] = useState('')
 
-  useEffect(() => {
-    let active = true
+  const load = useCallback(() => {
     api.community.health(slug)
-      .then(h => { if (active) setHealth(h) })
+      .then(setHealth)
       .catch(() => { /* endpoint unavailable / not admin — hide the banner */ })
-    return () => { active = false }
   }, [slug])
+
+  useEffect(() => { load() }, [load])
+
+  // Un-claim: strip ownership so the account no longer maps to this node (and the
+  // node becomes deletable). Delete: un-claim then remove the node entirely.
+  const unclaim = async (personId: string) => {
+    setBusyId(personId); setActionErr('')
+    try { await api.community.revokeOwnership(slug, personId); load() }
+    catch (e) { setActionErr((e as Error).message || 'Could not un-claim') }
+    finally { setBusyId(null) }
+  }
+  const del = async (personId: string) => {
+    setBusyId(personId); setActionErr('')
+    try {
+      await api.community.revokeOwnership(slug, personId)
+      await api.community.deleteNode(slug, personId)
+      setConfirmId(null); load()
+    } catch (e) { setActionErr((e as Error).message || 'Could not delete') }
+    finally { setBusyId(null) }
+  }
 
   if (!health) return null
   const dupeOwners = health.duplicate_owners
@@ -99,6 +120,11 @@ function HealthWarning({ slug, isDark, onOpenPerson }: {
   const amber = isDark ? '#FCD34D' : '#B45309'
   const bg    = isDark ? 'rgba(180,83,9,0.12)' : '#FFFBEB'
   const bd    = isDark ? 'rgba(180,83,9,0.4)' : '#FDE68A'
+
+  const linkBtn: React.CSSProperties = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--c-primary)', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, textDecoration: 'underline' }
+  const pillBtn: React.CSSProperties = { padding: '3px 9px', borderRadius: 7, border: `1px solid ${t.borderNeutral}`, background: 'transparent', color: t.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer' }
+  const dangerBtn: React.CSSProperties = { padding: '3px 9px', borderRadius: 7, border: 'none', background: '#EF4444', color: '#fff', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer' }
+  const dangerGhost: React.CSSProperties = { ...pillBtn, color: '#EF4444', borderColor: 'rgba(239,68,68,0.35)' }
 
   return (
     <div style={{ background: bg, border: `1px solid ${bd}`, borderRadius: 14, padding: 16, marginBottom: 20 }}>
@@ -114,23 +140,40 @@ function HealthWarning({ slug, isDark, onOpenPerson }: {
             One account should map to exactly one node, so the automatic “one-account-one-node” safeguard couldn’t be switched on.
             Review each account below and un-claim the extra node(s); it can be fixed later.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
             {dupeOwners.map(o => (
               <div key={o.user_id} style={{ fontSize: 12, color: t.text, lineHeight: 1.5 }}>
                 <span style={{ fontWeight: 700 }}>{o.display_name || o.email}</span>{' '}
-                <span style={{ color: t.textMuted }}>owns {o.node_count}:</span>{' '}
-                {o.node_names.map((nm, i) => (
-                  <button
-                    key={o.node_ids[i]}
-                    onClick={() => onOpenPerson(o.node_ids[i])}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--c-primary)', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, textDecoration: 'underline' }}
-                  >
-                    {nm}{i < o.node_names.length - 1 ? ', ' : ''}
-                  </button>
-                ))}
+                <span style={{ color: t.textMuted }}>owns {o.node_count}:</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 5 }}>
+                  {o.node_names.map((nm, i) => {
+                    const pid  = o.node_ids[i]
+                    const busy = busyId === pid
+                    return (
+                      <div key={pid} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <button onClick={() => onOpenPerson(pid)} style={linkBtn}>{nm}</button>
+                        <button onClick={() => unclaim(pid)} disabled={busy} style={{ ...pillBtn, opacity: busy ? 0.6 : 1 }}>
+                          {busy ? '…' : 'Un-claim'}
+                        </button>
+                        {confirmId === pid ? (
+                          <>
+                            <span style={{ fontSize: 11, color: t.textMuted }}>Delete this node?</span>
+                            <button onClick={() => del(pid)} disabled={busy} style={{ ...dangerBtn, opacity: busy ? 0.6 : 1 }}>
+                              {busy ? '…' : 'Yes, delete'}
+                            </button>
+                            <button onClick={() => setConfirmId(null)} disabled={busy} style={pillBtn}>Cancel</button>
+                          </>
+                        ) : (
+                          <button onClick={() => { setConfirmId(pid); setActionErr('') }} style={dangerGhost}>Delete</button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             ))}
           </div>
+          {actionErr && <p style={{ margin: '10px 0 0', fontSize: 11.5, color: '#EF4444' }}>{actionErr}</p>}
         </>
       ) : dupeLinks.length > 0 ? (
         <p style={{ margin: 0, fontSize: 12.5, color: t.text, lineHeight: 1.55 }}>

@@ -196,6 +196,20 @@ export const community = {
   health: (slug: string) =>
     req<CommunityHealth>(`/api/community/${encodeURIComponent(slug)}/health`),
 
+  /** Admin: un-claim a node (revoke ownership) without deleting it. */
+  revokeOwnership: (slug: string, personId: string) =>
+    req<{ success: boolean; revoked: boolean }>(
+      `/api/community/${encodeURIComponent(slug)}/nodes/${encodeURIComponent(personId)}/revoke-ownership`,
+      { method: 'POST' },
+    ),
+
+  /** Admin: delete an already-un-claimed node in this community. */
+  deleteNode: (slug: string, personId: string) =>
+    req<{ success: boolean }>(
+      `/api/community/${encodeURIComponent(slug)}/nodes/${encodeURIComponent(personId)}`,
+      { method: 'DELETE' },
+    ),
+
   /** Admin-only: promote/demote a member (owner can grant admin). */
   setMemberRole: (slug: string, userId: string, role: 'admin' | 'member') =>
     req<{ success: true }>(
