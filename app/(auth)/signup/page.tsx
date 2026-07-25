@@ -305,7 +305,7 @@ function SignupInner() {
         try { await api.persons.update(user.person_id, extras) } catch { /* non-fatal */ }
       }
 
-      router.push('/graph')
+      router.push('/graph?onboarding=1')
     } catch (err) {
       setLoading(false)
       setTopErr((err as Error).message || c.errNetwork)

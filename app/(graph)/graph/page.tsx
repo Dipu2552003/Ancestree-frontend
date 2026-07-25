@@ -285,6 +285,10 @@ function GraphInner() {
     router.replace('/graph')
   }, [router])
 
+  // Replay the tour on demand (Help button in the HUD) — works even after the
+  // one-time completion flag is set.
+  const replayTour = useCallback(() => setTourActive(true), [])
+
   // ── Admin bulk selection (bloodline auto-select + manual multi-select) ───────
   const [bulkScope,   setBulkScope]   = useState<'bloodline' | 'selection' | null>(null)
   const [bulkIds,     setBulkIds]     = useState<Set<string>>(new Set())
@@ -346,15 +350,23 @@ function GraphInner() {
     })
   }, [bulkIds, rawNodes, realIdOf])
 
+  // Node just created via the add-relation wizard — flagged briefly so it plays
+  // the "just added" pop + pulse instead of us popping open the edit panel.
+  const [justAddedId, setJustAddedId] = useState<string | null>(null)
+
   // Paint the emerald bulk-selection ring onto whichever visible nodes are in the
-  // set (built on top of the exploration-highlight layer).
+  // set (built on top of the exploration-highlight layer), plus the transient
+  // "just added" highlight on a freshly-created node.
   const canvasNodes = useMemo(() => {
-    if (bulkIds.size === 0) return explorationNodes
-    return explorationNodes.map(n =>
-      bulkIds.has(realIdOf(n.id))
-        ? { ...n, data: { ...n.data, isBulkSelected: true } }
-        : n)
-  }, [explorationNodes, bulkIds, realIdOf])
+    let ns = explorationNodes
+    if (justAddedId)
+      ns = ns.map(n => realIdOf(n.id) === justAddedId
+        ? { ...n, data: { ...n.data, isJustAdded: true } } : n)
+    if (bulkIds.size > 0)
+      ns = ns.map(n => bulkIds.has(realIdOf(n.id))
+        ? { ...n, data: { ...n.data, isBulkSelected: true } } : n)
+    return ns
+  }, [explorationNodes, bulkIds, realIdOf, justAddedId])
 
   // Open the 3D family-graph view (familygraph app, a separate Vite app on its
   // own origin). localStorage can't be shared across origins, so we hand the
@@ -418,9 +430,20 @@ function GraphInner() {
   }, [getNodes, setCenter, s])
 
   const handleWizardAdd = useCallback(async (action: RelAction, fullName: string, extras: WizardExtras) => {
-    await onAddRelation(action, fullName, extras)
+    // Remember the node we're adding FROM — onAddRelation moves the selection to
+    // the new node, but we want to stay on the anchor so the user can keep adding
+    // relatives in one flow (and, on mobile, not get an edit slider thrown at them).
+    const anchorId = s.selectedNodeId
+    const newId = await onAddRelation(action, fullName, extras)
     s.setWizardAction(null)
-    s.setPanelMode('edit')
+    // No edit panel — the wizard already collected the essentials. Restore the
+    // anchor selection and celebrate the new node with a brief pop animation.
+    s.setPanelMode('none')
+    if (anchorId) s.setSelectedNodeId(anchorId)
+    if (newId) {
+      setJustAddedId(newId)
+      setTimeout(() => setJustAddedId(cur => (cur === newId ? null : cur)), 2200)
+    }
   }, [onAddRelation, s])
 
   // Node created on a previous Send attempt whose merge request failed —
@@ -558,6 +581,7 @@ function GraphInner() {
         onToggleNotif={() => { s.setHistoryPanelOpen(false); setAdminsPanelOpen(false); s.setNotifPanelOpen(v => !v) }}
         onToggleHistory={() => { s.setNotifPanelOpen(false); setAdminsPanelOpen(false); s.setPanelMode('none'); s.setHistoryPanelOpen(v => !v) }}
         onOpen3D={onOpen3D}
+        onReplayTour={replayTour}
         onSelectPerson={handleSearchSelect}
         isCommunity={!!communityId}
         isAdmin={isAdmin}

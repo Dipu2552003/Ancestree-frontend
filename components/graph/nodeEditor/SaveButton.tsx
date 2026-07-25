@@ -15,10 +15,34 @@ interface SaveButtonProps {
   isDirty:   boolean
   isDark:    boolean
   onSave:    () => void
+  /** Auto-save mode — renders a passive status line instead of a manual button. */
+  auto?:     boolean
 }
 
-export default function SaveButton({ saveState, isDirty, isDark, onSave }: SaveButtonProps) {
+export default function SaveButton({ saveState, isDirty, isDark, onSave, auto }: SaveButtonProps) {
   const t = getTheme(isDark)
+
+  // Auto-save: nothing to click — just reflect the lifecycle so the user knows
+  // their edits are being persisted for them.
+  if (auto) {
+    const savedCol = isDark ? '#4ADE80' : '#16A34A'
+    const pending  = saveState === 'saving' || (saveState === 'idle' && isDirty)
+    return (
+      <div style={{
+        padding: '12px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 7, fontSize: 12, fontWeight: 600,
+        color: saveState === 'saved' ? savedCol : t.textMuted,
+      }}>
+        {pending && (
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }} style={{ display: 'flex' }}>
+            <IconLoader2 size={14} />
+          </motion.div>
+        )}
+        {saveState === 'saved' && <IconCheck size={14} strokeWidth={2.5} />}
+        {pending ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'All changes saved'}
+      </div>
+    )
+  }
 
   const saveBg = saveState === 'saved'
     ? (isDark ? '#14401A' : '#DCFCE7')

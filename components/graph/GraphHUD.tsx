@@ -18,7 +18,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconSun, IconMoon, IconBell, IconHistory, IconMenu2, IconX, IconCube3dSphere, IconArrowsMaximize, IconArrowsMinimize, IconShieldStar } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconBell, IconHistory, IconMenu2, IconX, IconCube3dSphere, IconArrowsMaximize, IconArrowsMinimize, IconShieldStar, IconHelp } from '@tabler/icons-react'
 import ProfileMenu from './ProfileMenu'
 import SearchBar from './SearchBar'
 import HudSlot from './hud/HudSlot'
@@ -44,6 +44,8 @@ interface GraphHUDProps {
   onToggleFullView:  () => void
   /** Opens the 3D family-graph view (familygraph app) in a new tab. */
   onOpen3D:          () => void
+  /** Replays the first-time onboarding tour (Help button). */
+  onReplayTour?:     () => void
   onSelectPerson:    (personId: string) => boolean
   /** Community mode only — opens the family admin list. */
   onFamilyClick?:    () => void
@@ -58,7 +60,7 @@ interface GraphHUDProps {
 export default function GraphHUD({
   familyName, memberCount, countMode, onCycleCount, unreadCount, isDark, isMobile, hudOffset,
   onToggleTheme, onToggleNotif, onToggleHistory, fullView, onToggleFullView,
-  onOpen3D, onSelectPerson, onFamilyClick,
+  onOpen3D, onReplayTour, onSelectPerson, onFamilyClick,
   isCommunity = false, isAdmin = false, onOpenAdmin,
 }: GraphHUDProps) {
   const t = getTheme(isDark)
@@ -108,7 +110,15 @@ export default function GraphHUD({
       </HudSlot>
 
       {isMobile ? (
-        /* ── Mobile: single hamburger + dropdown ── */
+        /* ── Mobile: standalone Help button + hamburger + dropdown ── */
+        <>
+        {onReplayTour && (
+          <HudSlot hudOffset={hudOffset} right="72px" zIndex={60}>
+            <IconButton isDark={isDark} size="mobile" title="Show me around" onClick={onReplayTour}>
+              <IconHelp size={18} />
+            </IconButton>
+          </HudSlot>
+        )}
         <HudSlot hudOffset={hudOffset} right="16px" zIndex={60}>
           <div ref={menuRef} style={{ position: 'relative' }}>
 
@@ -241,9 +251,17 @@ export default function GraphHUD({
             </button>
           </div>
         </HudSlot>
+        </>
       ) : (
         /* ── Desktop: individual slots ── */
         <>
+          {onReplayTour && (
+            <HudSlot hudOffset={hudOffset} right="304px">
+              <IconButton isDark={isDark} size={iconSize} title="Show me around" onClick={onReplayTour}>
+                <IconHelp size={17} />
+              </IconButton>
+            </HudSlot>
+          )}
           <HudSlot hudOffset={hudOffset} right="208px">
             <ProfileMenu isDark={isDark} isMobile={isMobile} />
           </HudSlot>

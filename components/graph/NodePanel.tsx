@@ -216,6 +216,23 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave, isDirty])
 
+  // ── Auto-save ──────────────────────────────────────────────────────────────
+  // Persist edits ~900ms after the user stops changing fields, so there's no
+  // explicit Save step. Guarded by a signature of the draft we last kicked off a
+  // save for: normalisation round-trips ("ram" → "Ram", a birth year derived
+  // from the date) leave the draft "dirty" against the persisted row, which would
+  // otherwise retrigger the save forever. The guard resets when the node changes.
+  const savedSigRef = useRef('')
+  useEffect(() => { savedSigRef.current = '' }, [node.id])
+  useEffect(() => {
+    if (!canEditProfile || !isDirty || saveState === 'saving') return
+    if (!composeFullName(draft)) return           // never autosave an empty name
+    const sig = JSON.stringify(draft)
+    if (sig === savedSigRef.current) return        // already saved this exact draft
+    const id = setTimeout(() => { savedSigRef.current = sig; handleSave() }, 900)
+    return () => clearTimeout(id)
+  }, [draft, isDirty, saveState, canEditProfile, handleSave])
+
   const handleDelete = useCallback(async () => {
     if (!onDelete) return
     setDeleteState('deleting')
@@ -283,7 +300,7 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
         <NativeOriginSection    form={form} isOpen={sectionsOpen.nativeOrigin}    onToggle={() => setSectionsOpen(p => ({ ...p, nativeOrigin: !p.nativeOrigin }))} />
         <WorkEducationSection   form={form} isOpen={sectionsOpen.workEducation}   onToggle={() => setSectionsOpen(p => ({ ...p, workEducation: !p.workEducation }))} />
 
-        <SaveButton saveState={saveState} isDirty={isDirty} isDark={isDark} onSave={handleSave} />
+        <SaveButton saveState={saveState} isDirty={isDirty} isDark={isDark} onSave={handleSave} auto />
       </>)}
 
       {connections.length > 0 && (<>

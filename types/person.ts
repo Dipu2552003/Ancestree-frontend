@@ -71,6 +71,9 @@ export interface PersonData {
   isSelected?: boolean
   /** Highlighted as part of an admin bulk selection (bloodline or multi-select). */
   isBulkSelected?: boolean
+  /** Briefly true right after this node is created via the add-relation wizard —
+   *  drives the "just added" pop + pulse ring instead of opening the edit panel. */
+  isJustAdded?: boolean
 }
 
 /**

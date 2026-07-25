@@ -46,6 +46,12 @@ interface GraphDataReturn {
 export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const router = useRouter()
   const collapseInitialised = useRef(false)
+  // Monotonic id for the in-flight fetch. Switching perspective (e.g. tapping
+  // "My Tree" while a searched person's tree is still loading) starts a newer
+  // fetch; the older one must NOT paint its now-stale nodes when it resolves,
+  // or you'd land back on the wrong tree. Each fetch checks it's still the latest
+  // before committing its result.
+  const fetchIdRef = useRef(0)
 
   // Raw backend data — no layout applied
   const [rawNodes, setRawNodes] = useState<Node[]>([])
@@ -72,10 +78,14 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
 
   // ── Fetch raw data from backend ───────────────────────────────────────────
   const fetchGraph = useCallback(async () => {
+    const myFetchId = ++fetchIdRef.current
     setGraphError(false)
     setGraphLoading(true)
     try {
       const data = await api.graph.fetch(perspectivePersonId, ancestorDepth, descendantDepth)
+      // A newer fetch (perspective switch) started while we were awaiting —
+      // drop this stale response so it can't overwrite the current tree.
+      if (myFetchId !== fetchIdRef.current) return
       setDepthFlags({
         hasMoreAncestors:   data.meta.hasMoreAncestors,
         hasMoreDescendants: data.meta.hasMoreDescendants,
@@ -104,11 +114,14 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
       setRawEdges(rawE)
       setGraphFailCount(0)
     } catch (err) {
+      if (myFetchId !== fetchIdRef.current) return
       console.error('Failed to fetch graph:', err)
       setGraphError(true)
       setGraphFailCount(c => c + 1)
     } finally {
-      setGraphLoading(false)
+      // Only the latest fetch owns the loading flag — a superseded one clearing
+      // it would hide the loader while the current fetch is still running.
+      if (myFetchId === fetchIdRef.current) setGraphLoading(false)
     }
   }, [perspectivePersonId, initCollapseState, ancestorDepth, descendantDepth, setDepthFlags])
 

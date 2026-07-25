@@ -185,7 +185,7 @@ export default function LoginPage() {
     try {
       const { token } = await api.auth.login({ email: email.trim(), password })
       setToken(token)
-      router.push('/graph')
+      router.push('/')
     } catch (err) {
       setLoading(false)
       const msg = (err as Error).message

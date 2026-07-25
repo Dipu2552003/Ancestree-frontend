@@ -267,7 +267,7 @@ function InviteInner() {
       // claim() doesn't take a birth date, so persist the collected DOB onto the
       // now-claimed person node. Non-fatal: it can be edited later in the profile.
       try { await api.persons.update(result.person_id, { birth_date: dob }) } catch { /* non-fatal */ }
-      router.push('/graph')
+      router.push('/graph?onboarding=1')
     } catch (err) {
       setLoading(false)
       setTopErr((err as Error).message || c.errNetwork)
@@ -302,7 +302,7 @@ function InviteInner() {
         const personId = (user?.person_id as string | undefined) ?? (await api.auth.me()).person_id
         if (personId) await api.persons.update(personId, { birth_date: dob, ...buildPayload(CLAIM_DETAIL_FIELDS, gotraValues) })
       } catch { /* non-fatal */ }
-      router.push('/graph')
+      router.push('/graph?onboarding=1')
     } catch (err) {
       setLoading(false)
       setTopErr((err as Error).message || c.errNetwork)

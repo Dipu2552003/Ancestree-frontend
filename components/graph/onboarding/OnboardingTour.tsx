@@ -89,7 +89,10 @@ export default function OnboardingTour({ active, isDark, onStart, onFinish }: On
   // Kick off: focus the viewer's own node once so downstream steps (Add, Edit,
   // Home) point at live, enabled controls.
   useEffect(() => {
-    if (!active || startedRef.current) return
+    // Reset the run-once guard when the tour closes so it can be replayed from
+    // the Help button (which just flips `active` back on).
+    if (!active) { startedRef.current = false; return }
+    if (startedRef.current) return
     startedRef.current = true
     setStep(0)
     onStart?.()

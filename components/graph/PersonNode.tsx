@@ -42,7 +42,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
   const isDark     = useGraphStore(s => s.isDark)
   const isNodeSelected = useGraphStore(s => s.activeNodeId === id)
   const person = data as unknown as PersonData
-  const { fullName, isDeceased, nodeState, isSelf, isViewerNode, isPerspectiveView, relationshipToSelf, photoUrl, animDelay, isMatchHighlight, isBulkSelected } = person
+  const { fullName, isDeceased, nodeState, isSelf, isViewerNode, isPerspectiveView, relationshipToSelf, photoUrl, animDelay, isMatchHighlight, isBulkSelected, isJustAdded } = person
   const firstName = fullName.trim().split(/\s+/)[0] ?? ''
   const [hovered, setHovered] = useState(false)
   const badge = ownerBadge(nodeState, isSelf, firstName, isDark)
@@ -121,9 +121,11 @@ function PersonNode({ id, data, selected }: NodeProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4, delay: (animDelay ?? 0) / 1000 }}
+      initial={{ opacity: 0, scale: isJustAdded ? 0.4 : 1 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={isJustAdded
+        ? { type: 'spring', stiffness: 320, damping: 17 }
+        : { duration: 0.4, delay: (animDelay ?? 0) / 1000 }}
       style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
       // Anchor for the first-time onboarding tour ("This is your card").
       {...(isSelf ? { 'data-tour': 'self-node' } : {})}
@@ -152,6 +154,36 @@ function PersonNode({ id, data, selected }: NodeProps) {
             POSSIBLE MATCH
           </div>
           <style>{`@keyframes pulse-ring { 0%,100%{opacity:1}50%{opacity:0.5} }`}</style>
+        </>
+      )}
+
+      {/* Just-added celebration — a single expanding pulse ring + a green
+          "ADDED" badge. Fires once right after the add-relation wizard creates
+          this node (instead of popping the edit panel open). */}
+      {isJustAdded && (
+        <>
+          <motion.div
+            initial={{ boxShadow: '0 0 0 0px rgb(var(--c-primary-rgb) / 0.55)' }}
+            animate={{ boxShadow: ['0 0 0 0px rgb(var(--c-primary-rgb) / 0.55)', '0 0 0 18px rgb(var(--c-primary-rgb) / 0)'] }}
+            transition={{ duration: 1.1, repeat: 1, ease: 'easeOut' }}
+            style={{ position: 'absolute', inset: -6, borderRadius: '12px', zIndex: -1, pointerEvents: 'none' }}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 5, scale: 0.85 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 20, delay: 0.1 }}
+            style={{
+              position: 'absolute', top: isSelf ? -36 : -24, left: '50%',
+              transform: 'translateX(-50%)', zIndex: 20,
+              background: '#15803D', color: '#fff',
+              fontSize: '8px', fontWeight: 700, letterSpacing: '0.08em',
+              padding: '3px 10px', borderRadius: '999px',
+              whiteSpace: 'nowrap', pointerEvents: 'none',
+              boxShadow: '0 2px 8px rgba(21,128,61,0.45)',
+            }}
+          >
+            ✓ ADDED
+          </motion.div>
         </>
       )}
 
