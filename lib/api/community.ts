@@ -56,6 +56,21 @@ export interface CommunityFamily {
   member_count:     number
   view_person_id:   string | null   // representative node to open on click
   view_person_name: string | null
+  /** Distinct lineages (family heads) inside this cluster; largest first. */
+  heads:            { person_id: string; name: string; count: number }[]
+}
+
+export interface CommunityHome {
+  id:             string
+  name:           string | null
+  city:           string | null
+  state:          string | null
+  country:        string | null
+  created_at:     string
+  /** The home head — clicking a home opens this person's perspective view. */
+  head_person_id: string | null
+  head_name:      string | null
+  members:        { person_id: string; name: string; photo_url: string | null }[]
 }
 
 export interface CommunityHealth {
@@ -246,5 +261,52 @@ export const community = {
     req<{ merge_record_id: string; canonical_person_id: string; conflicts: MergeConflict[] }>(
       `/api/community/${encodeURIComponent(slug)}/merges/force`,
       { method: 'POST', body: JSON.stringify(b) },
+    ),
+
+  // ── Homes — who lives together, independent of lineage (admin only) ──────────
+
+  /** Admin: every home in the community with members + head. */
+  homes: (slug: string) =>
+    req<{ homes: CommunityHome[] }>(`/api/community/${encodeURIComponent(slug)}/homes`),
+
+  /** Admin: create a home from a set of people + a city. */
+  createHome: (slug: string, b: { name?: string; city: string; state?: string; country?: string; person_ids: string[] }) =>
+    req<{ id: string }>(
+      `/api/community/${encodeURIComponent(slug)}/homes`,
+      { method: 'POST', body: JSON.stringify(b) },
+    ),
+
+  /** Admin: rename / change a home's location. */
+  updateHome: (slug: string, id: string, b: { name?: string; city?: string; state?: string; country?: string }) =>
+    req<{ success: boolean }>(
+      `/api/community/${encodeURIComponent(slug)}/homes/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(b) },
+    ),
+
+  /** Admin: delete a home (members are detached, not deleted). */
+  deleteHome: (slug: string, id: string) =>
+    req<{ success: boolean }>(
+      `/api/community/${encodeURIComponent(slug)}/homes/${encodeURIComponent(id)}`,
+      { method: 'DELETE' },
+    ),
+
+  /** Admin: add people to a home (each moves out of any prior home). */
+  addHomeMembers: (slug: string, id: string, person_ids: string[]) =>
+    req<{ success: boolean }>(
+      `/api/community/${encodeURIComponent(slug)}/homes/${encodeURIComponent(id)}/members`,
+      { method: 'POST', body: JSON.stringify({ person_ids }) },
+    ),
+
+  /** Admin: remove one person from a home. */
+  removeHomeMember: (slug: string, id: string, personId: string) =>
+    req<{ success: boolean }>(
+      `/api/community/${encodeURIComponent(slug)}/homes/${encodeURIComponent(id)}/members/${encodeURIComponent(personId)}`,
+      { method: 'DELETE' },
+    ),
+
+  /** Admin: search community people by name (used to add someone to a home). */
+  searchPersons: (slug: string, q: string) =>
+    req<{ results: { id: string; full_name: string; photo_url: string | null; current_city: string | null; gotra: string | null }[] }>(
+      `/api/community/${encodeURIComponent(slug)}/persons?q=${encodeURIComponent(q)}`,
     ),
 }

@@ -7,6 +7,7 @@ import {
   IconHome2, IconPlus, IconX,
   IconArrowUp, IconArrowDown, IconHeart, IconTrash, IconLoader2,
   IconLogout, IconPencil, IconEye, IconUsers, IconHandClick,
+  IconChecklist, IconBinaryTree2,
 } from '@tabler/icons-react'
 import type { WomanView } from '@/lib/layouts/familySideFilter'
 import { getTheme } from '@/lib/theme'
@@ -45,6 +46,12 @@ interface NavbarProps {
   onWomanViewChange: (v: WomanView) => void
   isDark: boolean
   forceAddOpen?: number
+  /** Community/family admin — shows the Select (Multi / All) navbar entry. */
+  isAdmin?: boolean
+  /** Start a manual multi-select (anchored on the current view). */
+  onMultiSelect?: () => void
+  /** Select the whole bloodline of the person currently in view. */
+  onSelectAll?: () => void
 }
 
 const RELATIONS: {
@@ -53,14 +60,14 @@ const RELATIONS: {
   icon: React.ReactNode
   color: string
 }[] = [
-  { action: 'father',   label: 'Father',   icon: <IconArrowUp size={18} />,   color: '#4F86C6' },
-  { action: 'mother',   label: 'Mother',   icon: <IconArrowUp size={18} />,   color: '#C06FAE' },
-  { action: 'son',      label: 'Son',      icon: <IconArrowDown size={18} />, color: '#2EAA7C' },
-  { action: 'daughter', label: 'Daughter', icon: <IconArrowDown size={18} />, color: '#9C6FD6' },
-  { action: 'brother',  label: 'Brother',  icon: <IconUsers size={18} />,     color: '#0E9F78' },
-  { action: 'sister',   label: 'Sister',   icon: <IconUsers size={18} />,     color: '#A855F7' },
-  { action: 'spouse',   label: 'Spouse',   icon: <IconHeart size={18} />,     color: 'var(--c-primary)' },
-]
+    { action: 'father', label: 'Father', icon: <IconArrowUp size={18} />, color: '#4F86C6' },
+    { action: 'mother', label: 'Mother', icon: <IconArrowUp size={18} />, color: '#C06FAE' },
+    { action: 'son', label: 'Son', icon: <IconArrowDown size={18} />, color: '#2EAA7C' },
+    { action: 'daughter', label: 'Daughter', icon: <IconArrowDown size={18} />, color: '#9C6FD6' },
+    { action: 'brother', label: 'Brother', icon: <IconUsers size={18} />, color: '#0E9F78' },
+    { action: 'sister', label: 'Sister', icon: <IconUsers size={18} />, color: '#A855F7' },
+    { action: 'spouse', label: 'Spouse', icon: <IconHeart size={18} />, color: 'var(--c-primary)' },
+  ]
 
 type DeleteState = 'idle' | 'confirm' | 'deleting'
 
@@ -69,15 +76,17 @@ export default function Navbar({
   canDeleteSelected, deleteDisabledReason, deleteChildrenNote, panelMode,
   canEditSelected,
   onHome, onStartWizard, onDeleteSelected,
-  onEdit, onView,
+  onEdit,
   isMarriedWoman, womanView, onWomanViewChange, isDark,
   forceAddOpen,
+  isAdmin, onMultiSelect, onSelectAll,
 }: NavbarProps) {
   const router = useRouter()
   const isMobile = useIsMobile()
-  const [addOpen,      setAddOpen]      = useState(false)
-  const [deleteState,  setDeleteState]  = useState<DeleteState>('idle')
-  const [deleteError,  setDeleteError]  = useState('')
+  const [addOpen, setAddOpen] = useState(false)
+  const [selectOpen, setSelectOpen] = useState(false)
+  const [deleteState, setDeleteState] = useState<DeleteState>('idle')
+  const [deleteError, setDeleteError] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
 
   const closeAdd = () => setAddOpen(false)
@@ -100,20 +109,21 @@ export default function Navbar({
   // accordingly. Unknown/other anchor → fall back to the neutral "Spouse".
   const spouseLabel = selectedGender === 'male' ? 'Wife'
     : selectedGender === 'female' ? 'Husband'
-    : 'Spouse'
+      : 'Spouse'
 
   useEffect(() => {
-    if (!addOpen && deleteState === 'idle') return
+    if (!addOpen && !selectOpen && deleteState === 'idle') return
     const handler = (e: MouseEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) {
         closeAdd()
+        setSelectOpen(false)
         setDeleteState('idle')
         setDeleteError('')
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [addOpen, deleteState])
+  }, [addOpen, selectOpen, deleteState])
 
   useEffect(() => {
     if (!selectedNodeId) {
@@ -145,15 +155,14 @@ export default function Navbar({
   const addEnabled = !!selectedNodeId
 
   const delEnabled = canDeleteSelected
-  const delColor   = delEnabled ? '#EF4444' : (isDark ? '#4A3F35' : '#C4A882')
-  const delBg      = deleteState !== 'idle'
+  const delColor = delEnabled ? '#EF4444' : (isDark ? '#4A3F35' : '#C4A882')
+  const delBg = deleteState !== 'idle'
     ? (isDark ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.10)')
     : delEnabled
       ? (isDark ? 'rgba(239,68,68,0.10)' : 'rgba(239,68,68,0.06)')
       : (isDark ? '#2A2520' : '#F5F0EA')
 
   const editActive = panelMode === 'edit'
-  const viewActive = panelMode === 'view'
   const actionEnabled = !!selectedNodeId
   // Edit affordance: enabled only when the selected node is editable. Hidden
   // entirely once an un-editable (owned) node is selected, so other family
@@ -421,6 +430,39 @@ export default function Navbar({
         )}
       </AnimatePresence>
 
+      {/* ── Select (admin) popup — Multi / All ── */}
+      <AnimatePresence>
+        {selectOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            style={{
+              background: t.panelBg, border: `1px solid ${t.borderNeutral}`,
+              borderRadius: '16px', padding: '10px', boxShadow: t.shadow,
+              width: '260px', maxWidth: 'calc(100vw - 32px)',
+              display: 'flex', flexDirection: 'column', gap: '4px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 6px 6px' }}>
+              <p style={{ margin: 0, fontSize: '11px', color: t.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Select people</p>
+              <button onClick={() => setSelectOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 2, display: 'flex' }}>
+                <IconX size={15} />
+              </button>
+            </div>
+            {onMultiSelect && (
+              <SelectRow isDark={isDark} icon={<IconChecklist size={18} />} title="Multi" sub="Pick people one by one"
+                onClick={() => { setSelectOpen(false); onMultiSelect() }} />
+            )}
+            {onSelectAll && (
+              <SelectRow isDark={isDark} icon={<IconBinaryTree2 size={18} />} title="All" sub="This person's whole bloodline"
+                onClick={() => { setSelectOpen(false); onSelectAll() }} />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Navbar pill ── */}
       <div style={{
         background: t.cardBg,
@@ -428,16 +470,21 @@ export default function Navbar({
         borderRadius: '20px',
         boxShadow: t.shadow,
         display: 'flex', alignItems: 'center',
-        padding: '6px 8px',
-        gap: '2px',
+        padding: isMobile ? '5px 6px' : '6px 8px',
+        gap: isMobile ? '0px' : '2px',
+        // Fit any phone: compact items keep it within the viewport, and a rare
+        // ultra-narrow screen can scroll the row rather than clip a button.
+        maxWidth: '100%',
+        overflowX: isMobile ? 'auto' : 'visible',
+        scrollbarWidth: 'none',
       }}>
 
         {/* Home */}
-        <NavItem isDark={isDark} onClick={onHome} label="Home" dataTour="nav-home">
+        <NavItem isDark={isDark} onClick={onHome} label="Home" dataTour="nav-home" compact={isMobile}>
           <IconHome2 size={19} color={t.textMuted} />
         </NavItem>
 
-        <Divider isDark={isDark} />
+        <Divider isDark={isDark} compact={isMobile} />
 
         {/* + Add */}
         <div style={{ padding: '0 2px' }}>
@@ -467,58 +514,40 @@ export default function Navbar({
 
         {/* Edit */}
         {editVisible && (
-        <div style={{ padding: '0 2px' }}>
-          <motion.button
-            data-tour="nav-edit"
-            onClick={() => editEnabled ? onEdit() : nudgeSelect()}
-            whileHover={editEnabled ? { scale: 1.04 } : {}}
-            whileTap={editEnabled ? { scale: 0.96 } : {}}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: isMobile ? 0 : '5px',
-              padding: isMobile ? '8px 10px' : '8px 14px', borderRadius: '14px',
-              background: actionBg(editActive), border: 'none',
-              color: actionColor(editActive), fontFamily: 'inherit',
-              fontSize: '13px', fontWeight: editActive ? 700 : 500,
-              cursor: editEnabled ? 'pointer' : 'default',
-              transition: 'background 0.2s, color 0.2s',
-              letterSpacing: '0.01em',
-              minWidth: isMobile ? '40px' : undefined,
-            }}
-            title={editEnabled ? `Edit ${selectedNodeName}` : 'Select a person first'}
-          >
-            <IconPencil size={15} strokeWidth={2} />
-            {!isMobile && 'Edit'}
-          </motion.button>
-        </div>
+          <div style={{ padding: '0 2px' }}>
+            <motion.button
+              data-tour="nav-edit"
+              onClick={() => editEnabled ? onEdit() : nudgeSelect()}
+              whileHover={editEnabled ? { scale: 1.04 } : {}}
+              whileTap={editEnabled ? { scale: 0.96 } : {}}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: isMobile ? 0 : '5px',
+                padding: isMobile ? '8px 10px' : '8px 14px', borderRadius: '14px',
+                background: actionBg(editActive), border: 'none',
+                color: actionColor(editActive), fontFamily: 'inherit',
+                fontSize: '13px', fontWeight: editActive ? 700 : 500,
+                cursor: editEnabled ? 'pointer' : 'default',
+                transition: 'background 0.2s, color 0.2s',
+                letterSpacing: '0.01em',
+                minWidth: isMobile ? '40px' : undefined,
+              }}
+              title={editEnabled ? `Edit ${selectedNodeName}` : 'Select a person first'}
+            >
+              <IconPencil size={15} strokeWidth={2} />
+              {!isMobile && 'Edit'}
+            </motion.button>
+          </div>
         )}
 
-        {/* View */}
-        <div style={{ padding: '0 2px' }}>
-          <motion.button
-            onClick={() => actionEnabled ? onView() : nudgeSelect()}
-            whileHover={actionEnabled ? { scale: 1.04 } : {}}
-            whileTap={actionEnabled ? { scale: 0.96 } : {}}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: isMobile ? 0 : '5px',
-              padding: isMobile ? '8px 10px' : '8px 14px', borderRadius: '14px',
-              background: actionBg(viewActive), border: 'none',
-              color: actionColor(viewActive), fontFamily: 'inherit',
-              fontSize: '13px', fontWeight: viewActive ? 700 : 500,
-              cursor: actionEnabled ? 'pointer' : 'default',
-              transition: 'background 0.2s, color 0.2s',
-              letterSpacing: '0.01em',
-              minWidth: isMobile ? '40px' : undefined,
-            }}
-            title={actionEnabled ? `View ${selectedNodeName}` : 'Select a person first'}
-          >
-            <IconEye size={15} strokeWidth={2} />
-            {!isMobile && 'View'}
-          </motion.button>
-        </div>
+        <Divider isDark={isDark} compact={isMobile} />
 
-        <Divider isDark={isDark} />
+        {/* Select (admin) — Multi / All bloodline */}
+        {isAdmin && (onMultiSelect || onSelectAll) && (
+          <NavItem isDark={isDark} onClick={() => setSelectOpen(v => !v)} label="Select" compact={isMobile}>
+            <IconChecklist size={19} color={selectOpen ? 'var(--c-primary)' : t.textMuted} />
+          </NavItem>
+        )}
 
         {/* 🗑 Delete */}
         <div style={{ padding: '0 2px' }}>
@@ -548,10 +577,10 @@ export default function Navbar({
           </motion.button>
         </div>
 
-        <Divider isDark={isDark} />
+        <Divider isDark={isDark} compact={isMobile} />
 
         {/* Logout */}
-        <NavItem isDark={isDark} onClick={handleLogout} label="Logout">
+        <NavItem isDark={isDark} onClick={handleLogout} label="Logout" compact={isMobile}>
           <IconLogout size={19} color={isDark ? '#9A6A5A' : '#C4A882'} />
         </NavItem>
       </div>
@@ -559,12 +588,39 @@ export default function Navbar({
   )
 }
 
-function NavItem({ children, onClick, label, isDark, dataTour }: {
+// A row in the Select popup (Multi / All).
+function SelectRow({ icon, title, sub, onClick, isDark }: {
+  icon: React.ReactNode; title: string; sub: string; onClick: () => void; isDark: boolean
+}) {
+  const t = getTheme(isDark)
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+        padding: '9px 10px', borderRadius: 11, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+        background: hovered ? t.itemHoverBg : 'transparent', transition: 'background 0.12s',
+      }}
+    >
+      <span style={{ display: 'flex', color: 'var(--c-primary)' }}>{icon}</span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: t.text }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 11.5, color: t.textMuted }}>{sub}</span>
+      </span>
+    </button>
+  )
+}
+
+function NavItem({ children, onClick, label, isDark, dataTour, compact }: {
   children: React.ReactNode
   onClick: () => void
   label?: string
   isDark: boolean
   dataTour?: string
+  compact?: boolean
 }) {
   const [hovered, setHovered] = useState(false)
   const hoverBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
@@ -577,10 +633,10 @@ function NavItem({ children, onClick, label, isDark, dataTour }: {
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
-        gap: '2px', padding: '8px 10px', borderRadius: '14px',
+        gap: '2px', padding: compact ? '7px 6px' : '8px 10px', borderRadius: '14px',
         background: hovered ? hoverBg : 'transparent',
         border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-        transition: 'background 0.12s', minWidth: '44px',
+        transition: 'background 0.12s', minWidth: compact ? '38px' : '44px', flexShrink: 0,
       }}
     >
       {children}
@@ -596,12 +652,12 @@ function NavItem({ children, onClick, label, isDark, dataTour }: {
   )
 }
 
-function Divider({ isDark }: { isDark: boolean }) {
+function Divider({ isDark, compact }: { isDark: boolean; compact?: boolean }) {
   return (
     <div style={{
       width: '1px', height: '24px', flexShrink: 0,
       background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-      margin: '0 4px',
+      margin: compact ? '0 2px' : '0 4px',
     }} />
   )
 }

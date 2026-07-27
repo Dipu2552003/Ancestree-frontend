@@ -78,7 +78,8 @@ export default function NodeContextMenu({
     + (!isSelf && !isViewerNode ? 1 : 0)
     + (canAddRelation ? 1 : 0)
     + (canEdit ? 1 : 0)
-    + (adminTools ? 2 : 0)
+    + (onSelectBloodline ? 1 : 0)
+    + (onSelectMultiple ? 1 : 0)
   const MENU_H = 58 + itemCount * 34
   const left = x + MENU_W > window.innerWidth  ? x - MENU_W : x
   const top  = y + MENU_H > window.innerHeight ? y - MENU_H : y

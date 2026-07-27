@@ -43,6 +43,12 @@ export function isFieldHidden(cfg: FieldConfig | null | undefined, key: string):
   return ruleFor(cfg, key)?.enabled === false
 }
 
+/** True if at least one of the given fields is visible — used to hide a whole
+ *  editor/profile section when every field inside it is disabled. */
+export function anyFieldVisible(cfg: FieldConfig | null | undefined, keys: string[]): boolean {
+  return keys.some(k => !isFieldHidden(cfg, k))
+}
+
 /** The locked value for a `constant` field, else undefined. */
 export function constantValue(cfg: FieldConfig | null | undefined, key: string): string | undefined {
   const r = ruleFor(cfg, key)

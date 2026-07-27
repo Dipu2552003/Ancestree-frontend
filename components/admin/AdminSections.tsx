@@ -10,8 +10,9 @@ import {
   IconUsers, IconHome, IconUserCircle, IconShieldStar, IconSearch,
   IconLoader2, IconArrowMerge, IconCopy, IconCheck,
   IconRefresh, IconDeviceFloppy, IconChevronRight, IconAlertTriangle,
+  IconGitFork, IconCrown, IconTrash, IconMapPin, IconUserPlus,
 } from '@tabler/icons-react'
-import { api, type CommunityMember, type CommunityFamily, type CommunityHealth } from '@/lib/api'
+import { api, type CommunityMember, type CommunityFamily, type CommunityHealth, type CommunityHome } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
 import { getInitials } from '@/lib/format/initials'
 import type { AdminTab } from './AdminDashboard'
@@ -428,6 +429,13 @@ export function FamiliesSection({ slug, isDark, onOpenPerson }: SectionProps) {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
   const [q, setQ]               = useState('')
+  // Which families have their lineage (family-head) list expanded.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggle = (id: string) => setExpanded(prev => {
+    const n = new Set(prev)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    return n
+  })
 
   useEffect(() => {
     let active = true
@@ -463,41 +471,319 @@ export function FamiliesSection({ slug, isDark, onOpenPerson }: SectionProps) {
 
       {loading ? <Loading isDark={isDark} /> : (
         <div style={{ background: cardBg, border, borderRadius: 14, overflow: 'hidden' }}>
-          {filtered.map(f => (
-            <button
-              key={f.id}
-              onClick={() => f.view_person_id && onOpenPerson(f.view_person_id)}
-              disabled={!f.view_person_id}
-              title={f.view_person_id ? `Open the ${f.name} tree` : 'This family has no viewable people yet'}
-              style={{
-                width: '100%', textAlign: 'left', fontFamily: 'inherit',
-                cursor: f.view_person_id ? 'pointer' : 'default',
-                display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px',
-                borderBottom: border, background: 'transparent', borderLeft: 'none', borderRight: 'none', borderTop: 'none',
-              }}
-            >
-              <span style={{
-                width: 40, height: 40, borderRadius: 11, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: isDark ? 'rgb(var(--c-primary-rgb) / 0.14)' : 'rgb(var(--c-primary-rgb) / 0.08)',
-                color: 'var(--c-primary)',
-              }}>
-                <IconHome size={19} />
-              </span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                <span style={{ display: 'block', fontSize: 11.5, color: t.textMuted }}>
-                  {f.person_count} {f.person_count === 1 ? 'person' : 'people'} · {f.member_count} joined · {fmtDate(f.created_at)}
-                </span>
-              </span>
-              <IconChevronRight size={17} style={{ color: t.textMuted, flexShrink: 0 }} />
-            </button>
-          ))}
+          {filtered.map(f => {
+            const isOpen = expanded.has(f.id)
+            const heads = f.heads ?? []
+            return (
+              <div key={f.id} style={{ borderBottom: border }}>
+                {/* Cluster header — opens the whole tree (cluster head's name). */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px' }}>
+                  <button
+                    onClick={() => f.view_person_id && onOpenPerson(f.view_person_id)}
+                    disabled={!f.view_person_id}
+                    title={f.view_person_id ? `Open the ${f.name} tree` : 'This family has no viewable people yet'}
+                    style={{
+                      flex: 1, minWidth: 0, textAlign: 'left', fontFamily: 'inherit',
+                      cursor: f.view_person_id ? 'pointer' : 'default',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      background: 'transparent', border: 'none', padding: 0,
+                    }}
+                  >
+                    <span style={{
+                      width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: isDark ? 'rgb(var(--c-primary-rgb) / 0.14)' : 'rgb(var(--c-primary-rgb) / 0.08)',
+                      color: 'var(--c-primary)',
+                    }}>
+                      <IconHome size={19} />
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      <span style={{ display: 'block', fontSize: 11.5, color: t.textMuted }}>
+                        {f.person_count} {f.person_count === 1 ? 'person' : 'people'} · {f.member_count} joined · {fmtDate(f.created_at)}
+                      </span>
+                    </span>
+                  </button>
+
+                  {/* Lineage (family-head) toggle. */}
+                  {heads.length > 0 && (
+                    <button
+                      onClick={() => toggle(f.id)}
+                      title={`${heads.length} ${heads.length === 1 ? 'lineage' : 'lineages'} — show family heads`}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                        padding: '5px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
+                        fontSize: 12, fontWeight: 600, border, background: 'transparent', color: t.textMuted,
+                      }}
+                    >
+                      <IconGitFork size={14} />
+                      {heads.length} {heads.length === 1 ? 'lineage' : 'lineages'}
+                      <IconChevronRight size={14} style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Family heads — each opens that head's perspective view. */}
+                {isOpen && heads.length > 0 && (
+                  <div style={{ padding: '0 15px 10px 67px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {heads.map(h => (
+                      <button
+                        key={h.person_id}
+                        onClick={() => onOpenPerson(h.person_id)}
+                        title={`Open ${h.name}'s lineage view`}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
+                          padding: '8px 10px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+                          border, background: 'transparent',
+                        }}
+                      >
+                        <IconCrown size={15} style={{ color: 'var(--c-primary)', flexShrink: 0 }} />
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {h.name} <span style={{ fontWeight: 500, color: t.textMuted }}>Family</span>
+                        </span>
+                        <span style={{ fontSize: 11.5, color: t.textMuted, flexShrink: 0 }}>
+                          {h.count} {h.count === 1 ? 'person' : 'people'}
+                        </span>
+                        <IconChevronRight size={14} style={{ color: t.textMuted, flexShrink: 0 }} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
           {filtered.length === 0 && (
             <div style={{ padding: 32, textAlign: 'center', color: t.textMuted, fontSize: 13 }}>No families match.</div>
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ══ Homes — who lives together, independent of lineage ═══════════════════════
+
+export function HomesSection({ slug, isDark, onOpenPerson }: SectionProps) {
+  const t = getTheme(isDark)
+  const [homes, setHomes]   = useState<CommunityHome[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]   = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [addingFor, setAddingFor] = useState<string | null>(null)  // home id whose add-box is open
+
+  const load = useCallback(() => {
+    api.community.homes(slug)
+      .then(({ homes }) => setHomes(homes))
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load homes'))
+      .finally(() => setLoading(false))
+  }, [slug])
+  useEffect(() => { load() }, [load])
+
+  const deleteHome = async (id: string) => {
+    if (!window.confirm('Delete this home? The people stay in the family tree — only the home grouping is removed.')) return
+    setBusyId(id); setError('')
+    try { await api.community.deleteHome(slug, id); load() }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to delete home') }
+    finally { setBusyId(null) }
+  }
+  const removeMember = async (id: string, personId: string) => {
+    setBusyId(id); setError('')
+    try { await api.community.removeHomeMember(slug, id, personId); load() }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to remove person') }
+    finally { setBusyId(null) }
+  }
+
+  const cardBg = isDark ? '#1C1A12' : '#fff'
+  const border = `1px solid ${t.borderNeutral}`
+
+  if (loading) return <Loading isDark={isDark} />
+
+  return (
+    <div>
+      <ErrorNote msg={error} isDark={isDark} />
+      <p style={{ margin: '0 0 14px', fontSize: 13, color: t.textMuted, lineHeight: 1.5 }}>
+        A home is who physically lives together, independent of the family tree. Create one from the graph:
+        open a person’s menu → <strong>Make a home</strong> → pick everyone who lives together. Click a home to open its head’s view.
+      </p>
+
+      {homes.length === 0 ? (
+        <div style={{ padding: 32, textAlign: 'center', color: t.textMuted, fontSize: 13, background: cardBg, border, borderRadius: 14 }}>
+          No homes yet.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {homes.map(h => {
+            const title = h.name || (h.head_name ? `${h.head_name.split(/\s+/)[0]}’s home` : 'Home')
+            const loc = [h.city, h.state].filter(Boolean).join(', ')
+            return (
+              <div key={h.id} style={{ background: cardBg, border, borderRadius: 14, padding: 14, opacity: busyId === h.id ? 0.6 : 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                  <span style={{
+                    width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: isDark ? 'rgb(var(--c-primary-rgb) / 0.14)' : 'rgb(var(--c-primary-rgb) / 0.08)',
+                    color: 'var(--c-primary)',
+                  }}>
+                    <IconHome size={19} />
+                  </span>
+                  <button
+                    onClick={() => h.head_person_id && onOpenPerson(h.head_person_id)}
+                    disabled={!h.head_person_id}
+                    title={h.head_person_id ? `Open ${h.head_name}'s view (home head)` : 'No head yet'}
+                    style={{
+                      flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: 0,
+                      cursor: h.head_person_id ? 'pointer' : 'default', fontFamily: 'inherit',
+                    }}
+                  >
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: t.textMuted }}>
+                      {loc && <><IconMapPin size={12} /> {loc} · </>}
+                      {h.members.length} {h.members.length === 1 ? 'person' : 'people'}
+                      {h.head_name && <> · <IconCrown size={12} style={{ color: 'var(--c-primary)' }} /> {h.head_name}</>}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setAddingFor(addingFor === h.id ? null : h.id)}
+                    title="Add a person to this home"
+                    style={{ ...miniIconBtn(t, border), color: addingFor === h.id ? 'var(--c-primary)' : t.textMuted, borderColor: addingFor === h.id ? 'var(--c-primary)' : undefined }}
+                  >
+                    <IconUserPlus size={15} />
+                  </button>
+                  <button
+                    onClick={() => deleteHome(h.id)}
+                    title="Delete home"
+                    style={{ ...miniIconBtn(t, border), color: '#EF4444' }}
+                  >
+                    <IconTrash size={15} />
+                  </button>
+                </div>
+
+                {/* Add-a-person search (admin) */}
+                {addingFor === h.id && (
+                  <AddMemberBox
+                    slug={slug} homeId={h.id} isDark={isDark}
+                    onAdded={() => { setAddingFor(null); load() }}
+                    onClose={() => setAddingFor(null)}
+                  />
+                )}
+
+                {/* Members — click to open, × to remove from the home. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                  {h.members.map(m => (
+                    <span key={m.person_id} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      fontSize: 11.5, fontWeight: 600, color: t.text,
+                      background: isDark ? 'rgba(255,255,255,0.04)' : '#F4F1EC',
+                      border, borderRadius: 999, padding: '3px 4px 3px 10px',
+                    }}>
+                      <button onClick={() => onOpenPerson(m.person_id)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: t.text, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 600 }}>
+                        {m.name}
+                      </button>
+                      <button
+                        onClick={() => removeMember(h.id, m.person_id)}
+                        title="Remove from home"
+                        style={{ background: 'none', border: 'none', padding: '0 3px', cursor: 'pointer', color: t.textMuted, fontFamily: 'inherit', fontSize: 14, lineHeight: 1 }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function miniIconBtn(t: ReturnType<typeof getTheme>, border: string): React.CSSProperties {
+  return {
+    width: 32, height: 32, flexShrink: 0, borderRadius: 8, border, background: 'transparent',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: t.textMuted,
+  }
+}
+
+// Inline "add a person to this home" box — a debounced name search over the
+// community; picking a match adds them (backend blocks anyone already housed).
+function AddMemberBox({ slug, homeId, isDark, onAdded, onClose }: {
+  slug: string; homeId: string; isDark: boolean; onAdded: () => void; onClose: () => void
+}) {
+  const t = getTheme(isDark)
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<{ id: string; full_name: string; current_city: string | null; gotra: string | null }[]>([])
+  const [searching, setSearching] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    const needle = q.trim()
+    if (needle.length < 2) { setResults([]); return }
+    let cancelled = false
+    setSearching(true)
+    const id = setTimeout(() => {
+      api.community.searchPersons(slug, needle)
+        .then(({ results }) => { if (!cancelled) setResults(results.slice(0, 8)) })
+        .catch(() => { if (!cancelled) setResults([]) })
+        .finally(() => { if (!cancelled) setSearching(false) })
+    }, 250)
+    return () => { cancelled = true; clearTimeout(id) }
+  }, [q, slug])
+
+  const add = async (personId: string) => {
+    setBusy(true); setErr('')
+    try { await api.community.addHomeMembers(slug, homeId, [personId]); onAdded() }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Could not add') }
+    finally { setBusy(false) }
+  }
+
+  const cardBg = isDark ? 'rgba(255,255,255,0.03)' : '#FBF8F3'
+  const border = `1px solid ${t.borderNeutral}`
+
+  return (
+    <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border, background: cardBg }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 10px', borderRadius: 9, border, background: isDark ? 'rgba(0,0,0,0.2)' : '#fff' }}>
+        <IconSearch size={15} style={{ color: t.textMuted, flexShrink: 0 }} />
+        <input
+          autoFocus value={q} onChange={e => setQ(e.target.value)}
+          placeholder="Search a person by name…"
+          style={{ flex: 1, minWidth: 0, height: '100%', border: 'none', outline: 'none', background: 'transparent', color: t.text, fontFamily: 'inherit', fontSize: 13 }}
+        />
+        {searching && <IconLoader2 size={14} style={{ color: t.textMuted, animation: 'spin 1s linear infinite' }} />}
+        <button onClick={onClose} title="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontSize: 16, lineHeight: 1, padding: '0 2px' }}>×</button>
+      </div>
+
+      {err && <p style={{ margin: '8px 2px 0', fontSize: 12, fontWeight: 600, color: '#EF4444' }}>{err}</p>}
+
+      {results.length > 0 && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {results.map(r => (
+            <button
+              key={r.id} onClick={() => add(r.id)} disabled={busy}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                padding: '8px 10px', borderRadius: 9, border: 'none', cursor: busy ? 'default' : 'pointer',
+                background: 'transparent', fontFamily: 'inherit',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#F1ECE4')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              <IconUserPlus size={14} style={{ color: 'var(--c-primary)', flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {r.full_name}
+              </span>
+              {(r.current_city || r.gotra) && (
+                <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}>{r.current_city || r.gotra}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {q.trim().length >= 2 && !searching && results.length === 0 && (
+        <p style={{ margin: '8px 2px 0', fontSize: 12, color: t.textMuted }}>No matches.</p>
+      )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

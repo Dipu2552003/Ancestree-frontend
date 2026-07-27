@@ -61,6 +61,10 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
+  // Persisted lineage-head name for the current perspective (from graph meta).
+  // Null until the backfill runs → falls back to computeFamilyName below.
+  const [serverFamilyName, setServerFamilyName] = useState<string | null>(null)
+
   const [graphLoading, setGraphLoading] = useState(true)
   // Cold-start failure surfacing: `graphError` flips the canvas to a retry
   // screen; `graphFailCount` counts consecutive failures so the screen can
@@ -90,6 +94,7 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
         hasMoreAncestors:   data.meta.hasMoreAncestors,
         hasMoreDescendants: data.meta.hasMoreDescendants,
       })
+      setServerFamilyName(data.meta.familyHeadName ?? null)
       const rawE = data.edges.map(e => ({ ...e, type: 'sketchEdge' }))
 
       // Bake animation delays into rawNodes (once, uses only edge structure)
@@ -152,12 +157,15 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
   )
 
   // ── Family name — topmost blood-line ancestor's first name ───────────────
-  // Computed on the pre-synthetic graph so an injected "Unknown" father below
-  // can never become the family head.
-  const familyName = useMemo(
-    () => computeFamilyName(ghostedNodes, ghostedEdges),
-    [ghostedNodes, ghostedEdges],
-  )
+  // Prefer the persisted lineage head (persons.family_head_id, via graph meta)
+  // so this is no longer recomputed every visit. Two fallbacks to computeFamilyName:
+  //   • pre-backfill, when the server value is still null;
+  //   • the married-woman SASURAL view, which shows her husband's lineage —
+  //     self's stored head points at her mayka, so recompute for that side.
+  const familyName = useMemo(() => {
+    const useServer = serverFamilyName && !(isMarriedWoman && womanView === 'sasural')
+    return useServer ? serverFamilyName : computeFamilyName(ghostedNodes, ghostedEdges)
+  }, [serverFamilyName, isMarriedWoman, womanView, ghostedNodes, ghostedEdges])
 
   // ── Inject UI-only "Unknown" parents for floating sibling groups ─────────
   // A sibling added to a parentless anchor links via SIBLING_OF only, which is

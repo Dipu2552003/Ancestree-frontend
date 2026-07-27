@@ -46,6 +46,8 @@ export interface PersonData {
   photoUrl?: string
   photoThumbnailUrl?: string
   nodeState: NodeState
+  /** Persisted lineage head (topmost patriline ancestor). See core-concepts §3. */
+  familyHeadId?: string | null
   isSelf: boolean
   isViewerNode?: boolean
   /** True when this node is a *duplicate render* of another node in the same

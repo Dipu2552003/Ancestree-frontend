@@ -37,6 +37,8 @@ export interface FormApi {
   inputStyle:   (key: string) => React.CSSProperties
   field:        (label: string, key: keyof Draft, placeholder: string, opts?: FieldOpts) => React.ReactNode
   row:          (...children: React.ReactNode[]) => React.ReactNode
+  /** Community field rules, so sections can gate cascade parts / whole sections. */
+  fieldConfig?: FieldConfig | null
 }
 
 interface BuildFormApiArgs {
@@ -137,5 +139,6 @@ export function buildFormApi({
     isDark, t,
     labelStyle, inputStyle,
     field, row,
+    fieldConfig,
   }
 }

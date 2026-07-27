@@ -4,6 +4,7 @@
 
 import { SectionHeader } from '../'
 import type { FormApi } from '../formApi'
+import { anyFieldVisible } from '@/lib/community/fieldConfig'
 
 interface ContactSectionProps {
   form:     FormApi
@@ -12,7 +13,10 @@ interface ContactSectionProps {
 }
 
 export default function ContactSection({ form, isOpen, onToggle }: ContactSectionProps) {
-  const { draft, isDark, field } = form
+  const { draft, isDark, field, fieldConfig } = form
+
+  // All contact fields off → hide the section (header included).
+  if (!anyFieldVisible(fieldConfig, ['phone', 'whatsapp', 'email'])) return null
 
   return (
     <>

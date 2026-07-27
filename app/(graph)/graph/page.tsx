@@ -45,6 +45,8 @@ import { isDupDismissed, getCommunityId, getCommunitySlug } from '@/lib/storage'
 import type { FieldConfig } from '@/lib/community/fieldConfig'
 import OnboardingTour, { ONBOARDING_DONE_KEY } from '@/components/graph/onboarding/OnboardingTour'
 import BulkEditPanel, { type BulkChanges } from '@/components/graph/BulkEditPanel'
+import CreateHomePanel from '@/components/graph/CreateHomePanel'
+import SelectionActionChooser from '@/components/graph/SelectionActionChooser'
 import { computeBloodline } from '@/lib/graph/bloodline'
 import { buildOverlayProps } from '@/lib/graph/buildOverlayProps'
 import type { PersonData } from '@/types'
@@ -309,6 +311,9 @@ function GraphInner() {
   const [bulkPanelOpen, setBulkPanelOpen] = useState(false)
   const [bulkApplying, setBulkApplying] = useState(false)
   const [bulkError,   setBulkError]   = useState('')
+  // After Done, a community selection first shows an icon chooser (Edit details /
+  // Make a home), then the chosen panel. Non-community goes straight to 'edit'.
+  const [bulkChoice, setBulkChoice] = useState<'chooser' | 'home' | 'edit'>('chooser')
   // Manual multi-select is active when scope is 'selection' and the panel isn't
   // open yet — clicks then toggle membership instead of opening the node panel.
   const selectionMode = bulkScope === 'selection' && !bulkPanelOpen
@@ -316,7 +321,7 @@ function GraphInner() {
   const realIdOf = useCallback((id: string) => (isGhostNodeId(id) ? realIdFromGhost(id) : id), [])
 
   const exitBulk = useCallback(() => {
-    setBulkScope(null); setBulkIds(new Set()); setBulkPanelOpen(false); setBulkError('')
+    setBulkScope(null); setBulkIds(new Set()); setBulkPanelOpen(false); setBulkError(''); setBulkChoice('chooser')
   }, [])
 
   // "Select bloodline family" — resolve the paternal line from the anchor and go
@@ -355,6 +360,27 @@ function GraphInner() {
     }
   }, [bulkScope, bulkIds, exitBulk, resetAndFetch])
 
+  // Create a home from the current selection + a city (community admin only).
+  const createHome = useCallback(async (input: { name: string; city: string }) => {
+    const slug = getCommunitySlug()
+    if (!slug) return
+    setBulkApplying(true); setBulkError('')
+    try {
+      await api.community.createHome(slug, {
+        name: input.name || undefined,
+        city: input.city,
+        person_ids: [...bulkIds],
+      })
+      exitBulk()
+      // Land on the admin Homes tab to manage members right away.
+      router.push('/admin?tab=homes')
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : 'Failed to create home')
+    } finally {
+      setBulkApplying(false)
+    }
+  }, [bulkIds, exitBulk, router])
+
   // Names for the panel chips, resolved from the raw person set.
   const bulkPeople = useMemo(() => {
     if (bulkIds.size === 0) return [] as { id: string; name: string }[]
@@ -363,6 +389,54 @@ function GraphInner() {
       return { id, name: asPersonData(n?.data)?.fullName ?? 'Unknown' }
     })
   }, [bulkIds, rawNodes, realIdOf])
+
+  // Default home name = the ELDEST selected member, by generation. Generation is
+  // derived from PARENT_OF depth in the graph (topmost ancestor = fewest parents
+  // above = eldest). Ties break on male → oldest birth_year → person_code.
+  const eldestName = useMemo(() => {
+    const ids = [...bulkIds]
+    if (ids.length === 0) return ''
+
+    // child → parents, from the raw PARENT_OF edges (real ids).
+    const parentsOf = new Map<string, string[]>()
+    for (const e of rawEdges) {
+      if ((e.data as { relType?: string } | undefined)?.relType !== 'PARENT_OF') continue
+      const arr = parentsOf.get(e.target) ?? []
+      arr.push(e.source)
+      parentsOf.set(e.target, arr)
+    }
+    // Generation depth = longest PARENT_OF chain above a node (0 = a root/eldest).
+    const depthCache = new Map<string, number>()
+    const depth = (id: string): number => {
+      const cached = depthCache.get(id)
+      if (cached !== undefined) return cached
+      depthCache.set(id, 0) // cycle guard (graph is acyclic, but be safe)
+      const ps = parentsOf.get(id) ?? []
+      const d = ps.length === 0 ? 0 : 1 + Math.max(...ps.map(depth))
+      depthCache.set(id, d)
+      return d
+    }
+
+    const dataOf = (id: string) => asPersonData(rawNodes.find(rn => realIdOf(rn.id) === id)?.data)
+    const ranked = ids.filter(id => dataOf(id)).sort((a, b) => {
+      const da = depth(a), db = depth(b)
+      if (da !== db) return da - db                              // fewer parents above = eldest generation
+      const pa = dataOf(a)!, pb = dataOf(b)!
+      const am = pa.gender === 'male' ? 0 : 1, bm = pb.gender === 'male' ? 0 : 1
+      if (am !== bm) return am - bm
+      const ay = pa.birthYear ?? 99999, by = pb.birthYear ?? 99999
+      if (ay !== by) return ay - by
+      return (pa.personCode ?? '').localeCompare(pb.personCode ?? '')
+    })
+    return ranked[0] ? (dataOf(ranked[0])!.fullName ?? '') : ''
+  }, [bulkIds, rawNodes, rawEdges, realIdOf])
+
+  // The person currently in view (self / perspective anchor) — seeds the navbar
+  // "Multi" selection and "All" (whole-bloodline) select.
+  const viewAnchorRawId = useMemo(
+    () => rawNodes.find(n => asPersonData(n.data)?.isSelf)?.id ?? rawNodes[0]?.id,
+    [rawNodes],
+  )
 
   // Node just created via the add-relation wizard — flagged briefly so it plays
   // the "just added" pop + pulse instead of us popping open the edit panel.
@@ -652,6 +726,9 @@ function GraphInner() {
         onWomanViewChange={onWomanViewChange}
         isDark={isDark}
         forceAddOpen={s.navbarAddTrigger}
+        isAdmin={isAdmin}
+        onMultiSelect={isAdmin && viewAnchorRawId ? () => onSelectMultiple(viewAnchorRawId) : undefined}
+        onSelectAll={isAdmin && viewAnchorRawId ? () => onSelectBloodline(viewAnchorRawId) : undefined}
       />
 
       <GraphOverlays isDark={isDark} {...overlays} />
@@ -665,33 +742,40 @@ function GraphInner() {
         />
       )}
 
-      {/* Manual multi-select toolbar — appears while picking people. */}
+      {/* Manual multi-select action bar. Sits above the bottom navbar on mobile
+          (centered card, not a cramped pill) and top-centre on desktop. Full-width
+          within a max on phones so the count + actions never overflow. */}
       {selectionMode && (
         <div style={{
-          position: 'fixed', top: isMobile ? 'auto' : 20, bottom: isMobile ? 20 : 'auto',
-          left: '50%', transform: 'translateX(-50%)', zIndex: 1200,
-          display: 'flex', alignItems: 'center', gap: 10,
+          position: 'fixed', top: isMobile ? 'auto' : 20,
+          bottom: isMobile ? 'calc(84px + env(safe-area-inset-bottom))' : 'auto',
+          left: isMobile ? 12 : '50%', right: isMobile ? 12 : 'auto',
+          transform: isMobile ? 'none' : 'translateX(-50%)', zIndex: 1200,
+          display: 'flex', alignItems: 'center', gap: 8,
           background: isDark ? '#141210' : '#fff',
-          border: `1px solid ${t.borderNeutral}`, borderRadius: 999,
-          boxShadow: isDark ? '0 6px 28px rgba(0,0,0,0.6)' : '0 6px 20px rgba(0,0,0,0.16)',
-          padding: '8px 10px 8px 16px', maxWidth: 'calc(100vw - 24px)',
+          border: `1px solid ${t.borderNeutral}`,
+          borderRadius: isMobile ? 16 : 999,
+          boxShadow: isDark ? '0 10px 34px rgba(0,0,0,0.6)' : '0 10px 28px rgba(0,0,0,0.18)',
+          padding: isMobile ? '10px 10px 10px 14px' : '7px 8px 7px 14px',
+          maxWidth: isMobile ? 'none' : 'calc(100vw - 20px)',
         }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: 'nowrap' }}>
-            {bulkIds.size} selected · tap people to add or remove
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ color: 'var(--c-primary)', fontWeight: 800 }}>{bulkIds.size}</span>{' '}
+            {isMobile ? 'selected' : 'selected · tap to add or remove'}
           </span>
           <button
             onClick={exitBulk}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, padding: '6px 10px' }}
+            style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, padding: '8px 10px' }}
           >
             Cancel
           </button>
           <button
-            onClick={() => { if (bulkIds.size > 0) setBulkPanelOpen(true) }}
+            onClick={() => { if (bulkIds.size > 0) { setBulkChoice(communityId ? 'chooser' : 'edit'); setBulkPanelOpen(true) } }}
             disabled={bulkIds.size === 0}
             style={{
-              height: 34, padding: '0 18px', borderRadius: 999, border: 'none',
+              flexShrink: 0, height: 40, padding: '0 22px', borderRadius: isMobile ? 12 : 999, border: 'none',
               cursor: bulkIds.size === 0 ? 'default' : 'pointer', opacity: bulkIds.size === 0 ? 0.5 : 1,
-              background: '#10B981', color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+              background: 'var(--c-primary)', color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap',
             }}
           >
             Done
@@ -699,7 +783,29 @@ function GraphInner() {
         </div>
       )}
 
-      {bulkScope && bulkPanelOpen && (
+      {/* Selection Done: community → icon chooser (Edit details / Make a home),
+          then the chosen panel; non-community → the bulk editor directly. */}
+      {bulkScope === 'selection' && bulkPanelOpen && communityId && bulkChoice === 'chooser' ? (
+        <SelectionActionChooser
+          count={bulkIds.size}
+          isDark={isDark}
+          onEdit={() => setBulkChoice('edit')}
+          onHome={() => setBulkChoice('home')}
+          onClose={() => setBulkPanelOpen(false)}
+        />
+      ) : bulkScope === 'selection' && bulkPanelOpen && communityId && bulkChoice === 'home' ? (
+        <CreateHomePanel
+          people={bulkPeople}
+          defaultName={eldestName}
+          fieldConfig={fieldConfig}
+          isDark={isDark}
+          applying={bulkApplying}
+          error={bulkError}
+          onCreate={createHome}
+          onEditInstead={() => { setBulkError(''); setBulkChoice('edit') }}
+          onClose={() => setBulkPanelOpen(false)}
+        />
+      ) : bulkScope && bulkPanelOpen ? (
         <BulkEditPanel
           scope={bulkScope}
           people={bulkPeople}
@@ -710,7 +816,7 @@ function GraphInner() {
           onApply={applyBulk}
           onClose={() => (bulkScope === 'bloodline' ? exitBulk() : setBulkPanelOpen(false))}
         />
-      )}
+      ) : null}
     </div>
   )
 }

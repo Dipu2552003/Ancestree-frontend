@@ -9,25 +9,27 @@
 // Clicking any user or family deep-links into their tree via ?perspective=.
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   IconLayoutDashboard, IconUsers, IconHome, IconSettings, IconArrowMerge,
   IconArrowLeft, IconShieldStar, IconLoader2, IconChevronLeft, IconListDetails,
+  IconBuildingCommunity,
 } from '@tabler/icons-react'
 import { api } from '@/lib/api'
 import { getCommunitySlug } from '@/lib/storage'
 import { useGraphStore } from '@/store/graphStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { getTheme } from '@/lib/theme'
-import { OverviewSection, MembersSection, FamiliesSection, SettingsSection } from './AdminSections'
+import { OverviewSection, MembersSection, FamiliesSection, HomesSection, SettingsSection } from './AdminSections'
 import FieldsSection from './FieldsSection'
 
-export type AdminTab = 'overview' | 'members' | 'families' | 'fields' | 'settings'
+export type AdminTab = 'overview' | 'members' | 'families' | 'homes' | 'fields' | 'settings'
 
 const NAV: { tab: AdminTab; label: string; icon: React.ReactNode }[] = [
   { tab: 'overview', label: 'Overview', icon: <IconLayoutDashboard size={18} /> },
   { tab: 'members',  label: 'Members',  icon: <IconUsers size={18} /> },
   { tab: 'families', label: 'Families', icon: <IconHome size={18} /> },
+  { tab: 'homes',    label: 'Homes',    icon: <IconBuildingCommunity size={18} /> },
   { tab: 'fields',   label: 'Fields',   icon: <IconListDetails size={18} /> },
   { tab: 'settings', label: 'Settings', icon: <IconSettings size={18} /> },
 ]
@@ -43,7 +45,13 @@ export default function AdminDashboard() {
   // setState in the effect body (only inside the async resolution below).
   const [access, setAccess] = useState<'checking' | 'ok' | 'denied'>(() => (slug ? 'checking' : 'denied'))
   const [isOwner, setIsOwner] = useState(false)
-  const [tab, setTab] = useState<AdminTab>('overview')
+  // Allow deep-linking a tab via ?tab= (e.g. after creating a home → ?tab=homes).
+  const searchParams = useSearchParams()
+  const initialTab = ((): AdminTab => {
+    const q = searchParams.get('tab')
+    return (NAV.some(n => n.tab === q) ? q : 'overview') as AdminTab
+  })()
+  const [tab, setTab] = useState<AdminTab>(initialTab)
 
   useEffect(() => {
     if (!slug) return
@@ -88,6 +96,7 @@ export default function AdminDashboard() {
   const content =
     tab === 'members'  ? <MembersSection  {...sectionProps} />
     : tab === 'families' ? <FamiliesSection {...sectionProps} />
+    : tab === 'homes'    ? <HomesSection    {...sectionProps} />
     : tab === 'fields'   ? <FieldsSection slug={slug!} isDark={isDark} />
     : tab === 'settings' ? <SettingsSection {...sectionProps} />
     :                      <OverviewSection {...sectionProps} />
@@ -173,6 +182,7 @@ const TITLES: Record<AdminTab, { title: string; sub: string }> = {
   overview: { title: 'Overview',        sub: 'A snapshot of your community at a glance.' },
   members:  { title: 'Members',         sub: 'Everyone who has signed up — click anyone to open their tree.' },
   families: { title: 'Families',        sub: 'Every family tree in the community — click one to open it.' },
+  homes:    { title: 'Homes',           sub: 'Who lives together, independent of the family tree. Click a home to open its head’s view.' },
   fields:   { title: 'Fields',          sub: 'Choose which details members fill in, and set dropdown values.' },
   settings: { title: 'Settings',        sub: 'Community details and the shared invite link.' },
 }

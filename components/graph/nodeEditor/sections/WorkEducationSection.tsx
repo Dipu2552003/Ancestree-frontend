@@ -4,6 +4,7 @@
 
 import { SectionHeader } from '../'
 import type { FormApi } from '../formApi'
+import { anyFieldVisible, isFieldHidden } from '@/lib/community/fieldConfig'
 
 interface WorkEducationSectionProps {
   form:     FormApi
@@ -12,7 +13,11 @@ interface WorkEducationSectionProps {
 }
 
 export default function WorkEducationSection({ form, isOpen, onToggle }: WorkEducationSectionProps) {
-  const { draft, set, setFocused, isDark, labelStyle, inputStyle, field } = form
+  const { draft, set, setFocused, isDark, labelStyle, inputStyle, field, fieldConfig } = form
+
+  // All fields (incl. bio) off → hide the section (header included).
+  if (!anyFieldVisible(fieldConfig, ['occupation', 'occupation_detail', 'education', 'bio'])) return null
+  const showBio = !isFieldHidden(fieldConfig, 'bio')
 
   return (
     <>
@@ -27,6 +32,7 @@ export default function WorkEducationSection({ form, isOpen, onToggle }: WorkEdu
           {field('Occupation', 'occupation', 'e.g. Engineer, Farmer')}
           {field('Occupation detail', 'occupationDetail', 'Company / more detail')}
           {field('Education', 'education', 'Highest qualification')}
+          {showBio && (
           <div>
             <label style={labelStyle}>Bio</label>
             <textarea
@@ -41,6 +47,7 @@ export default function WorkEducationSection({ form, isOpen, onToggle }: WorkEdu
               }}
             />
           </div>
+          )}
         </div>
       )}
     </>

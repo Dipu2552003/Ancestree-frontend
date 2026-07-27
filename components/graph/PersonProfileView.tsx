@@ -122,8 +122,15 @@ export default function PersonProfileView({ node, fieldConfig, isPerspective = f
       : `${birthYear} – present  ·  ${CURRENT_YEAR - birthYear} years old`
     : null
 
-  const address = [currentAddress, currentCity, currentState, currentPincode, currentCountry]
-    .filter(Boolean).join(', ')
+  // Respect the community field rules here too — the street address and country
+  // are individually toggleable, so a hidden one must drop out of this line
+  // (city/state/pincode aren't toggleable, so they always show when present).
+  const address = [
+    shown('current_address', currentAddress),
+    shown('current_city', currentCity),
+    shown('current_state', currentState),
+    currentPincode, shown('current_country', currentCountry),
+  ].filter(Boolean).join(', ')
 
   const contacts = [
     shown('phone', phone)       && { icon: <IconPhone size={15} stroke={2.2} />,         text: phone,    href: `tel:${phone}` },
@@ -369,7 +376,7 @@ export default function PersonProfileView({ node, fieldConfig, isPerspective = f
         </div>
 
         {/* ── About ── */}
-        {bio && (
+        {shown('bio', bio) && (
           <Reveal i={4}>
             <div style={{ marginTop: isMobile ? 36 : 52 }}>
               <SectionLabel text="About" color={labelCol} hairline={hairline} />

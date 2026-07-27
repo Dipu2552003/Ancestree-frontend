@@ -37,12 +37,20 @@ const GROUPS: { group: string; fields: { key: string; label: string; canEnum?: b
     { key: 'email',    label: 'Email' },
   ] },
   { group: 'Current location', fields: [
-    { key: 'current_address', label: 'Address' },
-    { key: 'current_country', label: 'Country' },
+    { key: 'current_address',  label: 'Address' },
+    { key: 'current_city',     label: 'City / Town' },
+    { key: 'current_district', label: 'District' },
+    { key: 'current_state',    label: 'State' },
+    { key: 'current_country',  label: 'Country' },
   ] },
   { group: 'Native village', fields: [
-    { key: 'native_village', label: 'Village', canEnum: true },
-    { key: 'native_country', label: 'Country' },
+    { key: 'native_village',  label: 'Village', canEnum: true },
+    { key: 'native_district', label: 'District' },
+    { key: 'native_state',    label: 'State' },
+    { key: 'native_country',  label: 'Country' },
+  ] },
+  { group: 'About', fields: [
+    { key: 'bio', label: 'Bio' },
   ] },
   { group: 'Birth & death', fields: [
     { key: 'birth_place', label: 'Birth place' },

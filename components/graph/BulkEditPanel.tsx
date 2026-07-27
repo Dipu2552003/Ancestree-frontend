@@ -43,6 +43,7 @@ export default function BulkEditPanel({ scope, people, isDark, applying, error, 
   // text when there's no community config.
   const gotraOpts   = enumOptions(fieldConfig, 'gotra')
   const villageOpts = enumOptions(fieldConfig, 'native_village')
+  const cityOpts    = enumOptions(fieldConfig, 'current_city')
   const [gotraSel, setGotraSel] = useState('')      // '' = leave unchanged
   const [gotraOther, setGotraOther] = useState('')
   const [village, setVillage] = useState('')
@@ -158,11 +159,19 @@ export default function BulkEditPanel({ scope, people, isDark, applying, error, 
           )}
         </div>
 
-        {/* Current location (selection scope only) */}
+        {/* Current location (selection scope only) — dropdown from admin fields
+            (same current_city list as the edit panel) when configured, else text. */}
         {scope === 'selection' && (
           <div style={{ marginBottom: 18 }}>
             <label style={label}>Current location</label>
-            <input value={city} onChange={e => setCity(e.target.value)} placeholder="City / town — leave blank to keep" style={field} />
+            {cityOpts ? (
+              <select value={city} onChange={e => setCity(e.target.value)} style={field}>
+                <option value="">Leave unchanged</option>
+                {cityOpts.map(o => <option key={o.value} value={o.value}>{o.label ? `${o.value} (${o.label})` : o.value}</option>)}
+              </select>
+            ) : (
+              <input value={city} onChange={e => setCity(e.target.value)} placeholder="City / town — leave blank to keep" style={field} />
+            )}
           </div>
         )}
 

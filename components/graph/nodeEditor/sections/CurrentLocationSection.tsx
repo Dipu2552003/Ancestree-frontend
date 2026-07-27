@@ -1,11 +1,12 @@
 'use client'
 
-// Where they live now — State → District → City/Town (search within the chosen
-// district, or type). Street address + country kept manual.
+// Where they live now. Each part (State / District / City / Address / Country)
+// renders via the shared field() helper, so it honours the community's admin
+// field type — dropdown, fixed value, plain text, or hidden. No place-search.
 
 import { SectionHeader } from '../'
-import PlaceSearch from '@/components/forms/PlaceSearch'
 import type { FormApi } from '../formApi'
+import { anyFieldVisible } from '@/lib/community/fieldConfig'
 
 interface CurrentLocationSectionProps {
   form:     FormApi
@@ -13,14 +14,15 @@ interface CurrentLocationSectionProps {
   onToggle: () => void
 }
 
-const PARTS = [
-  { role: 'state'    as const, key: 'currentState',    label: 'State',    half: true },
-  { role: 'district' as const, key: 'currentDistrict', label: 'District', half: true },
-  { role: 'city'     as const, key: 'currentCity',     label: 'City / Town' },
-]
+// Every person column this section can render — used to hide the whole section
+// (header included) when the community has disabled all of them.
+const ALL_COLS = ['current_address', 'current_city', 'current_district', 'current_state', 'current_country']
 
 export default function CurrentLocationSection({ form, isOpen, onToggle }: CurrentLocationSectionProps) {
-  const { draft, setDraft, isDark, field } = form
+  const { draft, isDark, field, row, fieldConfig } = form
+
+  // Whole section off → render nothing (no dangling header).
+  if (!anyFieldVisible(fieldConfig, ALL_COLS)) return null
 
   return (
     <>
@@ -32,14 +34,11 @@ export default function CurrentLocationSection({ form, isOpen, onToggle }: Curre
       />
       {isOpen && (
         <div style={{ padding: '12px 16px 4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <PlaceSearch
-            label="Current location"
-            parts={PARTS}
-            values={draft as unknown as Record<string, string>}
-            onChange={(k, v) => setDraft(p => ({ ...p, [k]: v }))}
-            isDark={isDark}
-            size="sm"
-          />
+          {row(
+            field('State', 'currentState', 'State', { half: true }),
+            field('District', 'currentDistrict', 'District', { half: true }),
+          )}
+          {field('City / Town', 'currentCity', 'City or town')}
           {field('Address', 'currentAddress', 'Street / apartment')}
           {field('Country', 'currentCountry', 'India')}
         </div>

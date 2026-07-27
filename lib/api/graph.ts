@@ -20,6 +20,11 @@ export const graph = {
         effectiveDescendantDepth: number
         hasMoreAncestors:         boolean
         hasMoreDescendants:       boolean
+        /** Persisted lineage head for the current perspective (null pre-backfill). */
+        familyHeadId?:            string | null
+        familyHeadName?:          string | null
+        /** Distinct patrilines in this cluster. */
+        lineageCount?:            number
       }
       // Tree load is the most common cold-start entry point — bound the wait so
       // a dead server surfaces a retry prompt instead of spinning forever.
@@ -39,6 +44,11 @@ export const graph = {
         effectiveDescendantDepth: number
         hasMoreAncestors:         boolean
         hasMoreDescendants:       boolean
+        /** Persisted lineage head for the current perspective (null pre-backfill). */
+        familyHeadId?:            string | null
+        familyHeadName?:          string | null
+        /** Distinct patrilines in this cluster. */
+        lineageCount?:            number
       }
     }>(
       `/api/graph/public?perspective=${encodeURIComponent(perspectiveId)}`,
