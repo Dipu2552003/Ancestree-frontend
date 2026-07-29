@@ -206,6 +206,17 @@ export const community = {
       `/api/community/${encodeURIComponent(slug)}/families`,
     ),
 
+  /** Admin: create a new independent cluster (family) + its first person.
+   *  `person` carries the community person fields (buildPayload output) applied
+   *  to the seeded node — the same set collected at community signup. */
+  createCluster: (slug: string, b: {
+    name?: string; person_name: string; person?: Record<string, string>
+  }) =>
+    req<{ family_id: string; person_id: string }>(
+      `/api/community/${encodeURIComponent(slug)}/families`,
+      { method: 'POST', body: JSON.stringify(b) },
+    ),
+
   /** Admin-only: data-health report — 1:1 ownership issues + whether the
    *  ownership constraint is live (see migration 028). */
   health: (slug: string) =>

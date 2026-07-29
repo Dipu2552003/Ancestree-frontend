@@ -143,7 +143,19 @@ export default function AdminDashboard() {
         padding: '20px 14px', display: 'flex', flexDirection: 'column', gap: 6,
         position: 'sticky', top: 0, height: '100vh', boxSizing: 'border-box',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 10px 14px' }}>
+        <button
+          onClick={() => router.push('/graph')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            padding: '9px 10px', marginBottom: 2, borderRadius: 10, cursor: 'pointer',
+            border: `1px solid ${t.borderNeutral}`, background: 'transparent', fontFamily: 'inherit',
+            fontSize: 13, fontWeight: 600, color: t.textMuted, textAlign: 'left',
+          }}
+        >
+          <IconArrowLeft size={16} /> Back to tree
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 10px 14px' }}>
           <IconShieldStar size={20} style={{ color: 'var(--c-primary)' }} />
           <span style={{ fontSize: 17, fontWeight: 800, color: t.text }}>Admin</span>
         </div>
@@ -161,10 +173,6 @@ export default function AdminDashboard() {
         )}
 
         <div style={{ flex: 1 }} />
-
-        <NavRow active={false} isDark={isDark} onClick={() => router.push('/graph')} icon={<IconArrowLeft size={18} />}>
-          Back to my tree
-        </NavRow>
       </aside>
 
       <main style={{ flex: 1, minWidth: 0, padding: '30px 32px 72px' }}>

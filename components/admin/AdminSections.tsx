@@ -10,12 +10,36 @@ import {
   IconUsers, IconHome, IconUserCircle, IconShieldStar, IconSearch,
   IconLoader2, IconArrowMerge, IconCopy, IconCheck,
   IconRefresh, IconDeviceFloppy, IconChevronRight, IconAlertTriangle,
-  IconGitFork, IconCrown, IconTrash, IconMapPin, IconUserPlus,
+  IconGitFork, IconCrown, IconTrash, IconMapPin, IconUserPlus, IconPlus,
 } from '@tabler/icons-react'
 import { api, type CommunityMember, type CommunityFamily, type CommunityHealth, type CommunityHome } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
 import { getInitials } from '@/lib/format/initials'
+import { DynamicFields } from '@/components/forms/DynamicField'
+import {
+  SIGNUP_FIELD_SETS, fieldsFor, buildPayload, composeFullName,
+  PERSON_FIELDS, placePrimaryPart,
+} from '@/lib/forms/personFields'
+import { isFieldHidden, constantValue, type FieldConfig } from '@/lib/community/fieldConfig'
 import type { AdminTab } from './AdminDashboard'
+
+// The first person of a new cluster collects the same fields as a community
+// signup node (name parts, DOB, gotra, native + current place).
+const CLUSTER_FIELDS = SIGNUP_FIELD_SETS.community
+
+// Narrow the signup field set to what this community's admin actually allows
+// (Admin → Fields). A field is dropped when the config hides it or pins it to a
+// fixed constant (auto-applied, nothing to ask). First name always stays — a
+// person needs a name — and DOB isn't individually toggleable in the config.
+function allowedClusterSet(cfg: FieldConfig | null): string[] {
+  return CLUSTER_FIELDS.filter(id => {
+    if (id === 'first_name') return true
+    const f = PERSON_FIELDS[id]
+    if (!f) return false
+    const key = f.type === 'place' ? (placePrimaryPart(f)?.column ?? f.column) : f.column
+    return !isFieldHidden(cfg, key) && constantValue(cfg, key) === undefined
+  })
+}
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -429,6 +453,7 @@ export function FamiliesSection({ slug, isDark, onOpenPerson }: SectionProps) {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
   const [q, setQ]               = useState('')
+  const [creating, setCreating] = useState(false)
   // Which families have their lineage (family-head) list expanded.
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const toggle = (id: string) => setExpanded(prev => {
@@ -458,6 +483,29 @@ export function FamiliesSection({ slug, isDark, onOpenPerson }: SectionProps) {
   return (
     <div>
       <ErrorNote msg={error} isDark={isDark} />
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button
+          onClick={() => setCreating(v => !v)}
+          style={{
+            height: 38, padding: '0 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
+            fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: creating ? (isDark ? 'rgba(255,255,255,0.06)' : '#F1ECE4') : 'var(--c-primary)',
+            color: creating ? t.textMuted : '#fff',
+          }}
+        >
+          <IconPlus size={15} /> New cluster
+        </button>
+      </div>
+
+      {creating && (
+        <NewClusterBox
+          slug={slug} isDark={isDark}
+          onCreated={personId => onOpenPerson(personId)}
+          onClose={() => setCreating(false)}
+        />
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42, padding: '0 12px', marginBottom: 14, background: cardBg, border, borderRadius: 11 }}>
         <IconSearch size={16} style={{ color: t.textMuted, flexShrink: 0 }} />
@@ -557,6 +605,127 @@ export function FamiliesSection({ slug, isDark, onOpenPerson }: SectionProps) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// Inline "create a new cluster" box. The first person collects the same fields
+// as a community signup node (via DynamicFields + the community field set), so a
+// cluster is effectively a new community account minus the login. On success we
+// jump straight into the new tree.
+function NewClusterBox({ slug, isDark, onCreated, onClose }: {
+  slug: string; isDark: boolean; onCreated: (personId: string) => void; onClose: () => void
+}) {
+  const t = getTheme(isDark)
+  const [cfg, setCfg] = useState<FieldConfig | null>(null)
+  const [cfgLoaded, setCfgLoaded] = useState(false)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({})
+  const [clusterName, setClusterName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [topErr, setTopErr] = useState('')
+
+  // Only ask for the fields this community's admin allows (Admin → Fields).
+  useEffect(() => {
+    let active = true
+    api.community.fieldConfig(slug)
+      .then(c => { if (active) setCfg(c) })
+      .catch(() => { /* no config → show the full signup set (unconstrained) */ })
+      .finally(() => { if (active) setCfgLoaded(true) })
+    return () => { active = false }
+  }, [slug])
+
+  const activeSet = useMemo(() => allowedClusterSet(cfg), [cfg])
+  // Only the name is required here — every other field is optional, so strip the
+  // registry's `required` flags off everything except first name.
+  const renderFields = useMemo(
+    () => fieldsFor(activeSet).map(f => (f.required && f.id !== 'first_name' ? { ...f, required: false } : f)),
+    [activeSet],
+  )
+
+  const setValue = (id: string, v: string) => {
+    setValues(p => ({ ...p, [id]: v }))
+    setFieldErrs(p => { if (!p[id]) return p; const n = { ...p }; delete n[id]; return n })
+  }
+
+  const create = async () => {
+    const name = composeFullName(values)
+    if (!name) { setFieldErrs({ first_name: 'Please enter a name' }); return }
+    setFieldErrs({}); setBusy(true); setTopErr('')
+    try {
+      const { person_id } = await api.community.createCluster(slug, {
+        person_name: name,
+        ...(clusterName.trim() ? { name: clusterName.trim() } : {}),
+        person: buildPayload(activeSet, values),
+      })
+      onCreated(person_id)
+    } catch (e) {
+      setTopErr(e instanceof Error ? e.message : 'Could not create cluster')
+      setBusy(false)
+    }
+  }
+
+  const cardBg = isDark ? 'rgba(255,255,255,0.03)' : '#FBF8F3'
+  const border = `1px solid ${t.borderNeutral}`
+
+  return (
+    <div style={{ marginBottom: 14, padding: 16, borderRadius: 14, border, background: cardBg }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: t.text }}>New cluster</span>
+        <button onClick={onClose} title="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontSize: 18, lineHeight: 1, padding: '0 2px' }}>×</button>
+      </div>
+      <p style={{ margin: '0 0 16px', fontSize: 12.5, color: t.textMuted, lineHeight: 1.5 }}>
+        Starts a fresh family tree, unconnected to any existing cluster. Fill in the first person — only the details this community collects. You can build out the rest inside the tree.
+      </p>
+
+      {!cfgLoaded ? (
+        <div style={{ padding: 24, display: 'flex', justifyContent: 'center' }}>
+          <IconLoader2 size={20} style={{ color: t.textMuted, animation: 'spin 1s linear infinite' }} />
+        </div>
+      ) : (
+      <DynamicFields
+        fields={renderFields}
+        values={values}
+        errors={fieldErrs}
+        isDark={isDark}
+        lang="en"
+        onChange={setValue}
+        onSubmit={create}
+      />
+      )}
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', marginBottom: 7, fontSize: 13, fontWeight: 600, color: t.textMuted }}>
+          Cluster name <span style={{ fontWeight: 500 }}>(optional)</span>
+        </label>
+        <input
+          value={clusterName} onChange={e => setClusterName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') create() }}
+          placeholder="Defaults to the person’s name"
+          style={{
+            width: '100%', boxSizing: 'border-box', height: 50, padding: '0 16px', borderRadius: 12,
+            border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)'}`,
+            background: isDark ? '#141210' : '#FDFAF6', color: t.text,
+            fontFamily: 'inherit', fontSize: 15, outline: 'none',
+          }}
+        />
+      </div>
+
+      {topErr && <p style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 600, color: '#EF4444' }}>{topErr}</p>}
+
+      <button
+        onClick={create} disabled={busy || !cfgLoaded}
+        style={{
+          height: 44, padding: '0 18px', borderRadius: 12, border: 'none',
+          cursor: busy || !cfgLoaded ? 'default' : 'pointer', opacity: busy || !cfgLoaded ? 0.6 : 1,
+          background: 'var(--c-primary)', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+          display: 'inline-flex', alignItems: 'center', gap: 7,
+        }}
+      >
+        {busy ? <IconLoader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <IconPlus size={15} />}
+        Create cluster
+      </button>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

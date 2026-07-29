@@ -725,6 +725,19 @@ function GraphInner() {
         canEditSelected={canEditSelected}
         onHome={onHome}
         onStartWizard={action => {
+          // A married-in spouse's own parents/siblings (their mayka/sasural) are
+          // NOT part of this tree — adding them here would spawn a floating,
+          // unviewable node. Send the user into that person's own perspective,
+          // where their side renders and father/mother/sibling adds land
+          // correctly. Downward (son/daughter) + spouse stay here: shared
+          // children belong to this tree.
+          const isMarriedIn = asPersonData(selectedNode?.data)?.nodeRole === 'spouse'
+          const goesToTheirSide = action === 'father' || action === 'mother'
+            || action === 'brother' || action === 'sister'
+          if (isMarriedIn && goesToTheirSide && anchorRealId) {
+            router.push(`/graph?perspective=${anchorRealId}`)
+            return
+          }
           // For "Add spouse", if the anchor already has an active spouse, route
           // to the 3-phase SecondSpouseWizard instead.
           if (action === 'spouse' && s.selectedNodeId) {
@@ -770,7 +783,9 @@ function GraphInner() {
           within a max on phones so the count + actions never overflow. */}
       {selectionMode && (
         <div style={{
-          position: 'fixed', top: isMobile ? 'auto' : 20,
+          // Desktop: sit clearly BELOW the centered search bar (top ~16 + hudOffset,
+          // ~44px tall) so the two don't overlap/inline. Mobile: above the navbar.
+          position: 'fixed', top: isMobile ? 'auto' : `calc(env(safe-area-inset-top) + ${76 + hudOffset}px)`,
           bottom: isMobile ? 'calc(84px + env(safe-area-inset-bottom))' : 'auto',
           left: isMobile ? 12 : '50%', right: isMobile ? 12 : 'auto',
           transform: isMobile ? 'none' : 'translateX(-50%)', zIndex: 1200,
