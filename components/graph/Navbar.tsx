@@ -542,8 +542,9 @@ export default function Navbar({
 
         <Divider isDark={isDark} compact={isMobile} />
 
-        {/* Select (admin) — Multi / All bloodline */}
-        {isAdmin && (onMultiSelect || onSelectAll) && (
+        {/* Select — Multi (anyone who can make a home) / All bloodline (admin). The
+            caller decides which rows to enable by passing the handlers. */}
+        {(onMultiSelect || onSelectAll) && (
           <NavItem isDark={isDark} onClick={() => setSelectOpen(v => !v)} label="Select" compact={isMobile}>
             <IconChecklist size={19} color={selectOpen ? 'var(--c-primary)' : t.textMuted} />
           </NavItem>

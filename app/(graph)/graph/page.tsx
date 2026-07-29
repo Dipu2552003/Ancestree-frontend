@@ -314,6 +314,9 @@ function GraphInner() {
   // After Done, a community selection first shows an icon chooser (Edit details /
   // Make a home), then the chosen panel. Non-community goes straight to 'edit'.
   const [bulkChoice, setBulkChoice] = useState<'chooser' | 'home' | 'edit'>('chooser')
+  // A non-admin making their own home: their own node is auto-included and cannot
+  // be deselected (null for admins, who select freely).
+  const [lockedSelfId, setLockedSelfId] = useState<string | null>(null)
   // Manual multi-select is active when scope is 'selection' and the panel isn't
   // open yet — clicks then toggle membership instead of opening the node panel.
   const selectionMode = bulkScope === 'selection' && !bulkPanelOpen
@@ -321,7 +324,7 @@ function GraphInner() {
   const realIdOf = useCallback((id: string) => (isGhostNodeId(id) ? realIdFromGhost(id) : id), [])
 
   const exitBulk = useCallback(() => {
-    setBulkScope(null); setBulkIds(new Set()); setBulkPanelOpen(false); setBulkError(''); setBulkChoice('chooser')
+    setBulkScope(null); setBulkIds(new Set()); setBulkPanelOpen(false); setBulkError(''); setBulkChoice('chooser'); setLockedSelfId(null)
   }, [])
 
   // "Select bloodline family" — resolve the paternal line from the anchor and go
@@ -332,19 +335,35 @@ function GraphInner() {
     setBulkScope('bloodline'); setBulkIds(ids); setBulkPanelOpen(true); setBulkError('')
   }, [rawNodes, rawEdges])
 
-  // "Select multiple people" — enter manual selection mode seeded with the anchor.
-  const onSelectMultiple = useCallback((nodeId: string) => {
-    setBulkScope('selection'); setBulkIds(new Set([realIdOf(nodeId)])); setBulkPanelOpen(false); setBulkError('')
-  }, [realIdOf])
+  // The viewer's own claimed node (null when viewing someone else's tree).
+  const selfRawId = useMemo(
+    () => rawNodes.find(n => asPersonData(n.data)?.isSelf)?.id ?? null,
+    [rawNodes],
+  )
+  // A normal (non-admin) community member may create ONE home — their own — and
+  // is always part of it. Admins select freely for anyone.
+  const canMakeOwnHome = !isAdmin && !!communityId && !!selfRawId
+
+  // "Select multiple people" — enter manual selection mode. Admins start empty
+  // (pick anyone); a normal user starts with their own node pre-selected + locked
+  // (their home always includes them; head defaults to them).
+  const onSelectMultiple = useCallback(() => {
+    const seedSelf = canMakeOwnHome && selfRawId ? realIdOf(selfRawId) : null
+    setBulkScope('selection')
+    setBulkIds(new Set(seedSelf ? [seedSelf] : []))
+    setLockedSelfId(seedSelf)
+    setBulkPanelOpen(false); setBulkError('')
+  }, [canMakeOwnHome, selfRawId, realIdOf])
 
   const toggleBulkId = useCallback((nodeId: string) => {
     const id = realIdOf(nodeId)
+    if (id === lockedSelfId) return // a normal user can't remove themselves from their own home
     setBulkIds(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
-  }, [realIdOf])
+  }, [realIdOf, lockedSelfId])
 
   const applyBulk = useCallback(async (changes: BulkChanges) => {
     if (!bulkScope) return
@@ -374,9 +393,8 @@ function GraphInner() {
         city: input.city,
         person_ids: [...bulkIds],
       })
+      // Stay on the graph after creating — don't redirect to the admin dashboard.
       exitBulk()
-      // Land on the admin Homes tab to manage members right away.
-      router.push('/admin?tab=homes')
     } catch (err) {
       setBulkError(err instanceof Error ? err.message : 'Failed to create home')
     } finally {
@@ -732,7 +750,7 @@ function GraphInner() {
         isDark={isDark}
         forceAddOpen={s.navbarAddTrigger}
         isAdmin={isAdmin}
-        onMultiSelect={isAdmin && viewAnchorRawId ? () => onSelectMultiple(viewAnchorRawId) : undefined}
+        onMultiSelect={(isAdmin || canMakeOwnHome) && viewAnchorRawId ? () => onSelectMultiple() : undefined}
         onSelectAll={isAdmin && viewAnchorRawId ? () => onSelectBloodline(viewAnchorRawId) : undefined}
       />
 
@@ -775,7 +793,7 @@ function GraphInner() {
             Cancel
           </button>
           <button
-            onClick={() => { if (bulkIds.size > 0) { setBulkChoice(communityId ? 'chooser' : 'edit'); setBulkPanelOpen(true) } }}
+            onClick={() => { if (bulkIds.size > 0) { setBulkChoice(!isAdmin ? 'home' : (communityId ? 'chooser' : 'edit')); setBulkPanelOpen(true) } }}
             disabled={bulkIds.size === 0}
             style={{
               flexShrink: 0, height: 40, padding: '0 22px', borderRadius: isMobile ? 12 : 999, border: 'none',
@@ -801,13 +819,13 @@ function GraphInner() {
       ) : bulkScope === 'selection' && bulkPanelOpen && communityId && bulkChoice === 'home' ? (
         <CreateHomePanel
           people={bulkPeople}
-          defaultHeadId={eldestHeadId}
+          defaultHeadId={isAdmin ? eldestHeadId : (selfRawId ? realIdOf(selfRawId) : eldestHeadId)}
           fieldConfig={fieldConfig}
           isDark={isDark}
           applying={bulkApplying}
           error={bulkError}
           onCreate={createHome}
-          onEditInstead={() => { setBulkError(''); setBulkChoice('edit') }}
+          onEditInstead={isAdmin ? () => { setBulkError(''); setBulkChoice('edit') } : undefined}
           onClose={() => setBulkPanelOpen(false)}
         />
       ) : bulkScope && bulkPanelOpen ? (
