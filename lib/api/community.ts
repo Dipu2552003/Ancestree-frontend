@@ -270,14 +270,14 @@ export const community = {
     req<{ homes: CommunityHome[] }>(`/api/community/${encodeURIComponent(slug)}/homes`),
 
   /** Admin: create a home from a set of people + a city. */
-  createHome: (slug: string, b: { name?: string; city: string; state?: string; country?: string; person_ids: string[] }) =>
+  createHome: (slug: string, b: { name?: string; city: string; state?: string; country?: string; person_ids: string[]; head_person_id?: string }) =>
     req<{ id: string }>(
       `/api/community/${encodeURIComponent(slug)}/homes`,
       { method: 'POST', body: JSON.stringify(b) },
     ),
 
   /** Admin: rename / change a home's location. */
-  updateHome: (slug: string, id: string, b: { name?: string; city?: string; state?: string; country?: string }) =>
+  updateHome: (slug: string, id: string, b: { name?: string; city?: string; state?: string; country?: string; head_person_id?: string }) =>
     req<{ success: boolean }>(
       `/api/community/${encodeURIComponent(slug)}/homes/${encodeURIComponent(id)}`,
       { method: 'PATCH', body: JSON.stringify(b) },

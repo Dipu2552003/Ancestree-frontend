@@ -12,29 +12,30 @@ import { type FieldConfig, enumOptions } from '@/lib/community/fieldConfig'
 
 interface CreateHomePanelProps {
   people:   { id: string; name: string }[]
-  /** Prefill for the home name — the eldest member (the home head). Editable. */
-  defaultName?: string
+  /** Default home head — the eldest by generation hierarchy. User can override. */
+  defaultHeadId?: string
   /** Community field rules — the city list comes from the admin `current_city`
    *  field, exactly like the node editor's Current Location. */
   fieldConfig?: FieldConfig | null
   isDark:   boolean
   applying: boolean
   error:    string
-  onCreate: (input: { name: string; city: string }) => void
+  onCreate: (input: { headPersonId: string; city: string }) => void
   /** Switch this selection to the bulk "Edit details" flow instead. */
   onEditInstead?: () => void
   onClose:  () => void
 }
 
-export default function CreateHomePanel({ people, defaultName = '', fieldConfig, isDark, applying, error, onCreate, onEditInstead, onClose }: CreateHomePanelProps) {
+export default function CreateHomePanel({ people, defaultHeadId = '', fieldConfig, isDark, applying, error, onCreate, onEditInstead, onClose }: CreateHomePanelProps) {
   const t = getTheme(isDark)
-  const [name, setName] = useState(defaultName)
+  // Head defaults to the eldest (by generation) but is fully selectable.
+  const [headId, setHeadId] = useState(defaultHeadId || people[0]?.id || '')
   const [city, setCity] = useState('')
   // Admin-defined city dropdown (same source as the edit panel), else free text.
   const cityOpts = enumOptions(fieldConfig, 'current_city')
 
   const n = people.length
-  const canCreate = city.trim().length > 0 && n > 0
+  const canCreate = city.trim().length > 0 && n > 0 && headId.length > 0
 
   const cardBg = isDark ? '#141210' : '#fff'
   const border = `1px solid ${t.borderNeutral}`
@@ -74,7 +75,7 @@ export default function CreateHomePanel({ people, defaultName = '', fieldConfig,
           </button>
         </div>
         <p style={{ margin: '0 0 14px', fontSize: 12.5, color: t.textMuted, lineHeight: 1.5 }}>
-          Group the {n} selected {n === 1 ? 'person' : 'people'} into one home — who lives together, regardless of family tree. The eldest becomes the home head.
+          Group the {n} selected {n === 1 ? 'person' : 'people'} into one home — who lives together, regardless of family tree. The home is named after its head.
         </p>
 
         {/* Selected people chips */}
@@ -95,11 +96,15 @@ export default function CreateHomePanel({ people, defaultName = '', fieldConfig,
           ))}
         </div>
 
-        {/* Home name — defaults to the eldest (the home head) */}
+        {/* Head of the home — defaults to the eldest by generation, selectable */}
         <div style={{ marginBottom: 14 }}>
-          <label style={label}>Home name</label>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder={defaultName || "e.g. Ramesh's house"} style={field} />
-          <p style={{ margin: '5px 0 0', fontSize: 11, color: t.textMuted }}>Defaults to the eldest member — edit if you like.</p>
+          <label style={label}>Head of the home</label>
+          <select value={headId} onChange={e => setHeadId(e.target.value)} style={{ ...field, cursor: 'pointer' }}>
+            {people.map(p => (
+              <option key={p.id} value={p.id}>{p.id === defaultHeadId ? `${p.name} (eldest)` : p.name}</option>
+            ))}
+          </select>
+          <p style={{ margin: '5px 0 0', fontSize: 11, color: t.textMuted }}>Defaults to the eldest by generation — change if you like.</p>
         </div>
 
         {/* City (required) — dropdown from admin fields when configured, else text */}
@@ -131,7 +136,7 @@ export default function CreateHomePanel({ people, defaultName = '', fieldConfig,
             Cancel
           </button>
           <button
-            onClick={() => onCreate({ name: name.trim(), city: city.trim() })}
+            onClick={() => onCreate({ headPersonId: headId, city: city.trim() })}
             disabled={!canCreate || applying}
             style={{
               flex: 2, height: 44, borderRadius: 11, border: 'none',

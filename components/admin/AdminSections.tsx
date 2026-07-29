@@ -592,6 +592,12 @@ export function HomesSection({ slug, isDark, onOpenPerson }: SectionProps) {
     catch (e) { setError(e instanceof Error ? e.message : 'Failed to remove person') }
     finally { setBusyId(null) }
   }
+  const makeHead = async (id: string, personId: string) => {
+    setBusyId(id); setError('')
+    try { await api.community.updateHome(slug, id, { head_person_id: personId }); load() }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to change head') }
+    finally { setBusyId(null) }
+  }
 
   const cardBg = isDark ? '#1C1A12' : '#fff'
   const border = `1px solid ${t.borderNeutral}`
@@ -669,15 +675,26 @@ export function HomesSection({ slug, isDark, onOpenPerson }: SectionProps) {
 
                 {/* Members — click to open, × to remove from the home. */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-                  {h.members.map(m => (
+                  {h.members.map(m => {
+                    const isHead = m.person_id === h.head_person_id
+                    return (
                     <span key={m.person_id} style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4,
                       fontSize: 11.5, fontWeight: 600, color: t.text,
-                      background: isDark ? 'rgba(255,255,255,0.04)' : '#F4F1EC',
-                      border, borderRadius: 999, padding: '3px 4px 3px 10px',
+                      background: isHead ? 'rgb(var(--c-primary-rgb) / 0.12)' : (isDark ? 'rgba(255,255,255,0.04)' : '#F4F1EC'),
+                      border: isHead ? '1px solid var(--c-primary)' : border, borderRadius: 999, padding: '3px 4px 3px 10px',
                     }}>
                       <button onClick={() => onOpenPerson(m.person_id)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: t.text, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 600 }}>
                         {m.name}
+                      </button>
+                      {/* Crown: filled for the head, ghost + clickable to promote others. */}
+                      <button
+                        onClick={() => { if (!isHead) makeHead(h.id, m.person_id) }}
+                        disabled={isHead}
+                        title={isHead ? 'Home head' : 'Make home head'}
+                        style={{ background: 'none', border: 'none', padding: '0 2px', display: 'flex', cursor: isHead ? 'default' : 'pointer', color: isHead ? 'var(--c-primary)' : t.textMuted }}
+                      >
+                        <IconCrown size={12} />
                       </button>
                       <button
                         onClick={() => removeMember(h.id, m.person_id)}
@@ -687,7 +704,8 @@ export function HomesSection({ slug, isDark, onOpenPerson }: SectionProps) {
                         ×
                       </button>
                     </span>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )

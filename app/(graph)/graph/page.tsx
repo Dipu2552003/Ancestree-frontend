@@ -361,13 +361,16 @@ function GraphInner() {
   }, [bulkScope, bulkIds, exitBulk, resetAndFetch])
 
   // Create a home from the current selection + a city (community admin only).
-  const createHome = useCallback(async (input: { name: string; city: string }) => {
+  const createHome = useCallback(async (input: { headPersonId: string; city: string }) => {
     const slug = getCommunitySlug()
     if (!slug) return
     setBulkApplying(true); setBulkError('')
     try {
+      // No free-text name — the home is named after its head (display derives
+      // "{HeadFirstName}'s home"). Send the chosen head so the backend honors it
+      // instead of auto-picking by birth_year.
       await api.community.createHome(slug, {
-        name: input.name || undefined,
+        head_person_id: input.headPersonId,
         city: input.city,
         person_ids: [...bulkIds],
       })
@@ -390,10 +393,12 @@ function GraphInner() {
     })
   }, [bulkIds, rawNodes, realIdOf])
 
-  // Default home name = the ELDEST selected member, by generation. Generation is
-  // derived from PARENT_OF depth in the graph (topmost ancestor = fewest parents
-  // above = eldest). Ties break on male → oldest birth_year → person_code.
-  const eldestName = useMemo(() => {
+  // Default home head = the ELDEST selected member, by GENERATION hierarchy —
+  // not birthdate. Generation = PARENT_OF depth in the graph (topmost ancestor =
+  // fewest parents above = eldest). Only among the same top generation do we fall
+  // back to male → oldest birth_year → person_code as a tie-break. The user can
+  // override this default in the Create-home panel.
+  const eldestHeadId = useMemo(() => {
     const ids = [...bulkIds]
     if (ids.length === 0) return ''
 
@@ -428,7 +433,7 @@ function GraphInner() {
       if (ay !== by) return ay - by
       return (pa.personCode ?? '').localeCompare(pb.personCode ?? '')
     })
-    return ranked[0] ? (dataOf(ranked[0])!.fullName ?? '') : ''
+    return ranked[0] ?? ''
   }, [bulkIds, rawNodes, rawEdges, realIdOf])
 
   // The person currently in view (self / perspective anchor) — seeds the navbar
@@ -796,7 +801,7 @@ function GraphInner() {
       ) : bulkScope === 'selection' && bulkPanelOpen && communityId && bulkChoice === 'home' ? (
         <CreateHomePanel
           people={bulkPeople}
-          defaultName={eldestName}
+          defaultHeadId={eldestHeadId}
           fieldConfig={fieldConfig}
           isDark={isDark}
           applying={bulkApplying}
