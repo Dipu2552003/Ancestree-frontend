@@ -188,7 +188,7 @@ export default function AdminDashboard() {
 
 const TITLES: Record<AdminTab, { title: string; sub: string }> = {
   overview: { title: 'Overview',        sub: 'A snapshot of your community at a glance.' },
-  members:  { title: 'Members',         sub: 'Everyone who has signed up — click anyone to open their tree.' },
+  members:  { title: 'Members & Access', sub: 'Everyone who has signed up. Set each member’s access level (owner only), or click a name to open their tree.' },
   families: { title: 'Families',        sub: 'Every family tree in the community — click one to open it.' },
   homes:    { title: 'Homes',           sub: 'Who lives together, independent of the family tree. Click a home to open its head’s view.' },
   fields:   { title: 'Fields',          sub: 'Choose which details members fill in, and set dropdown values.' },

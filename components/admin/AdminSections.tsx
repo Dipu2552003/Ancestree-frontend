@@ -309,9 +309,11 @@ export function MembersSection({ slug, isOwner, isDark, onOpenPerson }: SectionP
   const [error, setError]     = useState('')
   const [q, setQ]             = useState('')
   const [busyId, setBusyId]   = useState<string | null>(null)
+  const [levelFilter, setLevelFilter] = useState<number | null>(null)
+  const [showLegend, setShowLegend]   = useState(false)
 
   // No synchronous setLoading here — the initial `loading` state is already
-  // true, and refreshes (after a role change) surface progress via the per-row
+  // true, and refreshes (after a level change) surface progress via the per-row
   // busy spinner, not the full-panel loader. Keeps this off the effect's sync path.
   const load = useCallback(() => {
     api.community.members(slug)
@@ -322,18 +324,27 @@ export function MembersSection({ slug, isOwner, isDark, onOpenPerson }: SectionP
 
   useEffect(() => { load() }, [load])
 
+  // Member count per access level, for the summary/filter chips.
+  const counts = useMemo(() => {
+    const c = [0, 0, 0, 0, 0]
+    for (const m of members) c[Math.max(0, Math.min(4, m.level ?? 2))]++
+    return c
+  }, [members])
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    if (!needle) return members
-    return members.filter(m =>
-      (m.person_name || m.display_name || '').toLowerCase().includes(needle) ||
-      m.email.toLowerCase().includes(needle))
-  }, [members, q])
+    return members.filter(m => {
+      if (levelFilter !== null && (m.level ?? 2) !== levelFilter) return false
+      if (!needle) return true
+      return (m.person_name || m.display_name || '').toLowerCase().includes(needle) ||
+             m.email.toLowerCase().includes(needle)
+    })
+  }, [members, q, levelFilter])
 
-  const changeRole = async (m: CommunityMember, role: 'admin' | 'member') => {
+  const changeLevel = async (m: CommunityMember, level: number) => {
     setBusyId(m.id); setError('')
-    try { await api.community.setMemberRole(slug, m.id, role); load() }
-    catch (e) { setError(e instanceof Error ? e.message : 'Failed to update role') }
+    try { await api.community.setMemberLevel(slug, m.id, level); load() }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to update access level') }
     finally { setBusyId(null) }
   }
 
@@ -355,6 +366,41 @@ export function MembersSection({ slug, isOwner, isDark, onOpenPerson }: SectionP
     <div>
       <ErrorNote msg={error} isDark={isDark} />
 
+      {/* Access-level summary — click a chip to filter that level */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <LevelFilterChip label="All" count={members.length} active={levelFilter === null} onClick={() => setLevelFilter(null)} isDark={isDark} />
+        {LEVEL_META.map(l => (
+          <LevelFilterChip
+            key={l.v} label={l.name} count={counts[l.v]} color={l.fg}
+            active={levelFilter === l.v}
+            onClick={() => setLevelFilter(levelFilter === l.v ? null : l.v)}
+            isDark={isDark}
+          />
+        ))}
+        <button
+          onClick={() => setShowLegend(s => !s)}
+          style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: 'var(--c-primary)' }}
+        >
+          {showLegend ? 'Hide levels' : 'What do levels mean?'}
+        </button>
+      </div>
+
+      {showLegend && (
+        <div style={{ background: cardBg, border, borderRadius: 12, padding: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {LEVEL_META.map(l => (
+            <div key={l.v} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <span style={{ flexShrink: 0, width: 92 }}><LevelBadge level={l.v} isDark={isDark} /></span>
+              <span style={{ fontSize: 12.5, lineHeight: 1.45, color: t.textMuted }}>{l.desc}</span>
+            </div>
+          ))}
+          {!isOwner && (
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: t.textMuted, fontStyle: 'italic' }}>
+              Only the community owner can change access levels.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Search */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42, padding: '0 12px', marginBottom: 14, background: cardBg, border, borderRadius: 11 }}>
         <IconSearch size={16} style={{ color: t.textMuted, flexShrink: 0 }} />
@@ -370,7 +416,7 @@ export function MembersSection({ slug, isOwner, isDark, onOpenPerson }: SectionP
         <div style={{ background: cardBg, border, borderRadius: 14, overflow: 'hidden' }}>
           {filtered.map(m => {
             const name = m.person_name || m.display_name || 'Unnamed'
-            const isAdmin = m.role === 'owner' || m.role === 'admin'
+            const isOwnerRow = m.role === 'owner' || (m.level ?? 2) >= 4
             return (
               <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px', borderBottom: border }}>
                 <button
@@ -387,22 +433,22 @@ export function MembersSection({ slug, isOwner, isDark, onOpenPerson }: SectionP
 
                 <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0, marginRight: 4 }}>{fmtDate(m.joined_at)}</span>
 
-                {m.role === 'owner' ? (
-                  <RoleBadge label="Owner" isDark={isDark} />
+                {busyId === m.id ? (
+                  <IconLoader2 size={15} style={{ color: 'var(--c-primary)', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                ) : isOwnerRow ? (
+                  <LevelBadge level={4} isDark={isDark} />
+                ) : isOwner ? (
+                  // Owner: assign level (Viewer…Admin) + delete.
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <LevelSelect level={m.level ?? 2} onChange={v => changeLevel(m, v)} isDark={isDark} />
+                    <MiniBtn onClick={() => deleteUser(m)} isDark={isDark} danger>Delete</MiniBtn>
+                  </div>
                 ) : (
-                  <>
-                    {isAdmin ? <RoleBadge label="Admin" isDark={isDark} /> : null}
-                    {busyId === m.id ? (
-                      <IconLoader2 size={15} style={{ color: 'var(--c-primary)', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        {isOwner && (m.role === 'member'
-                          ? <MiniBtn onClick={() => changeRole(m, 'admin')} isDark={isDark}>Make admin</MiniBtn>
-                          : <MiniBtn onClick={() => changeRole(m, 'member')} isDark={isDark}>Remove admin</MiniBtn>)}
-                        <MiniBtn onClick={() => deleteUser(m)} isDark={isDark} danger>Delete user</MiniBtn>
-                      </div>
-                    )}
-                  </>
+                  // Admin: sees the level (read-only) + can delete users.
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <LevelBadge level={m.level ?? 2} isDark={isDark} />
+                    <MiniBtn onClick={() => deleteUser(m)} isDark={isDark} danger>Delete</MiniBtn>
+                  </div>
                 )}
               </div>
             )
@@ -416,16 +462,77 @@ export function MembersSection({ slug, isOwner, isDark, onOpenPerson }: SectionP
   )
 }
 
-function RoleBadge({ label, isDark }: { label: string; isDark: boolean }) {
+// ── Access levels (see backend docs/ACCESS_LEVELS.md) ────────────────────────
+export const LEVEL_META: { v: number; name: string; desc: string; fg: string; bg: (d: boolean) => string }[] = [
+  { v: 0, name: 'Viewer',        desc: 'Can view and search, but can’t make any changes.',
+    fg: '#64748B', bg: d => d ? 'rgba(148,163,184,0.16)' : 'rgba(100,116,139,0.10)' },
+  { v: 1, name: 'Household',     desc: 'Can edit their own node and members of their home, and send merge requests.',
+    fg: '#0284C7', bg: d => d ? 'rgba(14,165,233,0.18)' : 'rgba(2,132,199,0.10)' },
+  { v: 2, name: 'Family Editor', desc: 'Default. Full control of their own family tree — add, edit, delete, invite.',
+    fg: 'var(--c-primary)', bg: d => d ? 'rgb(var(--c-primary-rgb) / 0.16)' : 'rgb(var(--c-primary-rgb) / 0.09)' },
+  { v: 3, name: 'Admin',         desc: 'Cross-cluster edits, create clusters, manage members / homes / fields, moderate merges.',
+    fg: '#C2410C', bg: d => d ? 'rgba(194,65,12,0.20)' : 'rgba(194,65,12,0.10)' },
+  { v: 4, name: 'Owner',         desc: 'Everything, plus the merge console, admin promotion and community settings.',
+    fg: '#B45309', bg: d => d ? 'rgba(180,83,9,0.22)' : 'rgba(180,83,9,0.12)' },
+]
+const metaOf = (lvl: number) => LEVEL_META[Math.max(0, Math.min(4, lvl ?? 2))]
+
+function LevelBadge({ level, isDark }: { level: number; isDark: boolean }) {
+  const m = metaOf(level)
   return (
     <span style={{
-      fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
-      color: 'var(--c-primary)', flexShrink: 0,
-      background: isDark ? 'rgb(var(--c-primary-rgb) / 0.14)' : 'rgb(var(--c-primary-rgb) / 0.08)',
-      borderRadius: 999, padding: '3px 9px',
+      fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em',
+      color: m.fg, background: m.bg(isDark), flexShrink: 0,
+      borderRadius: 999, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
-      {label}
+      {m.name}
     </span>
+  )
+}
+
+// Owner-only inline level picker (Viewer … Admin; Owner is transfer-only).
+function LevelSelect({ level, onChange, isDark }: { level: number; onChange: (v: number) => void; isDark: boolean }) {
+  const t = getTheme(isDark)
+  const m = metaOf(level)
+  return (
+    <select
+      value={level}
+      onChange={e => onChange(Number(e.target.value))}
+      title="Set access level"
+      style={{
+        height: 30, padding: '0 8px', borderRadius: 8, cursor: 'pointer',
+        border: `1px solid ${t.borderNeutral}`, background: m.bg(isDark), color: m.fg,
+        fontFamily: 'inherit', fontSize: 12, fontWeight: 700, flexShrink: 0, outline: 'none',
+      }}
+    >
+      {LEVEL_META.filter(l => l.v <= 3).map(l => (
+        <option key={l.v} value={l.v} style={{ color: '#111', background: '#fff', fontWeight: 600 }}>
+          {l.name}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function LevelFilterChip({ label, count, active, color, onClick, isDark }: {
+  label: string; count: number; active: boolean; color?: string; onClick: () => void; isDark: boolean
+}) {
+  const t = getTheme(isDark)
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 11px',
+        borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
+        border: `1px solid ${active ? (color ?? 'var(--c-primary)') : t.borderNeutral}`,
+        background: active ? (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)') : 'transparent',
+        color: active ? (color ?? 'var(--c-primary)') : t.textMuted,
+      }}
+    >
+      {color && <span style={{ width: 7, height: 7, borderRadius: '50%', background: color }} />}
+      {label}
+      <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.85 }}>{count}</span>
+    </button>
   )
 }
 

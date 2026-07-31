@@ -40,6 +40,8 @@ export interface CommunityMember {
   email:        string
   display_name: string | null
   role:         'owner' | 'admin' | 'member'
+  /** Access level 0 Viewer … 4 Owner (see backend docs/ACCESS_LEVELS.md). */
+  level:        number
   joined_at:    string
   person_id:    string | null   // their own node — deep-link target
   person_name:  string | null
@@ -249,6 +251,13 @@ export const community = {
     req<{ success: true }>(
       `/api/community/${encodeURIComponent(slug)}/members/${encodeURIComponent(userId)}`,
       { method: 'PUT', body: JSON.stringify({ role }) },
+    ),
+
+  /** Owner-only: set a member's access level (0 Viewer … 3 Admin). */
+  setMemberLevel: (slug: string, userId: string, level: number) =>
+    req<{ success: true; level: number }>(
+      `/api/community/${encodeURIComponent(slug)}/members/${encodeURIComponent(userId)}/level`,
+      { method: 'PUT', body: JSON.stringify({ level }) },
     ),
 
   /** Admin-only: remove a member from the community. */
