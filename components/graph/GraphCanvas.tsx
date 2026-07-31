@@ -32,9 +32,12 @@ interface GraphCanvasProps {
   onNodeClick: (nodeId: string, coords: { x: number; y: number }) => void
   onNodeContextMenu?: (event: MouseEvent, nodeId: string) => void
   onPaneClick?: () => void
+  /** Fires when the user starts panning/zooming the canvas — used to dismiss the
+   *  node context menu so it never floats detached over a moved graph. */
+  onMoveStart?: () => void
 }
 
-export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick, onNodeContextMenu, onPaneClick }: GraphCanvasProps) {
+export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick, onNodeContextMenu, onPaneClick, onMoveStart }: GraphCanvasProps) {
   const { currentZoom } = useGraphStore()
   const isMobile = useIsMobile()
   const { rotateX, rotateY, handleMouseMove, handleMouseLeave } = useTiltEffect()
@@ -82,6 +85,7 @@ export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange
         onNodeClick={handleNodeClick}
         onNodeContextMenu={handleNodeContextMenu}
         onPaneClick={onPaneClick}
+        onMoveStart={onMoveStart ? () => onMoveStart() : undefined}
         defaultViewport={{ x: 0, y: 0, zoom: currentZoom }}
         minZoom={0.15}
         maxZoom={3}

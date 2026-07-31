@@ -85,6 +85,10 @@ export default function OnboardingTour({ active, isDark, onStart, onFinish }: On
   const [viewport, setViewport] = useState(() =>
     typeof window !== 'undefined' ? { w: window.innerWidth, h: window.innerHeight } : { w: 0, h: 0 })
   const startedRef = useRef(false)
+  // Measured tooltip height — lets us flip/clamp it so it never leaves the screen
+  // (its content, hence height, varies per step).
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [cardH, setCardH] = useState(0)
 
   // Kick off: focus the viewer's own node once so downstream steps (Add, Edit,
   // Home) point at live, enabled controls.
@@ -147,6 +151,16 @@ export default function OnboardingTour({ active, isDark, onStart, onFinish }: On
     }
   }, [active, step, measure])
 
+  // Measure the tooltip after it paints so the flip/clamp below uses its real
+  // height (content differs per step). rAF keeps it out of the render pass.
+  useEffect(() => {
+    if (!active) return
+    const id = requestAnimationFrame(() => {
+      if (cardRef.current) setCardH(cardRef.current.offsetHeight)
+    })
+    return () => cancelAnimationFrame(id)
+  }, [active, step, rect, viewport.w, viewport.h])
+
   const finish = useCallback(() => { setRect(null); onFinish() }, [onFinish])
   const next = useCallback(() => {
     setRect(null)
@@ -175,21 +189,30 @@ export default function OnboardingTour({ active, isDark, onStart, onFinish }: On
     h: rect.height + pad * 2,
   } : null
 
-  // Tooltip position: anchored by top (placement 'bottom') or by bottom
-  // (placement 'top') so we never need to know the card's height in advance.
-  const CARD_W = Math.min(320, viewport.w - 32)
-  let cardLeft = 16
-  let cardTop: number | undefined
-  let cardBottom: number | undefined
+  // Tooltip position. Honour the step's preferred side when the card fits there;
+  // otherwise flip to the side with room, then clamp so it's always fully
+  // on-screen (works for a self-node near any edge, on desktop and mobile).
+  const M = 12
+  const CARD_W = Math.min(320, viewport.w - 2 * M)
+  const ch = cardH || 260 // conservative fallback until measured (first frame)
+  const maxCardH = viewport.h - 2 * M
+  let cardLeft: number
+  let cardTop: number
   if (rect) {
     const centre = rect.left + rect.width / 2
-    cardLeft = Math.min(Math.max(16, centre - CARD_W / 2), viewport.w - 16 - CARD_W)
-    if (current.placement === 'bottom') cardTop = rect.top + rect.height + 14
-    else cardBottom = viewport.h - rect.top + 14
+    cardLeft = Math.min(Math.max(M, centre - CARD_W / 2), viewport.w - M - CARD_W)
+    const below = rect.top + rect.height + 14
+    const above = rect.top - 14 - ch
+    const fitsBelow = below + ch <= viewport.h - M
+    const fitsAbove = above >= M
+    cardTop = current.placement === 'bottom'
+      ? (fitsBelow ? below : fitsAbove ? above : below)
+      : (fitsAbove ? above : fitsBelow ? below : above)
+    cardTop = Math.min(Math.max(M, cardTop), Math.max(M, viewport.h - ch - M))
   } else {
     // Anchor not measured yet — park the card centred so text is still readable.
-    cardLeft = Math.max(16, viewport.w / 2 - CARD_W / 2)
-    cardTop = Math.max(16, viewport.h / 2 - 90)
+    cardLeft = Math.max(M, viewport.w / 2 - CARD_W / 2)
+    cardTop = Math.max(M, viewport.h / 2 - ch / 2)
   }
 
   const Z = 5000
@@ -223,6 +246,7 @@ export default function OnboardingTour({ active, isDark, onStart, onFinish }: On
       <AnimatePresence mode="wait">
         <motion.div
           key={step}
+          ref={cardRef}
           initial={{ opacity: 0, y: 8, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 8, scale: 0.97 }}
@@ -231,8 +255,9 @@ export default function OnboardingTour({ active, isDark, onStart, onFinish }: On
             position: 'fixed',
             left: cardLeft,
             top: cardTop,
-            bottom: cardBottom,
             width: CARD_W,
+            maxHeight: maxCardH,
+            overflowY: 'auto',
             pointerEvents: 'auto',
             background: t.panelBg,
             border: `1px solid ${t.borderNeutral}`,

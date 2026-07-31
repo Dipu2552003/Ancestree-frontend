@@ -21,13 +21,15 @@ interface GraphCanvasAreaProps {
   onPaneClick:       () => void
   onNodeClick:       (nodeId: string, coords: { x: number; y: number }) => void
   onNodeContextMenu: (event: MouseEvent, nodeId: string) => void
+  /** Dismiss the node context menu when the canvas starts panning/zooming. */
+  onMoveStart?:      () => void
 }
 
 export default function GraphCanvasArea({
   isDark, isMobile, canvasReady,
   nodes, edges,
   onNodesChange, onEdgesChange,
-  onPaneClick, onNodeClick, onNodeContextMenu,
+  onPaneClick, onNodeClick, onNodeContextMenu, onMoveStart,
 }: GraphCanvasAreaProps) {
   const t = getTheme(isDark)
 
@@ -43,6 +45,7 @@ export default function GraphCanvasArea({
           onPaneClick={onPaneClick}
           onNodeClick={onNodeClick}
           onNodeContextMenu={onNodeContextMenu}
+          onMoveStart={onMoveStart}
         />
       </motion.div>
 

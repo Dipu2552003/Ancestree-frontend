@@ -81,8 +81,14 @@ export default function NodeContextMenu({
     + (onSelectBloodline ? 1 : 0)
     + (onSelectMultiple ? 1 : 0)
   const MENU_H = 58 + itemCount * 34
-  const left = x + MENU_W > window.innerWidth  ? x - MENU_W : x
-  const top  = y + MENU_H > window.innerHeight ? y - MENU_H : y
+  // Open down-right of the pointer; flip when it would overflow that edge, then
+  // clamp so the menu is ALWAYS fully on-screen — including near corners, where a
+  // bare flip could still push it past the opposite edge (mobile especially).
+  const M = 8
+  const vw = typeof window !== 'undefined' ? window.innerWidth  : 1024
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 768
+  const left = Math.min(Math.max(M, x + MENU_W > vw - M ? x - MENU_W : x), vw - MENU_W - M)
+  const top  = Math.min(Math.max(M, y + MENU_H > vh - M ? y - MENU_H : y), vh - MENU_H - M)
 
   const bg     = isDark ? '#1A1410' : '#FFFAF5'
   const border = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.10)'
@@ -132,7 +138,8 @@ export default function NodeContextMenu({
         width: `${MENU_W}px`,
         background: bg, border: `1px solid ${border}`,
         borderRadius: '12px', boxShadow: shadow,
-        overflow: 'hidden', userSelect: 'none',
+        maxHeight: `${vh - 2 * M}px`, overflowX: 'hidden', overflowY: 'auto',
+        userSelect: 'none',
       }}
     >
       {/* Header — presentational, not part of the menu list */}

@@ -59,6 +59,24 @@ function asPersonData(data: unknown): PersonData {
   return data as PersonData
 }
 
+// Anchor the node context-menu to the SELECTED node's box (so it sticks beside
+// the node instead of floating at the pointer). Opens to the node's right, or
+// flips to its left when there's no room. Falls back to the pointer position if
+// the node element isn't found. NodeContextMenu still clamps vertically + as a
+// final safety. MENU_W must match NodeContextMenu's own width.
+const CTX_MENU_W = 220
+function menuAnchorForNode(nodeId: string, fallback: { x: number; y: number }): { x: number; y: number } {
+  if (typeof document === 'undefined') return fallback
+  const el = document.querySelector(`.react-flow__node[data-id="${CSS.escape(nodeId)}"]`)
+  const r = el?.getBoundingClientRect()
+  if (!r) return fallback
+  const GAP = 6, M = 8
+  const x = r.right + GAP + CTX_MENU_W <= window.innerWidth - M
+    ? r.right + GAP
+    : Math.max(M, r.left - GAP - CTX_MENU_W)
+  return { x, y: r.top }
+}
+
 // Family-badge count views, cycled by clicking the number.
 type CountMode = 'side' | 'family' | 'community'
 
@@ -659,7 +677,10 @@ function GraphInner() {
             // navbar's actions activate for it, then show the action menu.
             s.setSelectedNodeId(id)
             s.setPanelMode('none')
-            s.setContextMenu({ nodeId: id, x: coords.x, y: coords.y, personData: asPersonData(node.data) })
+            {
+              const a = menuAnchorForNode(id, { x: coords.x, y: coords.y })
+              s.setContextMenu({ nodeId: id, x: a.x, y: a.y, personData: asPersonData(node.data) })
+            }
             return
           }
           s.setSelectedNodeId(prev => {
@@ -674,8 +695,14 @@ function GraphInner() {
           if (!node) return
           s.setSelectedNodeId(null)
           s.setPanelMode('none')
-          s.setContextMenu({ nodeId, x: event.clientX, y: event.clientY, personData: asPersonData(node.data) })
+          {
+            const a = menuAnchorForNode(nodeId, { x: event.clientX, y: event.clientY })
+            s.setContextMenu({ nodeId, x: a.x, y: a.y, personData: asPersonData(node.data) })
+          }
         }}
+        // Panning/zooming the canvas dismisses the node menu (it's screen-anchored,
+        // so it would otherwise float detached over the moved graph).
+        onMoveStart={() => s.setContextMenu(null)}
       />
 
       <GraphHUD
