@@ -33,10 +33,14 @@ export interface RelConfig {
 }
 
 export interface WizardExtras {
+  firstName?:       string
+  lastName?:        string
   gender?:          string
   birthYear?:       number
   birthMonth?:      number
   birthDay?:        number
+  /** Full ISO date (YYYY-MM-DD) when day+month+year were all given. */
+  birthDate?:       string
   photoUrl?:        string
   // Spouse-only — collected on the 'marriage' step.
   marriageStatus?:  MarriageStatus

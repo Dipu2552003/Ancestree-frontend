@@ -15,6 +15,8 @@ export const graph = {
       edges: import('@xyflow/react').Edge[]
       meta: {
         totalNodes:               number
+        /** The family this graph belongs to — echoed back as X-Act-Family on writes. */
+        familyId:                 string
         perspectivePersonId?:     string
         effectiveAncestorDepth:   number
         effectiveDescendantDepth: number

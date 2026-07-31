@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { IconSearch, IconX, IconLoader2, IconRefresh } from '@tabler/icons-react'
+import { IconSearch, IconX, IconLoader2, IconRefresh, IconFilter } from '@tabler/icons-react'
 import { api, type SearchResult } from '@/lib/api'
 import { getTheme } from '@/lib/theme'
 import { useElapsedSeconds } from '@/hooks/useElapsedSeconds'
@@ -28,6 +28,14 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
   const [searchError, setSearchError] = useState(false)
   const [failCount,   setFailCount]   = useState(0)  // consecutive failed searches
 
+  // ── Refine filters (gender / age) ──────────────────────────────────────────
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [gender, setGender] = useState<'' | 'male' | 'female'>('')
+  const [ageMin, setAgeMin] = useState('')
+  const [ageMax, setAgeMax] = useState('')
+  const hasFilters = gender !== '' || ageMin !== '' || ageMax !== ''
+  const clearFilters = () => { setGender(''); setAgeMin(''); setAgeMax('') }
+
   // Elapsed timer beside the spinner — reassures during a slow backend cold start.
   const seconds = useElapsedSeconds(loading)
 
@@ -47,7 +55,11 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
     }
     setLoading(true)
     setSearchError(false)
-    api.search.persons(q)
+    api.search.persons(q, 'all', {
+      gender: gender || undefined,
+      ageMin: ageMin ? parseInt(ageMin, 10) : undefined,
+      ageMax: ageMax ? parseInt(ageMax, 10) : undefined,
+    })
       .then(({ results: res }) => {
         setResults(res)
         setOpen(true)
@@ -61,7 +73,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
         setFailCount(c => c + 1)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [gender, ageMin, ageMax])
 
   const retrySearch = useCallback(() => search(query), [search, query])
 
@@ -87,6 +99,7 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
     function onOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false)
+        setFilterOpen(false)
       }
     }
     document.addEventListener('mousedown', onOutside)
@@ -185,7 +198,97 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
             <IconX size={14} />
           </button>
         )}
+        {/* Refine filters (gender / age) */}
+        <button
+          onClick={() => setFilterOpen(o => !o)}
+          title="Filter results"
+          style={{
+            position: 'relative', background: 'none', border: 'none', cursor: 'pointer',
+            color: filterOpen || hasFilters ? 'var(--c-primary)' : t.textMuted,
+            display: 'flex', padding: 0, flexShrink: 0,
+          }}
+        >
+          <IconFilter size={15} />
+          {hasFilters && (
+            <span style={{
+              position: 'absolute', top: -3, right: -3, width: 6, height: 6,
+              borderRadius: '50%', background: 'var(--c-primary)',
+            }} />
+          )}
+        </button>
       </div>
+
+      {/* Filter panel */}
+      <AnimatePresence>
+        {filterOpen && (
+          <motion.div
+            key="filters"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{    opacity: 0, y: -4 }}
+            transition={{ duration: 0.12 }}
+            style={{
+              position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 1000,
+              width: 240, background: t.cardBg,
+              border: '1.5px solid var(--c-primary)', borderRadius: 10,
+              boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.5)' : '0 8px 24px rgba(0,0,0,0.12)',
+              padding: 12, display: 'flex', flexDirection: 'column', gap: 12,
+            }}
+          >
+            {/* Gender */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: t.textMuted }}>Gender</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {([['', 'Any'], ['male', 'Male'], ['female', 'Female']] as const).map(([val, label]) => (
+                  <button
+                    key={label}
+                    onClick={() => setGender(val)}
+                    style={{
+                      flex: 1, height: 30, borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
+                      fontSize: 12, fontWeight: 600,
+                      border: `1px solid ${gender === val ? 'var(--c-primary)' : t.controlBorder}`,
+                      background: gender === val ? 'rgb(var(--c-primary-rgb) / 0.10)' : 'transparent',
+                      color: gender === val ? 'var(--c-primary)' : t.text,
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Age range */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: t.textMuted }}>Age</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  value={ageMin} onChange={e => setAgeMin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Min" inputMode="numeric" maxLength={3}
+                  style={{ width: '100%', height: 32, padding: '0 8px', borderRadius: 7, border: `1px solid ${t.controlBorder}`, background: t.cardBg, color: t.text, fontSize: 12.5, fontFamily: 'inherit', outline: 'none' }}
+                />
+                <span style={{ color: t.textMuted, fontSize: 12 }}>–</span>
+                <input
+                  value={ageMax} onChange={e => setAgeMax(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Max" inputMode="numeric" maxLength={3}
+                  style={{ width: '100%', height: 32, padding: '0 8px', borderRadius: 7, border: `1px solid ${t.controlBorder}`, background: t.cardBg, color: t.text, fontSize: 12.5, fontFamily: 'inherit', outline: 'none' }}
+                />
+              </div>
+            </div>
+
+            {hasFilters && (
+              <button
+                onClick={clearFilters}
+                style={{
+                  alignSelf: 'flex-start', background: 'none', border: 'none', cursor: 'pointer',
+                  color: t.textMuted, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', padding: 0,
+                }}
+              >
+                Clear filters
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Dropdown */}
       <AnimatePresence>

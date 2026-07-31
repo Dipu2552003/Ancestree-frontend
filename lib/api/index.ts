@@ -19,7 +19,7 @@ export const api = {
 
 // Token helpers + fetch wrapper + depth constants
 export {
-  setToken, getToken, clearToken,
+  setToken, getToken, clearToken, setActFamily,
   ANCESTOR_DEPTH_DEFAULT, DESCENDANT_DEPTH_DEFAULT, DEPTH_LOAD_STEP,
   COLD_START_TIMEOUT_MS, RequestTimeoutError, isColdStartError,
 } from './client'

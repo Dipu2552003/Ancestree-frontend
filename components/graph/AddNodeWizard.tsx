@@ -175,11 +175,19 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
       const dy = birthDay.trim()   ? parseInt(birthDay)   : undefined
       const uy = unionYear.trim()      ? parseInt(unionYear)      : undefined
       const sy = separationYear.trim() ? parseInt(separationYear) : undefined
+      // Full date only when all three parts are present; a year-only DOB stays
+      // in birthYear (birth_date needs a real calendar date).
+      const birthDate = dy && mo && yr && !isNaN(dy) && !isNaN(mo) && !isNaN(yr)
+        ? `${yr}-${String(mo).padStart(2, '0')}-${String(dy).padStart(2, '0')}`
+        : undefined
       await onAdd(relAction, fullName.trim(), {
+        firstName:      firstName.trim() || undefined,
+        lastName:       lastName.trim() || undefined,
         gender:         gender || undefined,
         birthYear:      yr && !isNaN(yr) ? yr : undefined,
         birthMonth:     mo && !isNaN(mo) ? mo : undefined,
         birthDay:       dy && !isNaN(dy) ? dy : undefined,
+        birthDate,
         photoUrl:       withPhoto ? photoUrl : undefined,
         marriageStatus: relAction === 'spouse' ? marriageStatus : undefined,
         unionYear:      relAction === 'spouse' && uy && !isNaN(uy) ? uy : undefined,
@@ -196,7 +204,7 @@ export default function AddNodeWizard({ relAction, anchorName, anchorGender, isD
     } catch {
       setSaving(false)
     }
-  }, [relAction, fullName, gender, birthYear, birthMonth, birthDay, photoUrl, marriageStatus, unionYear, separationYear, needsParentChoice, multiSpouse, adoptionStatus, motherChoice, addBioParents, bioMotherName, bioFatherName, onAdd])
+  }, [relAction, fullName, firstName, lastName, gender, birthYear, birthMonth, birthDay, photoUrl, marriageStatus, unionYear, separationYear, needsParentChoice, multiSpouse, adoptionStatus, motherChoice, addBioParents, bioMotherName, bioFatherName, onAdd])
 
   // Picking/dropping a file opens PhotoCropModal so the user can centre and
   // zoom before it lands on the node. The modal exports an already-compressed

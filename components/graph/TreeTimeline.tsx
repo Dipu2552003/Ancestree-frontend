@@ -87,7 +87,11 @@ export default function TreeTimeline({ perspectiveId, perspectiveName, isDark }:
 
   const goTo = (cp: JourneyStop | null, isCurrent: boolean) => {
     if (isCurrent) return
-    router.push(cp ? `/graph?perspective=${cp.id}` : '/graph')
+    if (cp) { router.push(`/graph?perspective=${cp.id}`); return }
+    // Home ("My Tree"): a soft router.push from /graph?perspective=… back to
+    // /graph occasionally didn't re-fetch the home tree. A full navigation to the
+    // landing graph always lands cleanly.
+    window.location.assign('/graph')
   }
 
   const connectorColor = isDark ? 'rgba(196,168,130,0.35)' : 'rgba(181,149,106,0.55)'

@@ -17,8 +17,12 @@ const GENDER_BY_RELATION: Partial<Record<RelAction, string>> = {
 }
 
 export interface AddExtras {
+  firstName?:      string
+  lastName?:       string
   gender?:         string
   birthYear?:      number
+  /** Full ISO date (YYYY-MM-DD) when the wizard collected a complete DOB. */
+  birthDate?:      string
   photoUrl?:       string
   // Spouse-only — marriage step
   marriageStatus?: 'married' | 'partner' | 'divorced' | 'widowed' | 'separated' | 'annulled' | 'unknown'
@@ -212,16 +216,24 @@ export function useNodeActions(
     try {
       const person = await api.persons.create({
         full_name:  cleanName,
+        // Forward the structured name the wizard collected so it survives to the
+        // edit panel (which reads first/last, not full_name). A blank last name
+        // lets the community's constant last-name autofill apply server-side.
+        first_name: extras?.firstName ? titleCase(extras.firstName) : undefined,
+        last_name:  extras?.lastName  ? titleCase(extras.lastName)  : undefined,
         is_alive:   true,
         gender:     extras?.gender ?? GENDER_BY_RELATION[action] ?? undefined,
         birth_year: extras?.birthYear,
         gotra:      inheritedGotra,
       })
 
-      // photo_url is not accepted on create — patch it immediately after
-      if (extras?.photoUrl) {
-        try { await api.persons.update(person.id, { photo_url: extras.photoUrl }) }
-        catch { /* non-critical: node is created, photo can be added later */ }
+      // photo_url + birth_date aren't accepted on create — patch them right after.
+      const postPatch: { photo_url?: string; birth_date?: string } = {}
+      if (extras?.photoUrl)  postPatch.photo_url  = extras.photoUrl
+      if (extras?.birthDate) postPatch.birth_date = extras.birthDate
+      if (Object.keys(postPatch).length > 0) {
+        try { await api.persons.update(person.id, postPatch) }
+        catch { /* non-critical: node exists, these can be edited later */ }
       }
 
       // All cascade logic (base edge + derived edges) lives in relationshipRules.ts.

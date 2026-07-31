@@ -8,7 +8,7 @@ import {
 } from '@xyflow/react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { PersonData } from '@/types'
-import { api, getToken, setToken } from '@/lib/api'
+import { api, getToken, setToken, setActFamily } from '@/lib/api'
 import { layoutEngine } from '@/lib/layouts/layoutEngine'
 import { filterGraphBySide, type WomanView } from '@/lib/layouts/familySideFilter'
 import { computeNodeRoles, computeDefaultCollapsedUnits } from '@/lib/layouts/computeNodeRoles'
@@ -90,6 +90,11 @@ export function useGraphData(perspectivePersonId?: string): GraphDataReturn {
       // A newer fetch (perspective switch) started while we were awaiting —
       // drop this stale response so it can't overwrite the current tree.
       if (myFetchId !== fetchIdRef.current) return
+      // Tag subsequent writes with the family in view. The backend applies it
+      // only if we're a community owner/admin of that family's community, so
+      // it's what enables cross-cluster edit / add-relation and is inert on our
+      // own tree.
+      setActFamily(data.meta.familyId ?? null)
       setDepthFlags({
         hasMoreAncestors:   data.meta.hasMoreAncestors,
         hasMoreDescendants: data.meta.hasMoreDescendants,

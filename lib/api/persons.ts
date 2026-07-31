@@ -4,6 +4,8 @@ import type { PotentialMatch, SameTreeMatch } from './types'
 export const persons = {
   create: (b: {
     full_name: string
+    first_name?: string
+    last_name?: string
     gender?: string
     birth_year?: number
     is_alive?: boolean

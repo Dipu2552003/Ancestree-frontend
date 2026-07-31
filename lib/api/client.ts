@@ -14,6 +14,15 @@ export function clearToken() {
   if (typeof window !== 'undefined') localStorage.removeItem('at')
 }
 
+// ── Acting family (cross-cluster admin writes) ────────────────────
+// The family whose tree is currently in view. Sent as X-Act-Family on every
+// request; the backend ignores it unless the requester is a community owner/admin
+// of that family's community, in which case person/relationship writes scope to
+// it — letting an admin edit / add relations on another cluster's nodes. Set to
+// the graph's meta.familyId after each load; harmless when it equals own family.
+let actFamily: string | null = null
+export function setActFamily(id: string | null) { actFamily = id }
+
 // ── Cold-start handling ───────────────────────────────────────────
 // The backend (Render) spins down after inactivity, so the FIRST request after
 // idle triggers a cold start that can take ~30-60s to respond. We give
@@ -58,6 +67,7 @@ export async function req<T>(
       headers: {
         'Content-Type': 'application/json',
         ...(t ? { Authorization: `Bearer ${t}` } : {}),
+        ...(actFamily ? { 'X-Act-Family': actFamily } : {}),
         ...(init.headers as Record<string, string> ?? {}),
       },
     })
