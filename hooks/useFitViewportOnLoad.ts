@@ -34,12 +34,13 @@ export function useFitViewportOnLoad({ graphLoading, visibleNodesCount, perspect
     fitDone.current = true
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        // On the home tree, land centred on the viewer's own node at zoom 1 —
-        // the same view the Home button gives — instead of a broad whole-tree
-        // fit. Perspective views (someone else's tree) keep the fit-to-view so
-        // the whole tree they navigated to is visible. Falls back to fitView if
-        // no self node is present.
-        const self = perspectiveId ? undefined : findSelfNode(getNodes())
+        // Land centred at zoom 1 on the "self" of this view — the viewer's own
+        // node on the home tree, or the person whose perspective we navigated to
+        // (the backend flags that person isSelf). Same framing the Home button
+        // gives, so clicking into someone's tree always opens focused on them
+        // rather than a broad whole-tree fit. Falls back to fitView if no such
+        // node is present.
+        const self = findSelfNode(getNodes())
         if (self) {
           const w = self.measured?.width  ?? (self.width  as number | undefined) ?? 128
           const h = self.measured?.height ?? (self.height as number | undefined) ?? 140
