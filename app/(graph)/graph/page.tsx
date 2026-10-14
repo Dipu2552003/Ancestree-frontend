@@ -257,6 +257,21 @@ function GraphInner() {
     ? nodes.find(n => asPersonData(n.data)?.isSelf) ?? null
     : null
   const perspectiveName   = asPersonData(perspectivePerson?.data)?.fullName ?? ''
+
+  // Deep-link from the community directory: ?perspective=<id>&view=profile lands
+  // on that person's profile overlay (friendlier first view), not just their bare
+  // tree. Open it once the perspective person has loaded; the ref lets "Back to
+  // tree" close it without this re-opening on the next render.
+  const wantProfile = searchParams.get('view') === 'profile'
+  const openedProfileRef = useRef(false)
+  useEffect(() => {
+    if (!wantProfile) { openedProfileRef.current = false; return }
+    if (openedProfileRef.current || !perspectivePerson) return
+    openedProfileRef.current = true
+    s.setSelectedNodeId(perspectivePerson.id)
+    s.setPanelMode('view')
+  }, [wantProfile, perspectivePerson?.id])  // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedNode      = s.selectedNodeId ? nodes.find(n => n.id === s.selectedNodeId) ?? null : null
   const selectedNodeName  = asPersonData(selectedNode?.data)?.fullName ?? ''
   const selectedIsSelf    = asPersonData(selectedNode?.data)?.isSelf ?? false
