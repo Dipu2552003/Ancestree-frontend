@@ -111,9 +111,10 @@ export function buildOverlayProps({
       isAdmin,
       onSelectBloodline: onSelectBloodline ? () => onSelectBloodline(s.contextMenu!.nodeId) : undefined,
       onSelectMultiple:  onSelectMultiple  ? () => onSelectMultiple(s.contextMenu!.nodeId)  : undefined,
-      // Merge requests can start from any tree/view. Own-family nodes merge
-      // forward (ours → theirs); foreign nodes flip to reverse mode below.
-      canMerge: true,
+      // Merge is an advanced, admin-only action — it's confusing for everyday
+      // family members and duplicates are already auto-surfaced to them via
+      // possible-match notifications. Admins can still start it from any node.
+      canMerge: !!isAdmin,
       // Adding relations is a family-membership right (any member, any node —
       // including owned/claimed ones), not a profile-edit right. `canEdit` is
       // true for nodes in the viewer's own family, so this also works while

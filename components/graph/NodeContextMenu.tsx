@@ -48,6 +48,7 @@ export default function NodeContextMenu({
   const mountedAt = useRef(Date.now())
 
   const treeLinkLabel = gender === 'female' ? 'View her family tree' : gender === 'male' ? 'View his family tree' : 'View their family tree'
+  const firstName = personName.split(' ')[0] || personName
 
   // Close on outside click/tap or Escape.
   // Guard: ignore pointer events within 300 ms of mount so the touchend that
@@ -76,8 +77,7 @@ export default function NodeContextMenu({
   const itemCount = 1 // View profile — always present
     + (canMerge ? 1 : 0)
     + (!isSelf && !isViewerNode ? 1 : 0)
-    + (canAddRelation ? 1 : 0)
-    + (canEdit ? 1 : 0)
+    + (canAddRelation ? 1 : 0) // the single Edit / Add family item (canEdit ⊆ canAddRelation)
     + (onSelectBloodline ? 1 : 0)
     + (onSelectMultiple ? 1 : 0)
   const MENU_H = 58 + itemCount * 34
@@ -151,11 +151,15 @@ export default function NodeContextMenu({
 
       {/* Menu items */}
       <div role="presentation" style={{ padding: '4px' }}>
-        {item(<IconUserCircle size={14} />, 'View profile', onViewProfile)}
+        {item(<IconUserCircle size={14} />, `View ${firstName}`, onViewProfile)}
         {!isSelf && !isViewerNode && item(<IconEye size={14} />, treeLinkLabel, onViewTree)}
-        {canAddRelation && item(<IconUserPlus size={14} />, 'Add relation', onAddRelation)}
-        {canEdit && item(<IconPencil size={14} />, 'Edit details', onEdit)}
-        {canMerge && item(<IconGitMerge size={14} />, 'Merge node', onMergeNode)}
+        {/* One edit-ish entry: "Edit" when the profile is editable, else "Add
+            family" on a relative's claimed node (you can still add their
+            relations, just not edit their details). canEdit ⊆ canAddRelation. */}
+        {canEdit
+          ? item(<IconPencil size={14} />, 'Edit', onEdit)
+          : canAddRelation && item(<IconUserPlus size={14} />, 'Add family', onAddRelation)}
+        {canMerge && item(<IconGitMerge size={14} />, 'Merge duplicate', onMergeNode)}
 
         {/* Admin-only bulk-selection tools */}
         {adminTools && (
