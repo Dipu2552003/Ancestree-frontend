@@ -37,6 +37,8 @@ interface NavbarProps {
    *  (claimed-by-someone-else) nodes are read-only, so the Edit button hides. */
   canEditSelected: boolean
   onHome: () => void
+  /** Clear the current node selection (from the selected-person chip's ✕). */
+  onDeselect?: () => void
   onStartWizard: (action: RelAction) => void
   onDeleteSelected: () => Promise<void>
   onEdit: () => void
@@ -75,7 +77,7 @@ export default function Navbar({
   familyName, timeline, selectedNodeId, selectedNodeName, selectedGender,
   canDeleteSelected, deleteDisabledReason, deleteChildrenNote, panelMode,
   canEditSelected,
-  onHome, onStartWizard, onDeleteSelected,
+  onHome, onDeselect, onStartWizard, onDeleteSelected,
   onEdit,
   isMarriedWoman, womanView, onWomanViewChange, isDark,
   forceAddOpen,
@@ -171,16 +173,18 @@ export default function Navbar({
   const editEnabled = canEditSelected
   const editVisible = !selectedNodeId || canEditSelected
 
+  // Enabled (a node is selected) buttons get a saffron tint + colour so the
+  // navbar visibly "wakes up" on selection — not just a near-identical grey.
   const actionBg = (active: boolean) => active
-    ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.18)' : 'rgb(var(--c-primary-rgb) / 0.10)')
+    ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.22)' : 'rgb(var(--c-primary-rgb) / 0.12)')
     : actionEnabled
-      ? (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')
+      ? (isDark ? 'rgb(var(--c-primary-rgb) / 0.12)' : 'rgb(var(--c-primary-rgb) / 0.07)')
       : (isDark ? '#2A2520' : '#F5F0EA')
 
   const actionColor = (active: boolean) => active
     ? 'var(--c-primary)'
     : actionEnabled
-      ? t.textMuted
+      ? 'var(--c-primary)'
       : (isDark ? '#4A3F35' : '#C4A882')
 
   return (
@@ -462,6 +466,40 @@ export default function Navbar({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Selected-person chip — makes it unmistakable WHICH node the navbar
+          actions now apply to (shown whenever a node is selected). ── */}
+      {selectedNodeId && (
+        <motion.div
+          initial={{ opacity: 0, y: 6, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '5px 6px 5px 12px', borderRadius: 999,
+            background: isDark ? 'rgb(var(--c-primary-rgb) / 0.14)' : 'rgb(var(--c-primary-rgb) / 0.09)',
+            border: `1px solid ${isDark ? 'rgb(var(--c-primary-rgb) / 0.32)' : 'rgb(var(--c-primary-rgb) / 0.22)'}`,
+            boxShadow: t.shadow, maxWidth: 'calc(100vw - 24px)',
+          }}
+        >
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--c-primary)', flexShrink: 0 }} />
+          <span style={{
+            fontSize: 12.5, fontWeight: 700, color: 'var(--c-primary)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {selectedNodeName || 'Selected'}
+          </span>
+          {onDeselect && (
+            <button
+              onClick={onDeselect}
+              aria-label="Deselect"
+              style={{ display: 'flex', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-primary)', opacity: 0.7, padding: '2px' }}
+            >
+              <IconX size={14} />
+            </button>
+          )}
+        </motion.div>
+      )}
 
       {/* ── Navbar pill ── */}
       <div style={{

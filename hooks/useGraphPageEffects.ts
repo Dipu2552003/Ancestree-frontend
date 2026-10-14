@@ -97,7 +97,9 @@ export function useGraphPageEffects({
       const { nodeId, clientX, clientY } = (e as CustomEvent<{ nodeId: string; clientX: number; clientY: number }>).detail
       const node = nodesRef.current.find(n => n.id === nodeId)
       if (!node) return
-      s.setSelectedNodeId(null)
+      // Select the long-pressed node (no panel) so the bottom navbar activates for
+      // it and it's highlighted — the menu is extra actions on that same node.
+      s.setSelectedNodeId(nodeId)
       s.setPanelMode('none')
       s.setContextMenu({ nodeId, x: clientX, y: clientY, personData: asPersonData(node.data) })
     }

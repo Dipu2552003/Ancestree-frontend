@@ -103,7 +103,7 @@ function GraphInner() {
   const isReviewEntry = !!(searchParams.get('viewMerge') || searchParams.get('match'))
 
   const { getNodes, setCenter, fitView, getViewport } = useReactFlow()
-  const { isDark, setIsDark, unreadCount, setNotifications, fullView, toggleFullView, setNeighborNodeIds } = useGraphStore()
+  const { isDark, setIsDark, unreadCount, setNotifications, fullView, toggleFullView } = useGraphStore()
   const isMobile = useIsMobile()
   const t = getTheme(isDark)
 
@@ -357,21 +357,6 @@ function GraphInner() {
   // Manual multi-select is active when scope is 'selection' and the panel isn't
   // open yet — clicks then toggle membership instead of opening the node panel.
   const selectionMode = bulkScope === 'selection' && !bulkPanelOpen
-
-  // Dim/highlight on select: when a node is active (selected or its menu is open)
-  // and the canvas is visible, highlight it + its direct relatives and fade the
-  // rest so the eye isn't swimming in the whole graph. Skipped during bulk select
-  // and merge exploration, which have their own highlight layers.
-  const activeFocusId = s.selectedNodeId ?? s.contextMenu?.nodeId ?? null
-  useEffect(() => {
-    if (!activeFocusId || selectionMode || isExploration) { setNeighborNodeIds([]); return }
-    const nb = new Set<string>([activeFocusId])
-    for (const e of displayEdges) {
-      if (e.source === activeFocusId) nb.add(e.target)
-      else if (e.target === activeFocusId) nb.add(e.source)
-    }
-    setNeighborNodeIds([...nb])
-  }, [activeFocusId, selectionMode, isExploration, displayEdges, setNeighborNodeIds])
 
   const realIdOf = useCallback((id: string) => (isGhostNodeId(id) ? realIdFromGhost(id) : id), [])
 
@@ -715,7 +700,9 @@ function GraphInner() {
           if (nodeId.startsWith('__unknown_parent__')) return
           const node = nodes.find(n => n.id === nodeId)
           if (!node) return
-          s.setSelectedNodeId(null)
+          // Select the node (no panel) so the bottom navbar's actions activate for
+          // it and it's highlighted — the menu is extra actions on the SAME node.
+          s.setSelectedNodeId(nodeId)
           s.setPanelMode('none')
           {
             const a = menuAnchorForNode(nodeId, { x: event.clientX, y: event.clientY })
@@ -781,6 +768,7 @@ function GraphInner() {
         panelMode={s.panelMode}
         canEditSelected={canEditSelected}
         onHome={onHome}
+        onDeselect={() => { s.setSelectedNodeId(null); s.setPanelMode('none'); s.setContextMenu(null) }}
         onStartWizard={action => {
           // A married-in spouse's own parents/siblings (their mayka/sasural) are
           // NOT part of this tree — adding them here would spawn a floating,
