@@ -41,6 +41,9 @@ function ownerBadge(nodeState: string, isSelf: boolean, firstName: string, isDar
 function PersonNode({ id, data, selected }: NodeProps) {
   const isDark     = useGraphStore(s => s.isDark)
   const isNodeSelected = useGraphStore(s => s.activeNodeId === id)
+  // Fade out when another node's focus set is active and this node isn't in it,
+  // so the selected person's immediate line stands out (see page.tsx effect).
+  const isDimmed = useGraphStore(s => s.neighborNodeIds.length > 0 && !s.neighborNodeIds.includes(id))
   const person = data as unknown as PersonData
   const { fullName, isDeceased, nodeState, isSelf, isViewerNode, isPerspectiveView, relationshipToSelf, photoUrl, animDelay, isMatchHighlight, isBulkSelected, isJustAdded } = person
   const firstName = fullName.trim().split(/\s+/)[0] ?? ''
@@ -122,7 +125,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: isJustAdded ? 0.4 : 1 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{ opacity: isDimmed ? 0.28 : 1, scale: 1 }}
       transition={isJustAdded
         ? { type: 'spring', stiffness: 320, damping: 17 }
         : { duration: 0.4, delay: (animDelay ?? 0) / 1000 }}

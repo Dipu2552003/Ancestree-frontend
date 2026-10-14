@@ -24,6 +24,7 @@ import DotField from '@/components/graph/DotField'
 import Navbar from '@/components/graph/Navbar'
 import TreeTimeline from '@/components/graph/TreeTimeline'
 import ExplorationBanner from '@/components/graph/ExplorationBanner'
+import PerspectiveBanner from '@/components/graph/PerspectiveBanner'
 import GraphHUD from '@/components/graph/GraphHUD'
 import GraphOverlays from '@/components/graph/GraphOverlays'
 import GraphLoading from '@/components/graph/GraphLoading'
@@ -102,7 +103,7 @@ function GraphInner() {
   const isReviewEntry = !!(searchParams.get('viewMerge') || searchParams.get('match'))
 
   const { getNodes, setCenter, fitView, getViewport } = useReactFlow()
-  const { isDark, setIsDark, unreadCount, setNotifications, fullView, toggleFullView } = useGraphStore()
+  const { isDark, setIsDark, unreadCount, setNotifications, fullView, toggleFullView, setNeighborNodeIds } = useGraphStore()
   const isMobile = useIsMobile()
   const t = getTheme(isDark)
 
@@ -230,8 +231,11 @@ function GraphInner() {
   // When the exploration banner occupies the top strip, push the whole HUD row
   // down so nothing overlaps it.
   const isExploration    = !!perspectiveId && isReviewEntry && !!s.pendingMatch
+  // Browsing someone's tree via a plain ?perspective= (search / "View their
+  // tree"), not a merge review — show the orientation banner + back button.
+  const showPerspectiveBanner = !!perspectiveId && !isExploration
   const EXPLORE_BANNER_H = 46
-  const hudOffset        = isExploration ? EXPLORE_BANNER_H : 0
+  const hudOffset        = isExploration || showPerspectiveBanner ? EXPLORE_BANNER_H : 0
   const matchHighlightNode = useMemo(
     () => isExploration ? (nodes.find(n => asPersonData(n.data).isSelf) ?? null) : null,
     [nodes, isExploration],
@@ -338,6 +342,21 @@ function GraphInner() {
   // Manual multi-select is active when scope is 'selection' and the panel isn't
   // open yet — clicks then toggle membership instead of opening the node panel.
   const selectionMode = bulkScope === 'selection' && !bulkPanelOpen
+
+  // Dim/highlight on select: when a node is active (selected or its menu is open)
+  // and the canvas is visible, highlight it + its direct relatives and fade the
+  // rest so the eye isn't swimming in the whole graph. Skipped during bulk select
+  // and merge exploration, which have their own highlight layers.
+  const activeFocusId = s.selectedNodeId ?? s.contextMenu?.nodeId ?? null
+  useEffect(() => {
+    if (!activeFocusId || selectionMode || isExploration) { setNeighborNodeIds([]); return }
+    const nb = new Set<string>([activeFocusId])
+    for (const e of displayEdges) {
+      if (e.source === activeFocusId) nb.add(e.target)
+      else if (e.target === activeFocusId) nb.add(e.source)
+    }
+    setNeighborNodeIds([...nb])
+  }, [activeFocusId, selectionMode, isExploration, displayEdges, setNeighborNodeIds])
 
   const realIdOf = useCallback((id: string) => (isGhostNodeId(id) ? realIdFromGhost(id) : id), [])
 
@@ -652,7 +671,7 @@ function GraphInner() {
           s.setSelectedNodeId(null)
           s.setPanelMode('none')
         }}
-        onNodeClick={(id, coords) => {
+        onNodeClick={(id) => {
           s.setContextMenu(null)
           if (id.startsWith('couple_')) return
           // In manual multi-select mode a tap toggles membership instead of
@@ -667,22 +686,10 @@ function GraphInner() {
             s.setMatchPanelOpen(true)
             return
           }
-          // On touch devices a tap opens the same action menu that right-click
-          // opens on desktop — long-press is unreliable on iOS (the system
-          // callout/selection gesture cancels it before it can fire).
-          if (isMobile) {
-            const node = nodes.find(n => n.id === id)
-            if (!node) return
-            // Select the tapped node (without opening a panel) so the bottom
-            // navbar's actions activate for it, then show the action menu.
-            s.setSelectedNodeId(id)
-            s.setPanelMode('none')
-            {
-              const a = menuAnchorForNode(id, { x: coords.x, y: coords.y })
-              s.setContextMenu({ nodeId: id, x: a.x, y: a.y, personData: asPersonData(node.data) })
-            }
-            return
-          }
+          // A single tap/click — on both mobile and desktop — opens the person's
+          // profile (the friendly primary action). The action menu is secondary:
+          // right-click on desktop, long-press on mobile. This keeps the first
+          // interaction simple instead of fronting a menu of options.
           s.setSelectedNodeId(prev => {
             if (prev === id) { s.setPanelMode('none'); return null }
             s.setPanelMode('view')
@@ -726,6 +733,14 @@ function GraphInner() {
         isAdmin={isAdmin}
         onOpenAdmin={() => router.push('/admin')}
       />
+
+      {showPerspectiveBanner && (
+        <PerspectiveBanner
+          personName={perspectiveName || 'this person'}
+          isDark={isDark}
+          onBack={() => router.push('/graph')}
+        />
+      )}
 
       {perspectiveId && isExploration && s.pendingMatch && (
         <ExplorationBanner

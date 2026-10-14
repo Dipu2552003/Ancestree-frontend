@@ -19,6 +19,10 @@ interface GraphState {
   notifications: AppNotification[]
   unreadCount: number
   activeNodeId: string | null
+  /** Canvas ids of the active node + its direct relatives (parents/spouse/
+   *  children). Everything else dims so the selected person's immediate line
+   *  stands out. Empty = no dimming. */
+  neighborNodeIds: string[]
   // Depth-bounded loading state. The graph hook reads these to drive each
   // fetch; the chip components read the `hasMore*` flags to know when to show.
   // Keyed implicitly by the currently-loaded perspective — perspective change
@@ -36,6 +40,7 @@ interface GraphState {
   setNotifications: (notifications: AppNotification[], unreadCount: number) => void
   markNotificationRead: (id: string) => void
   setActiveNodeId: (id: string | null) => void
+  setNeighborNodeIds: (ids: string[]) => void
   bumpAncestorDepth: () => void
   bumpDescendantDepth: () => void
   setDepthFlags: (flags: { hasMoreAncestors: boolean; hasMoreDescendants: boolean }) => void
@@ -54,6 +59,7 @@ export const useGraphStore = create<GraphState>()(
       notifications: [],
       unreadCount: 0,
       activeNodeId: null,
+      neighborNodeIds: [],
       ancestorDepth:      ANCESTOR_DEPTH_DEFAULT,
       descendantDepth:    DESCENDANT_DEPTH_DEFAULT,
       hasMoreAncestors:   false,
@@ -93,6 +99,7 @@ export const useGraphStore = create<GraphState>()(
           : [...s.expandedCouples, key],
       })),
       setActiveNodeId: (id) => set({ activeNodeId: id }),
+      setNeighborNodeIds: (ids) => set({ neighborNodeIds: ids }),
       setNotifications: (notifications, unreadCount) => set({ notifications, unreadCount }),
       markNotificationRead: (id) => set(s => ({
         notifications: s.notifications.map(n => n.id === id ? { ...n, is_read: true } : n),

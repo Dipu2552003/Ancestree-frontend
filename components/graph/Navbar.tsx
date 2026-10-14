@@ -479,9 +479,10 @@ export default function Navbar({
         scrollbarWidth: 'none',
       }}>
 
-        {/* Home */}
+        {/* Home — the anchor action, always visible and accented so it's the
+            obvious way back to your own node from anywhere in the tree. */}
         <NavItem isDark={isDark} onClick={onHome} label="Home" dataTour="nav-home" compact={isMobile}>
-          <IconHome2 size={19} color={t.textMuted} />
+          <IconHome2 size={19} color="var(--c-primary)" strokeWidth={2.2} />
         </NavItem>
 
         <Divider isDark={isDark} compact={isMobile} />
