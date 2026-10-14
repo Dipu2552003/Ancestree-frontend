@@ -24,8 +24,13 @@ import { isFieldHidden, constantValue, type FieldConfig } from '@/lib/community/
 import type { AdminTab } from './AdminDashboard'
 
 // The first person of a new cluster collects the same fields as a community
-// signup node (name parts, DOB, gotra, native + current place).
-const CLUSTER_FIELDS = SIGNUP_FIELD_SETS.community
+// signup node (name parts, DOB, gotra, native village + current place), but the
+// native village is the single curated dropdown (native_village_select) rather
+// than the State→District→Village cascade — so an admin enters it the same way a
+// member does at community signup. Both write the same native_village column.
+const CLUSTER_FIELDS = SIGNUP_FIELD_SETS.community.map(id =>
+  id === 'native_place' ? 'native_village_select' : id,
+)
 
 // Narrow the signup field set to what this community's admin actually allows
 // (Admin → Fields). A field is dropped when the config hides it or pins it to a
