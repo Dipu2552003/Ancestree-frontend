@@ -76,7 +76,7 @@ Vercel automatically builds all branches as **Preview deployments** — no extra
 | Variable | Local | Vercel prod | Vercel dev preview |
 |---|---|---|---|
 | `NEXT_PUBLIC_API_URL` | *(falls back to `http://localhost:4000`)* | `https://api.knownyourancestry.com` | `https://dev.api.knownyourancestry.com` |
-| `NEXT_PUBLIC_FAMILYGRAPH_URL` | *(falls back to `http://localhost:5173`)* | `https://3d.knownyourancestry.com` | `https://3d.knownyourancestry.com` |
+| `NEXT_PUBLIC_FAMILYGRAPH_URL` | *(falls back to `http://localhost:5174`)* | `https://3d.knownyourancestry.com` | `https://3d.knownyourancestry.com` |
 
 `NEXT_PUBLIC_*` vars are baked into the client bundle at build time — a redeploy is required to change them.
 

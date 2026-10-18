@@ -3,7 +3,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { IconEye, IconPencil, IconGitMerge, IconUserCircle, IconUserPlus, IconBinaryTree2, IconChecklist } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
-import { getTheme } from '@/lib/theme'
 
 interface NodeContextMenuProps {
   nodeId: string
@@ -37,15 +36,14 @@ interface NodeContextMenuProps {
 }
 
 export default function NodeContextMenu({
-  nodeId, x, y, personName, gender,
+  x, y, personName, gender,
   canEdit, canAddRelation, canMerge, isSelf, isViewerNode, isAdmin,
   onViewProfile, onViewTree, onAddRelation, onEdit, onMergeNode,
   onSelectBloodline, onSelectMultiple, onClose,
 }: NodeContextMenuProps) {
   const { isDark } = useGraphStore()
-  const t = getTheme(isDark)
   const menuRef   = useRef<HTMLDivElement>(null)
-  const mountedAt = useRef(Date.now())
+  const mountedAt = useRef(0)
 
   const treeLinkLabel = gender === 'female' ? 'View her family tree' : gender === 'male' ? 'View his family tree' : 'View their family tree'
   const firstName = personName.split(' ')[0] || personName
@@ -77,7 +75,8 @@ export default function NodeContextMenu({
   const itemCount = 1 // View profile — always present
     + (canMerge ? 1 : 0)
     + (!isSelf && !isViewerNode ? 1 : 0)
-    + (canAddRelation ? 1 : 0) // the single Edit / Add family item (canEdit ⊆ canAddRelation)
+    + (canAddRelation ? 1 : 0)
+    + (canEdit ? 1 : 0)
     + (onSelectBloodline ? 1 : 0)
     + (onSelectMultiple ? 1 : 0)
   const MENU_H = 58 + itemCount * 34
@@ -96,7 +95,6 @@ export default function NodeContextMenu({
   const divider = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'
   const itemHover = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'
   const textColor = isDark ? '#E8DDD4' : '#1A0A00'
-  const subColor  = isDark ? '#7A6A5A' : '#9A7B5A'
   const disabledColor = isDark ? '#4A4040' : '#C4B8A8'
 
   const item = (
@@ -153,12 +151,8 @@ export default function NodeContextMenu({
       <div role="presentation" style={{ padding: '4px' }}>
         {item(<IconUserCircle size={14} />, `View ${firstName}`, onViewProfile)}
         {!isSelf && !isViewerNode && item(<IconEye size={14} />, treeLinkLabel, onViewTree)}
-        {/* One edit-ish entry: "Edit" when the profile is editable, else "Add
-            family" on a relative's claimed node (you can still add their
-            relations, just not edit their details). canEdit ⊆ canAddRelation. */}
-        {canEdit
-          ? item(<IconPencil size={14} />, 'Edit', onEdit)
-          : canAddRelation && item(<IconUserPlus size={14} />, 'Add family', onAddRelation)}
+        {canAddRelation && item(<IconUserPlus size={14} />, 'Add family member', onAddRelation)}
+        {canEdit && item(<IconPencil size={14} />, 'Edit', onEdit)}
         {canMerge && item(<IconGitMerge size={14} />, 'Merge duplicate', onMergeNode)}
 
         {/* Admin-only bulk-selection tools */}

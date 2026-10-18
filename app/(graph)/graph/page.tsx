@@ -520,7 +520,7 @@ function GraphInner() {
   // own origin). localStorage can't be shared across origins, so we hand the
   // session over in the URL hash — familygraph persists it and skips its login.
   const onOpen3D = useCallback(() => {
-    const base = process.env.NEXT_PUBLIC_FAMILYGRAPH_URL ?? 'http://localhost:5173'
+    const base = process.env.NEXT_PUBLIC_FAMILYGRAPH_URL ?? 'http://localhost:5174'
     const token = getToken()
     const url = token ? `${base}/#token=${encodeURIComponent(token)}` : base
     window.open(url, '_blank', 'noopener,noreferrer')
