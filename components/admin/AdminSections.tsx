@@ -61,6 +61,34 @@ interface SectionProps {
   onOpenMerges: () => void
 }
 
+// ── Overview prefetch ────────────────────────────────────────────────────────
+// The shell starts the Overview requests alongside its access check, so a first
+// load costs one round-trip instead of two back-to-back. Each prefetch is taken
+// at most once (later visits refetch fresh). Access is still enforced
+// server-side — a non-admin's prefetch just fails and is discarded.
+
+type OverviewData = [
+  Awaited<ReturnType<typeof api.community.members>>,
+  Awaited<ReturnType<typeof api.community.families>>,
+  Awaited<ReturnType<typeof api.community.stats>>,
+]
+let overviewPrefetch: { slug: string; data: Promise<OverviewData> } | null = null
+let healthPrefetch:   { slug: string; data: Promise<CommunityHealth> } | null = null
+
+export function prefetchOverview(slug: string) {
+  const data = Promise.all([api.community.members(slug), api.community.families(slug), api.community.stats(slug)])
+  const health = api.community.health(slug)
+  // Swallow rejections here so an unused/denied prefetch isn't an unhandled error;
+  // consumers still see the rejection on the original promise.
+  data.catch(() => {}); health.catch(() => {})
+  overviewPrefetch = { slug, data }
+  healthPrefetch   = { slug, data: health }
+}
+
+function take<T>(p: { slug: string; data: Promise<T> } | null, slug: string): Promise<T> | null {
+  return p && p.slug === slug ? p.data : null
+}
+
 // ── Shared bits ──────────────────────────────────────────────────────────────
 
 function Avatar({ name, photoUrl, size = 40 }: { name: string; photoUrl: string | null; size?: number }) {
@@ -115,7 +143,9 @@ function HealthWarning({ slug, isDark, onOpenPerson }: {
   const [actionErr, setActionErr] = useState('')
 
   const load = useCallback(() => {
-    api.community.health(slug)
+    const pre = take(healthPrefetch, slug)
+    healthPrefetch = null
+    ;(pre ?? api.community.health(slug))
       .then(setHealth)
       .catch(() => { /* endpoint unavailable / not admin — hide the banner */ })
   }, [slug])
@@ -207,7 +237,9 @@ export function OverviewSection({ slug, isOwner, isDark, onNavigate, onOpenMerge
 
   useEffect(() => {
     let active = true
-    Promise.all([api.community.members(slug), api.community.families(slug), api.community.stats(slug)])
+    const pre = take(overviewPrefetch, slug)
+    overviewPrefetch = null
+    ;(pre ?? Promise.all([api.community.members(slug), api.community.families(slug), api.community.stats(slug)]))
       .then(([m, f, s]) => {
         if (!active) return
         setMembers(m.members); setFamilies(f.families); setPersons(s.total_persons)
@@ -1011,24 +1043,27 @@ function AddMemberBox({ slug, homeId, isDark, onAdded, onClose }: {
 }) {
   const t = getTheme(isDark)
   const [q, setQ] = useState('')
-  const [results, setResults] = useState<{ id: string; full_name: string; current_city: string | null; gotra: string | null }[]>([])
-  const [searching, setSearching] = useState(false)
+  // Results are tagged with the query they answer, so "searching" and the
+  // empty state are derived during render rather than set inside the effect.
+  const [found, setFound] = useState<{ q: string; results: { id: string; full_name: string; current_city: string | null; gotra: string | null }[] }>({ q: '', results: [] })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
+  const needle = q.trim()
+  const active = needle.length >= 2
+  const searching = active && found.q !== needle
+  const results = active && !searching ? found.results : []
+
   useEffect(() => {
-    const needle = q.trim()
-    if (needle.length < 2) { setResults([]); return }
+    if (!active) return
     let cancelled = false
-    setSearching(true)
     const id = setTimeout(() => {
       api.community.searchPersons(slug, needle)
-        .then(({ results }) => { if (!cancelled) setResults(results.slice(0, 8)) })
-        .catch(() => { if (!cancelled) setResults([]) })
-        .finally(() => { if (!cancelled) setSearching(false) })
+        .then(({ results }) => { if (!cancelled) setFound({ q: needle, results: results.slice(0, 8) }) })
+        .catch(() => { if (!cancelled) setFound({ q: needle, results: [] }) })
     }, 250)
     return () => { cancelled = true; clearTimeout(id) }
-  }, [q, slug])
+  }, [needle, active, slug])
 
   const add = async (personId: string) => {
     setBusy(true); setErr('')
