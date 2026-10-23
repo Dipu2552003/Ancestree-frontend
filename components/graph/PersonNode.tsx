@@ -210,12 +210,25 @@ function PersonNode({ id, data, selected }: NodeProps) {
               detail: { nodeId: id, clientX: rect.right, clientY: rect.bottom },
             }))
           }}
-          style={{ position: 'absolute', top: 4, right: 4, zIndex: 3,
-            width: 32, height: 32, placeItems: 'center', borderRadius: '50%',
-            border: '1px solid rgba(0,0,0,0.12)', background: isDark ? '#211A15' : '#FFFAF5',
-            color: isDark ? '#E8DDD4' : '#5C0F11', fontSize: 22, lineHeight: 1, cursor: 'pointer' }}
+          // 32px invisible tap target (finger-sized); only the small frosted chip
+          // inside is visible, so it reads as a quiet affordance on the photo.
+          style={{ position: 'absolute', top: 0, right: 0, zIndex: 3,
+            width: 32, height: 32, placeItems: 'center', padding: 0,
+            border: 'none', background: 'transparent', cursor: 'pointer' }}
         >
-          <span aria-hidden="true">⋯</span>
+          <span aria-hidden="true" style={{
+            width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center',
+            background: isDark ? 'rgba(20,17,14,0.55)' : 'rgba(255,255,255,0.72)',
+            backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+            boxShadow: isDark ? '0 1px 2px rgba(0,0,0,0.4)' : '0 1px 2px rgba(37,37,37,0.14)',
+            color: isDark ? 'rgba(232,221,212,0.85)' : 'var(--c-text-muted)',
+          }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <circle cx="2.5" cy="6" r="1.15" />
+              <circle cx="6" cy="6" r="1.15" />
+              <circle cx="9.5" cy="6" r="1.15" />
+            </svg>
+          </span>
         </button>
         {/* Photo / avatar area */}
         <div style={{
