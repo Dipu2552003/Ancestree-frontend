@@ -310,7 +310,13 @@ export default function SearchBar({ isDark, onSelectPerson }: SearchBarProps) {
               borderTop:    `1px solid ${t.controlBorder}`,
               borderRadius: '0 0 10px 10px',
               boxShadow:    isDark ? '0 8px 24px rgba(0,0,0,0.5)' : '0 8px 24px rgba(0,0,0,0.10)',
-              overflow:     'hidden',
+              // Up to 25 community-wide results — scroll inside the dropdown
+              // instead of running off the bottom of a phone screen. contain:
+              // reaching the end never scrolls/pans the canvas behind it.
+              maxHeight:    'min(60vh, 520px)',
+              overflowY:    'auto',
+              overscrollBehavior: 'contain',
+              touchAction:  'pan-y',
             }}
           >
             {results.map((person, i) => {
