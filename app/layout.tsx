@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Fraunces } from 'next/font/google'
+import { Suspense } from 'react'
+import NavProgress from '@/components/ui/NavProgress'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -48,6 +50,10 @@ export default function RootLayout({
         <div className="min-h-dvh-safe" style={{ backgroundColor: 'var(--c-page)' }}>
           {children}
         </div>
+        {/* Suspense: NavProgress reads useSearchParams to detect landed navigations. */}
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
       </body>
     </html>
   )

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { AnimatePresence } from 'framer-motion'
 import { ReactFlowProvider, Controls, MiniMap, useReactFlow } from '@xyflow/react'
 import GraphCanvas from '@/components/graph/GraphCanvas'

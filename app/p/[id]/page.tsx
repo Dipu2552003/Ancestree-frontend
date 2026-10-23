@@ -28,6 +28,7 @@ import { filterGraphBySide } from '@/lib/layouts/familySideFilter'
 import { injectGhostsForIntraFamilyMarriages, isGhostNodeId, realIdFromGhost } from '@/lib/graph/ghostNodes'
 import { layoutEngine } from '@/lib/layouts/layoutEngine'
 import type { PersonData } from '@/types'
+import Link from 'next/link'
 
 const SAFFRON = 'var(--c-primary)'
 const TERRACOTTA = 'var(--c-primary-strong)'
@@ -209,7 +210,7 @@ function PublicTreeInner() {
             {errorMsg}. It may be private, part of a community, or no longer exist.
           </p>
         </div>
-        <a
+        <Link
           href="/"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none',
@@ -219,7 +220,7 @@ function PublicTreeInner() {
           }}
         >
           Back to search <IconArrowRight size={16} strokeWidth={2.5} />
-        </a>
+        </Link>
       </div>
     )
   }
@@ -246,7 +247,7 @@ function PublicTreeInner() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: 12, padding: isMobile ? '12px 14px' : '16px 22px', pointerEvents: 'none',
       }}>
-        <a href="/" style={{
+        <Link href="/" style={{
           pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none',
           background: t.controlBg, border: `1.5px solid ${t.controlBorder}`,
           padding: '8px 14px', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
@@ -258,7 +259,7 @@ function PublicTreeInner() {
             <IconBinaryTree2 size={15} color="#fff" strokeWidth={2.2} />
           </div>
           <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-0.02em', color: t.text }}>Ancestree</span>
-        </a>
+        </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
@@ -270,14 +271,14 @@ function PublicTreeInner() {
           }}>
             <IconEye size={14} strokeWidth={2.2} /> {isMobile ? 'Read-only' : 'Public tree · read-only'}
           </span>
-          <a href="/signup" style={{
+          <Link href="/signup" style={{
             pointerEvents: 'auto', display: 'inline-flex', alignItems: 'center', gap: 7, textDecoration: 'none',
             fontSize: 13.5, fontWeight: 700, color: '#fff',
             background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
             padding: '8px 16px', borderRadius: 12, boxShadow: '0 3px 12px rgb(var(--c-primary-rgb) / 0.32)',
           }}>
             Build your tree <IconArrowRight size={15} strokeWidth={2.5} />
-          </a>
+          </Link>
         </div>
       </div>
 

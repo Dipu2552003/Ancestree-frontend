@@ -6,7 +6,7 @@
 //
 // Rows that don't have a dedicated action card auto-mark-read on click.
 
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { IconArrowRight } from '@tabler/icons-react'
 import type { AppNotification, MergeConflict } from '@/lib/api'
 import { getTheme } from '@/lib/theme'

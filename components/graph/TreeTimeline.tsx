@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconHome2 } from '@tabler/icons-react'
 import { getTheme } from '@/lib/theme'

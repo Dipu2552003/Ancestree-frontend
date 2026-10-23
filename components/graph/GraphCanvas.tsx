@@ -1,6 +1,6 @@
 'use client'
 
-import { type MouseEvent, useCallback } from 'react'
+import { type MouseEvent, useCallback, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   ReactFlow,
@@ -19,6 +19,7 @@ import { edgeTypes } from './SketchEdge'
 import { familyEdgeType } from './FamilyEdge'
 import { useTiltEffect } from '@/hooks/useTiltEffect'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { bindNodeLongPress } from '@/lib/graph/nodeLongPress'
 
 const allNodeTypes = { ...nodeTypes, ...collapsedCoupleNodeType, ...loadMoreNodeType, ...unknownParentNodeType }
 const allEdgeTypes = { ...edgeTypes, ...familyEdgeType }
@@ -38,6 +39,14 @@ interface GraphCanvasProps {
 }
 
 export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick, onNodeContextMenu, onPaneClick, onMoveStart }: GraphCanvasProps) {
+  const canvasRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const root = canvasRef.current
+    if (!root) return
+    return bindNodeLongPress(root, detail => {
+      window.dispatchEvent(new CustomEvent('node-longpress', { detail }))
+    })
+  }, [])
   const { currentZoom } = useGraphStore()
   const isMobile = useIsMobile()
   const { rotateX, rotateY, handleMouseMove, handleMouseLeave } = useTiltEffect()
@@ -60,6 +69,7 @@ export default function GraphCanvas({ nodes, edges, onNodesChange, onEdgesChange
 
   return (
     <motion.div
+      ref={canvasRef}
       onMouseMove={isMobile ? undefined : handleMouseMove}
       onMouseLeave={isMobile ? undefined : handleMouseLeave}
       style={isMobile ? {

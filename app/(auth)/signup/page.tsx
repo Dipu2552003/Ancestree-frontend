@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconLoader2, IconArrowLeft, IconEye, IconEyeOff, IconBuilding, IconPlus, IconSearch } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
@@ -11,6 +12,7 @@ import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, setToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
 import { DynamicFields } from '@/components/forms/DynamicField'
+import Link from 'next/link'
 import {
   SIGNUP_FIELD_SETS, fieldsFor, buildPayload, validateFields, composeFullName,
 } from '@/lib/forms/personFields'
@@ -455,12 +457,12 @@ function SignupInner() {
                       {emailExists && (
                         <>
                           {' '}
-                          <a
+                          <Link
                             href={`/login?email=${encodeURIComponent(email.trim())}`}
                             style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}
                           >
                             {c.signinCta}
-                          </a>
+                          </Link>
                         </>
                       )}
                     </motion.p>
@@ -762,7 +764,7 @@ function SignupInner() {
         <AnimatePresence mode="wait">
           <motion.span key={lang} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
             {c.haveAcct}{' '}
-            <a href="/login" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signin}</a>
+            <Link href="/login" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signin}</Link>
           </motion.span>
         </AnimatePresence>
       </motion.p>

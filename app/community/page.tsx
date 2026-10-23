@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   IconArrowRight, IconBuilding, IconSun, IconMoon, IconBinaryTree2,
@@ -13,6 +14,7 @@ import { getTheme } from '@/lib/theme'
 import { api } from '@/lib/api'
 import { setToken } from '@/lib/api/client'
 import type { CommunityInfo } from '@/lib/api/community'
+import Link from 'next/link'
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
@@ -535,7 +537,7 @@ function CommunityLandingInner() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         height: 60,
       }}>
-        <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
           <div style={{
             width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
@@ -546,7 +548,7 @@ function CommunityLandingInner() {
           <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.03em', color: t.text }}>
             Ancestree
           </span>
-        </a>
+        </Link>
         <nav style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
             onClick={() => setIsDark(!isDark)}
@@ -564,16 +566,16 @@ function CommunityLandingInner() {
           >
             {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
           </button>
-          <a href="/login" style={{ fontSize: 14, fontWeight: 600, color: t.text, textDecoration: 'none', padding: '9px 14px', borderRadius: 10 }}>
+          <Link href="/login" style={{ fontSize: 14, fontWeight: 600, color: t.text, textDecoration: 'none', padding: '9px 14px', borderRadius: 10 }}>
             Sign in
-          </a>
-          <a href="/signup" style={{
+          </Link>
+          <Link href="/signup" style={{
             fontSize: 14, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 18px', borderRadius: 10,
             background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
             boxShadow: '0 3px 12px rgb(var(--c-primary-rgb) / 0.32)',
           }}>
             Sign up
-          </a>
+          </Link>
         </nav>
       </header>
 

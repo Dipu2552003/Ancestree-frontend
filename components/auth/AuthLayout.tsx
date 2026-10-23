@@ -9,6 +9,7 @@ import { readVar } from '@/lib/theme/cssVar'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthPreviewCanvas from '@/components/auth/AuthPreviewCanvas'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
+import Link from 'next/link'
 
 // ── Panel dot field (container-scoped, theme-aware) ───────────────────────────
 const GRID = 28, DOT_R = 1.2, REPEL_R = 100, REPEL_F = 6, SPRING = 0.07, DAMP = 0.80
@@ -131,7 +132,7 @@ export default function AuthLayout({ lang, onLangChange, preview = null, childre
         }}
       >
         {/* Wordmark */}
-        <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg, var(--c-primary), var(--c-primary-strong))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgb(var(--c-primary-rgb) / 0.34)' }}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
               <circle cx="10" cy="5"  r="2.4" fill="white" />
@@ -144,7 +145,7 @@ export default function AuthLayout({ lang, onLangChange, preview = null, childre
           <span style={{ fontSize: isMobile ? 18 : 20, fontWeight: 800, color: t.text, letterSpacing: '-0.03em', userSelect: 'none', transition: 'color 0.35s ease' }}>
             Ancestree
           </span>
-        </a>
+        </Link>
 
         {/* Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

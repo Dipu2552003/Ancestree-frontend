@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconLoader2, IconEye, IconEyeOff } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
@@ -10,6 +10,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import AuthLayout, { type AuthLang } from '@/components/auth/AuthLayout'
 import { api, setToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
+import Link from 'next/link'
 
 // ── Bilingual copy ────────────────────────────────────────────────────────────
 const COPY = {
@@ -313,12 +314,12 @@ export default function LoginPage() {
                       {emailNotFound && (
                         <>
                           {' '}
-                          <a
+                          <Link
                             href={`/signup?email=${encodeURIComponent(email.trim())}`}
                             style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}
                           >
                             {c.signupCta}
-                          </a>
+                          </Link>
                         </>
                       )}
                     </motion.p>
@@ -537,7 +538,7 @@ export default function LoginPage() {
           <AnimatePresence mode="wait">
             <motion.span key={lang + 'new'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
               {c.noAccount}{' '}
-              <a href="/signup" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signup}</a>
+              <Link href="/signup" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signup}</Link>
             </motion.span>
           </AnimatePresence>
         </p>
@@ -546,7 +547,7 @@ export default function LoginPage() {
           <AnimatePresence mode="wait">
             <motion.span key={lang + 'inv'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
               {c.haveInvite}{' '}
-              <a href="/invite" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.invite}</a>
+              <Link href="/invite" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.invite}</Link>
             </motion.span>
           </AnimatePresence>
         </p>

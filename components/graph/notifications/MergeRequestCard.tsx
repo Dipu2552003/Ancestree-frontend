@@ -12,7 +12,7 @@
 // user accepted/rejected from another device.
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconGitMerge } from '@tabler/icons-react'
 import { api, type AppNotification, type MergeConflict } from '@/lib/api'

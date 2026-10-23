@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
 
 // The Khandelwal community site is a separate Vite SPA that shares this origin
 // via a reverse proxy (see the parivar app's vercel.json / vite proxy). Opening
@@ -31,7 +32,7 @@ export default function NotFound() {
       fontFamily: 'system-ui, sans-serif', background: '#FFF7ED', color: '#1A0A00',
     }}>
       <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>This page could not be found.</h1>
-      <a href="/graph" style={{ color: '#EA580C', fontWeight: 600 }}>Go to your tree</a>
+      <Link href="/graph" style={{ color: '#EA580C', fontWeight: 600 }}>Go to your tree</Link>
     </div>
   )
 }

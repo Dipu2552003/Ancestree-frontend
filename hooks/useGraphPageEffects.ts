@@ -13,7 +13,7 @@
 // All effects preserved verbatim — only their location changed.
 
 import { useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import type { Node } from '@xyflow/react'
 import { api, getToken } from '@/lib/api'
 import { useGraphStore } from '@/store/graphStore'

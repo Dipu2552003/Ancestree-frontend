@@ -6,7 +6,7 @@
 // User can either preview that tree or request to merge themselves into it.
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { IconEye, IconGitMerge } from '@tabler/icons-react'
 import { api, type AppNotification } from '@/lib/api'
 import { useGraphStore } from '@/store/graphStore'

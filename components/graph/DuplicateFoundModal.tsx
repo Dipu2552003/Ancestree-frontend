@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconX, IconSearch, IconArrowRight } from '@tabler/icons-react'
 import type { PotentialMatch } from '@/lib/api'

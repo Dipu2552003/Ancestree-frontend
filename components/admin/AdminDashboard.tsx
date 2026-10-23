@@ -9,7 +9,8 @@
 // Clicking any user or family deep-links into their tree via ?perspective=.
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import {
   IconLayoutDashboard, IconUsers, IconHome, IconSettings, IconArrowMerge,
   IconArrowLeft, IconShieldStar, IconLoader2, IconChevronLeft, IconListDetails,
@@ -20,7 +21,7 @@ import { getCommunitySlug } from '@/lib/storage'
 import { useGraphStore } from '@/store/graphStore'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { getTheme } from '@/lib/theme'
-import { OverviewSection, MembersSection, FamiliesSection, HomesSection, SettingsSection } from './AdminSections'
+import { prefetchOverview, OverviewSection, MembersSection, FamiliesSection, HomesSection, SettingsSection } from './AdminSections'
 import FieldsSection from './FieldsSection'
 
 export type AdminTab = 'overview' | 'members' | 'families' | 'homes' | 'fields' | 'settings'
@@ -55,12 +56,16 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!slug) return
+    // Fire the Overview requests in parallel with the access check rather than
+    // after it — saves a full round-trip on the default landing tab.
+    if (initialTab === 'overview') prefetchOverview(slug)
     api.community.me(slug)
       .then(({ role, is_owner }) => {
         setIsOwner(is_owner)
         setAccess(role === 'owner' || role === 'admin' ? 'ok' : 'denied')
       })
       .catch(() => setAccess('denied'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialTab only matters on first load
   }, [slug])
 
   const pageBg = isDark ? '#0B0A09' : 'var(--c-page)'

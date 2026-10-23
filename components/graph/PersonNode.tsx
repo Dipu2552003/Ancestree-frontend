@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useGraphStore } from '@/store/graphStore'
@@ -46,44 +46,6 @@ function PersonNode({ id, data, selected }: NodeProps) {
   const firstName = fullName.trim().split(/\s+/)[0] ?? ''
   const [hovered, setHovered] = useState(false)
   const badge = ownerBadge(nodeState, isSelf, firstName, isDark)
-
-  // Long-press → context menu on mobile (fires a custom event caught by page.tsx)
-  const lpTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lpStart   = useRef<{ x: number; y: number } | null>(null)
-  const lpFired   = useRef(false)
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0]
-    lpStart.current = { x: t.clientX, y: t.clientY }
-    lpFired.current = false
-    lpTimer.current = setTimeout(() => {
-      lpFired.current = true
-      window.dispatchEvent(new CustomEvent('node-longpress', {
-        detail: { nodeId: id, clientX: lpStart.current!.x, clientY: lpStart.current!.y },
-      }))
-    }, 600)
-  }
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!lpStart.current || !lpTimer.current) return
-    const t = e.touches[0]
-    if (Math.abs(t.clientX - lpStart.current.x) > 8 || Math.abs(t.clientY - lpStart.current.y) > 8) {
-      clearTimeout(lpTimer.current)
-      lpTimer.current = null
-    }
-  }
-
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null }
-    if (lpFired.current) { lpFired.current = false; e.preventDefault() }
-    lpStart.current = null
-  }
-
-  const onTouchCancel = () => {
-    if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null }
-    lpFired.current = false
-    lpStart.current = null
-  }
 
   // ── avatar gradient ──────────────────────────────────────────────
   // Priority: isSelf and isDeceased always win over gotra color.
@@ -220,10 +182,6 @@ function PersonNode({ id, data, selected }: NodeProps) {
         transition={{ type: 'spring', stiffness: 380, damping: 22 }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchCancel}
         style={{
           width: `${W}px`,
           height: `${PHOTO_H + STRIP_H}px`,
@@ -234,8 +192,31 @@ function PersonNode({ id, data, selected }: NodeProps) {
           flexDirection: 'column',
           overflow: 'hidden',
           position: 'relative',
+          // iOS: suppress the native long-press callout (image "Save"/selection
+          // magnifier) — it fires touchcancel and kills our long-press timer.
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
         }}
       >
+        <button
+          type="button"
+          className="node-touch-actions nodrag nopan"
+          aria-label={`Actions for ${fullName}`}
+          onClick={event => {
+            event.stopPropagation()
+            const rect = event.currentTarget.getBoundingClientRect()
+            window.dispatchEvent(new CustomEvent('node-longpress', {
+              detail: { nodeId: id, clientX: rect.right, clientY: rect.bottom },
+            }))
+          }}
+          style={{ position: 'absolute', top: 4, right: 4, zIndex: 3,
+            width: 32, height: 32, placeItems: 'center', borderRadius: '50%',
+            border: '1px solid rgba(0,0,0,0.12)', background: isDark ? '#211A15' : '#FFFAF5',
+            color: isDark ? '#E8DDD4' : '#5C0F11', fontSize: 22, lineHeight: 1, cursor: 'pointer' }}
+        >
+          <span aria-hidden="true">⋯</span>
+        </button>
         {/* Photo / avatar area */}
         <div style={{
           width: `${W}px`,
@@ -249,7 +230,7 @@ function PersonNode({ id, data, selected }: NodeProps) {
           position: 'relative',
         }}>
           {photoUrl ? (
-            <img src={photoUrl} alt={fullName}
+            <img src={photoUrl} alt={fullName} draggable={false}
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           ) : (
             <div style={{

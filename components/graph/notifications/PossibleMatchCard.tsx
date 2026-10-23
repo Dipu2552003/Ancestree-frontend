@@ -6,7 +6,7 @@
 // flow on /graph?perspective=…) or dismiss the suggestion.
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { IconArrowRight } from '@tabler/icons-react'
 import type { AppNotification, PossibleMatchNotificationDetails } from '@/lib/api'
 import type { PendingMatchData } from '@/types'

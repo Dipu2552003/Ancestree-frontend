@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconArrowRight, IconLoader2, IconArrowLeft, IconEye, IconEyeOff, IconUserCheck } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
@@ -12,6 +13,7 @@ import { api, getToken, setToken, clearToken } from '@/lib/api'
 import type { AuthPolaroidData } from '@/components/auth/AuthPolaroid'
 import { DynamicFields } from '@/components/forms/DynamicField'
 import { fieldsFor, validateFields, buildPayload } from '@/lib/forms/personFields'
+import Link from 'next/link'
 
 // New users claiming an invite fill the same required details as signup:
 // gotra + native place + current location. Persisted onto the claimed node.
@@ -774,7 +776,7 @@ function InviteInner() {
           <AnimatePresence mode="wait">
             <motion.span key={lang + 'acct'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
               {c.haveAcct}{' '}
-              <a href="/login" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signin}</a>
+              <Link href="/login" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signin}</Link>
             </motion.span>
           </AnimatePresence>
         </p>
@@ -782,7 +784,7 @@ function InviteInner() {
           <AnimatePresence mode="wait">
             <motion.span key={lang + 'new'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.13 }}>
               {c.newHere}{' '}
-              <a href="/signup" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signup}</a>
+              <Link href="/signup" style={{ color: 'var(--c-primary)', fontWeight: 700, textDecoration: 'none' }}>{c.signup}</Link>
             </motion.span>
           </AnimatePresence>
         </p>

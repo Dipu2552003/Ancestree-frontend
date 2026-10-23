@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconSearch, IconX, IconLoader2, IconRefresh, IconFilter } from '@tabler/icons-react'
 import { api, type SearchResult } from '@/lib/api'

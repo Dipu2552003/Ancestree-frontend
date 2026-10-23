@@ -84,6 +84,84 @@ html, body { overscroll-behavior: none; }
   pointer-events: none;
 }
 
+/* Long-press progress: the held node dims over the hold time (550ms in
+   lib/graph/nodeLongPress.ts) so the user can see the press registering before
+   the menu opens. filter (not transform) — React Flow owns the wrapper's
+   transform and Framer owns the card's. */
+.react-flow__node[data-holding] {
+  filter: brightness(0.82);
+  transition: filter 0.5s ease-out;
+}
+
+/* Touch users can also tap an explicit action button instead of holding. */
+.node-touch-actions { display: none; }
+@media (any-pointer: coarse) {
+  .node-touch-actions { display: grid; }
+}
+
+/*
+ * Tap feedback on touch screens.
+ * Touch has no hover, and most buttons here are inline-styled with a Framer
+ * whileTap scale of ~1.5% — invisible under a finger. So every interactive
+ * element visibly dims the instant it's pressed. !important beats the inline
+ * opacity many buttons carry (and Framer's animated opacity) only while held.
+ * iOS Safari needs a touchstart listener for :active — NavProgress adds one.
+ * The grey/blue native tap flash is replaced by this consistent state.
+ */
+@media (any-pointer: coarse) {
+  :where(button, a[href], [role="button"], summary, label) {
+    -webkit-tap-highlight-color: transparent;
+  }
+  :where(button, a[href], [role="button"], summary):not(:disabled):not([aria-disabled="true"]):active {
+    opacity: 0.6 !important;
+    transition: opacity 0s !important;
+  }
+}
+
+/* ── Navigation progress (components/ui/NavProgress.tsx) ─────────────────── */
+.nav-progress-bar {
+  position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px);
+  z-index: 10000; height: 3px; pointer-events: none;
+  background: var(--c-primary);
+  box-shadow: 0 0 8px rgb(var(--c-primary-rgb) / 0.6);
+  transform-origin: left center;
+  transform: scaleX(0); opacity: 0;
+}
+/* Loading: creep toward 90% — fast at first, then slowing, never "done". */
+.nav-progress-bar[data-state="loading"] {
+  opacity: 1; transform: scaleX(0.9);
+  transition: transform 8s cubic-bezier(0.08, 0.8, 0.2, 1), opacity 0.1s;
+}
+/* Landed: snap to full width, then fade out. */
+.nav-progress-bar[data-state="finishing"] {
+  opacity: 0; transform: scaleX(1);
+  transition: transform 0.2s ease-out, opacity 0.3s ease 0.15s;
+}
+html[data-dark="1"] .nav-progress-bar { background: #C5B49D; box-shadow: 0 0 8px rgba(197,180,157,0.5); }
+
+.nav-progress-chip {
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 12px);
+  transform: translateX(-50%); z-index: 10000; pointer-events: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px 7px 11px; border-radius: 999px;
+  background: rgba(37,37,37,0.9); color: #fff;
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  animation: nav-chip-in 0.18s ease-out;
+}
+.nav-progress-spinner {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  animation: nav-spin 0.7s linear infinite;
+}
+@keyframes nav-spin { to { transform: rotate(360deg); } }
+@keyframes nav-chip-in { from { opacity: 0; transform: translate(-50%, -6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress-bar[data-state="loading"] { transition: opacity 0.1s; transform: scaleX(0.6); }
+  .nav-progress-spinner { animation-duration: 1.6s; }
+}
+
 /*
  * Keyboard focus rings.
  * :focus-visible fires only for keyboard navigation, not mouse clicks,

@@ -12,7 +12,7 @@
 //   • History — resolved requests, for the record.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import {
   IconArrowLeft, IconArrowMerge, IconLoader2, IconSearch, IconX,
   IconCheck, IconShieldStar, IconArrowsExchange,

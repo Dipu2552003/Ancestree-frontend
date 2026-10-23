@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import {
   useNodesState, useEdgesState,
   type Node, type Edge, type NodeChange, type EdgeChange,

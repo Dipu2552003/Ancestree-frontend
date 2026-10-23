@@ -6,7 +6,7 @@
 // The same animated dot-field used on /graph sits in the background.
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconSearch, IconLoader2, IconArrowRight, IconBinaryTree2, IconSun, IconMoon, IconRefresh } from '@tabler/icons-react'
 import DotField from '@/components/graph/DotField'
@@ -15,6 +15,7 @@ import { useElapsedSeconds } from '@/hooks/useElapsedSeconds'
 import { getTheme } from '@/lib/theme'
 import { api } from '@/lib/api'
 import type { SearchResult } from '@/lib/api'
+import Link from 'next/link'
 
 const SAFFRON = 'var(--c-primary)'
 const SERIF   = 'var(--font-serif), Georgia, "Times New Roman", serif'
@@ -183,19 +184,19 @@ export default function Landing() {
           >
             {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
           </button>
-          <a href="/community" style={{ fontSize: 14, fontWeight: 600, color: INK, textDecoration: 'none', padding: '9px 14px', borderRadius: 10 }}>
+          <Link href="/community" style={{ fontSize: 14, fontWeight: 600, color: INK, textDecoration: 'none', padding: '9px 14px', borderRadius: 10 }}>
             Communities
-          </a>
-          <a href="/login" style={{ fontSize: 14, fontWeight: 600, color: INK, textDecoration: 'none', padding: '9px 14px', borderRadius: 10 }}>
+          </Link>
+          <Link href="/login" style={{ fontSize: 14, fontWeight: 600, color: INK, textDecoration: 'none', padding: '9px 14px', borderRadius: 10 }}>
             Sign in
-          </a>
-          <a href="/signup" style={{
+          </Link>
+          <Link href="/signup" style={{
             fontSize: 14, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 18px', borderRadius: 10,
             background: 'linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-strong) 100%)',
             boxShadow: '0 3px 12px rgb(var(--c-primary-rgb) / 0.32)',
           }}>
             Sign up
-          </a>
+          </Link>
         </nav>
       </header>
 
@@ -335,9 +336,9 @@ export default function Landing() {
                 ) : !loading && touched ? (
                   <div style={{ padding: '22px 16px', textAlign: 'center', color: MUTED, fontSize: 13.5 }}>
                     No public match for “{query.trim()}”.{' '}
-                    <a href="/signup" style={{ color: SAFFRON, fontWeight: 700, textDecoration: 'none' }}>
+                    <Link href="/signup" style={{ color: SAFFRON, fontWeight: 700, textDecoration: 'none' }}>
                       Add them
-                    </a>
+                    </Link>
                   </div>
                 ) : null}
               </motion.div>

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useMemo, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/hooks/useAppRouter'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IconLoader2, IconEye, IconEyeOff, IconArrowRight, IconCheck } from '@tabler/icons-react'
 import { useGraphStore } from '@/store/graphStore'
