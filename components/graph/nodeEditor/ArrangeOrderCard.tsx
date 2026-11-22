@@ -2,13 +2,12 @@
 
 // ArrangeOrderCard — manual sibling ordering for one parent's children.
 //
-// Shown when birth order matters but birth years are unknown: the list starts
-// in the current display order (eldest first) and each row moves with up/down
-// arrows. Save writes child_order = 1..n via the reorder endpoint, then the
-// parent refetches the graph so the layout re-sorts.
+// The list starts in the current display order (eldest first) and each row
+// moves with up/down arrows. Save writes child_order = 1..n via the reorder
+// endpoint, then the parent refetches the graph so the layout re-sorts.
 //
-// Rows that already have a birth year are pinned — age always outranks the
-// manual order in the layout, so moving them here would have no effect.
+// A manual arrangement always wins — even over birth years — so every row is
+// movable, including members who already have a birth year.
 
 import { useState } from 'react'
 import { IconChevronUp, IconChevronDown, IconLoader2, IconArrowsSort } from '@tabler/icons-react'
@@ -74,15 +73,14 @@ export default function ArrangeOrderCard({ title, people, isDark, onSave }: Arra
       {open && (
         <div style={{ padding: '10px 16px 14px' }}>
           <p style={{ margin: '0 0 8px', fontSize: 11, lineHeight: 1.45, color: t.textMuted }}>
-            Top = eldest. Used when birth years aren’t known — members with a
-            year keep their age position.
+            Top = eldest. This order always wins — even for members who have a
+            birth year.
           </p>
 
           <div style={{ border: `1px solid ${t.borderNeutral}`, borderRadius: 10, overflow: 'hidden' }}>
             {order.map((id, i) => {
               const p = byId.get(id)
               if (!p) return null
-              const pinned = p.birthYear != null
               return (
                 <div key={id} style={{
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -92,9 +90,9 @@ export default function ArrangeOrderCard({ title, people, isDark, onSave }: Arra
                   <span style={{ fontSize: 10.5, fontWeight: 700, color: t.textMuted, width: 14, textAlign: 'right' }}>{i + 1}</span>
                   <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, color: t.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {p.name}
-                    {pinned && <span style={{ fontWeight: 500, color: t.textMuted }}> · b. {p.birthYear}</span>}
+                    {p.birthYear != null && <span style={{ fontWeight: 500, color: t.textMuted }}> · b. {p.birthYear}</span>}
                   </span>
-                  {!pinned && ([-1, 1] as const).map(dir => {
+                  {([-1, 1] as const).map(dir => {
                     const disabled = dir === -1 ? i === 0 : i === order.length - 1
                     const Icon = dir === -1 ? IconChevronUp : IconChevronDown
                     return (

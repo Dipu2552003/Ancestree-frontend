@@ -1,6 +1,7 @@
 // The sibling display-order rule, shared by every list that mirrors the
-// canvas: birth year ascending (known years first), then manual child_order
-// (1 = eldest), then creation order (person_code sequence — "the order they
+// canvas: manual child_order first (1 = eldest) — an explicit arrangement
+// always wins, even over birth years — then birth year ascending (known
+// years first), then creation order (person_code sequence — "the order they
 // were added"), then name/id as a last resort for nodes that don't have a
 // code yet. layoutEngine.compareByAge implements the same rule inline over
 // its own lookup maps — keep the two in sync.
@@ -20,12 +21,12 @@ export function personCodeSeq(code: string | null | undefined): number | null {
 }
 
 export function compareSiblings(a: SiblingSortKey, b: SiblingSortKey): number {
-  if (a.birthYear != null && b.birthYear != null) return a.birthYear - b.birthYear
-  if (a.birthYear != null) return -1
-  if (b.birthYear != null) return 1
   if (a.childOrder != null && b.childOrder != null && a.childOrder !== b.childOrder) return a.childOrder - b.childOrder
   if (a.childOrder != null && b.childOrder == null) return -1
   if (b.childOrder != null && a.childOrder == null) return 1
+  if (a.birthYear != null && b.birthYear != null) return a.birthYear - b.birthYear
+  if (a.birthYear != null) return -1
+  if (b.birthYear != null) return 1
   const sa = personCodeSeq(a.personCode), sb = personCodeSeq(b.personCode)
   if (sa != null && sb != null && sa !== sb) return sa - sb
   const n = a.name.localeCompare(b.name)

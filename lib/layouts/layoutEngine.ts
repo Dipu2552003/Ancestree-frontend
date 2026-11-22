@@ -140,23 +140,23 @@ export function layoutEngine(
     return u
   }
 
-  // Older first: birth year ascending, missing years last; among the year-less,
-  // manual sibling rank (child_order, 1 = eldest), then creation order
-  // (person_code sequence — the order members were added), then name/id. The
-  // single age-order rule for children rows, sibling units, root sibling
-  // clusters, and spouse order (wife 1 vs wife 2). Mirrors
-  // lib/graph/siblingSort.compareSiblings — keep the two in sync.
+  // Manual sibling rank first (child_order, 1 = eldest) — an explicit
+  // arrangement always wins, even over birth years. Then birth year ascending
+  // (missing years last), then creation order (person_code sequence — the order
+  // members were added), then name/id. The single age-order rule for children
+  // rows, sibling units, root sibling clusters, and spouse order (wife 1 vs
+  // wife 2). Mirrors lib/graph/siblingSort.compareSiblings — keep the two in sync.
   const compareByAge = (a: string, b: string): number => {
-    const byA = d(a).birthYear as number | undefined
-    const byB = d(b).birthYear as number | undefined
-    if (byA != null && byB != null) return byA - byB
-    if (byA != null) return -1
-    if (byB != null) return 1
     const coA = childOrderOf.get(a)
     const coB = childOrderOf.get(b)
     if (coA != null && coB != null && coA !== coB) return coA - coB
     if (coA != null && coB == null) return -1
     if (coB != null && coA == null) return 1
+    const byA = d(a).birthYear as number | undefined
+    const byB = d(b).birthYear as number | undefined
+    if (byA != null && byB != null) return byA - byB
+    if (byA != null) return -1
+    if (byB != null) return 1
     const sa = personCodeSeq(d(a).personCode as string | undefined)
     const sb = personCodeSeq(d(b).personCode as string | undefined)
     if (sa != null && sb != null && sa !== sb) return sa - sb

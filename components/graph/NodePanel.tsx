@@ -110,10 +110,10 @@ export default function NodePanel({ node, onClose, onUpdate, onSave, rawEdges, r
     [connections],
   )
 
-  // Arrangeable groups for manual sibling order (birth years unknown):
+  // Arrangeable groups for manual sibling order (always wins, even over DOB):
   //   • this node's own children  → reorder as their parent
   //   • this node + its siblings  → reorder via the shared parent
-  // Rows come out in current display order (birthYear → child_order → name → id,
+  // Rows come out in current display order (child_order → birthYear → name → id,
   // same rule as the layout).
   const arrangeGroups = useMemo(() => {
     if (!onReorderChildren || !rawEdges || !rawNodes) return []
